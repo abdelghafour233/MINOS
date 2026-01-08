@@ -36,10 +36,10 @@ const App: React.FC = () => {
   });
 
   const loadingMessages = [
-    "جاري الاتصال بمحركات البحث العالمية...",
-    "تحليل تريندات الأسواق في المغرب والخليج العربي...",
-    "توليد صور احترافية للمنتجات المختارة...",
-    "تحديث قاعدة البيانات والروابط المباشرة..."
+    "جاري مسح الأسواق باستخدام Google Search...",
+    "تحليل أفضل المنتجات مبيعاً في المغرب والخليج...",
+    "تجهيز العروض وتوليد الصور الفوتوغرافية...",
+    "تحديث قاعدة البيانات بالمنتجات الرابحة..."
   ];
 
   useEffect(() => {
@@ -69,11 +69,26 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [isAiLoading]);
 
+  // وظيفة لاستخراج مصفوفة JSON من النص بشكل آمن
+  const extractJsonFromText = (text: string) => {
+    try {
+      const regex = /\[[\s\S]*\]/;
+      const match = text.match(regex);
+      if (match) {
+        return JSON.parse(match[0]);
+      }
+      return JSON.parse(text);
+    } catch (e) {
+      console.error("Failed to parse JSON from AI text:", text);
+      return null;
+    }
+  };
+
   const generateProductImage = async (ai: any, title: string): Promise<string> => {
     try {
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
-        contents: { parts: [{ text: `Professional studio photography of ${title}, white background, 4k high resolution, e-commerce style.` }] },
+        contents: { parts: [{ text: `High quality e-commerce product photography of ${title}, isolated on white background, professional studio lighting.` }] },
         config: { imageConfig: { aspectRatio: "1:1" } }
       });
       const part = response.candidates?.[0]?.content?.parts.find((p: any) => p.inlineData);
@@ -92,44 +107,33 @@ const App: React.FC = () => {
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
-      // طلب واضح لاستخراج البيانات مع البحث
-      const promptText = `Find 6 "Winning Products" currently trending for e-commerce in Morocco, UAE, and Saudi Arabia for late 2024. 
-      Identify products with high viral potential.
-      Return the results strictly as a valid JSON array.
-      Required fields per object: id, title_ar, title_en, price_mad (number), description_ar, platform (tiktok/facebook), country (MA/SA/AE), category (electronics/home/beauty), views (number).
-      Do not include any text outside the JSON array.`;
+      const promptText = `Find 6 winning/trending products currently selling well in Moroccan, Saudi, and UAE e-commerce markets (late 2024). 
+      Identify products with high viral potential on TikTok and Instagram.
+      Respond with a JSON array of 6 objects. 
+      Fields: id, title_ar, title_en, price_mad (number), description_ar, platform (tiktok/facebook/instagram), country (MA/SA/AE), category (electronics/home/beauty), views (number).
+      Make sure the output contains ONLY the JSON block.`;
 
-      const res = await ai.models.generateContent({
+      const response = await ai.models.generateContent({
         model: 'gemini-3-pro-preview',
         contents: [{ parts: [{ text: promptText }] }],
         config: { 
           tools: [{ googleSearch: {} }]
-        }
+        },
       });
 
-      // استخراج الروابط (Grounding)
-      const groundingChunks = res.candidates?.[0]?.groundingMetadata?.groundingChunks;
-      if (groundingChunks) {
-        const extractedSources = groundingChunks
-          .filter((chunk: any) => chunk.web)
-          .map((chunk: any) => ({ title: chunk.web.title, uri: chunk.web.uri }));
+      // معالجة روابط المصادر (Grounding)
+      const grounding = response.candidates?.[0]?.groundingMetadata;
+      if (grounding?.groundingChunks) {
+        const extractedSources = grounding.groundingChunks
+          .filter((c: any) => c.web)
+          .map((c: any) => ({ title: c.web.title, uri: c.web.uri }));
         setSources(extractedSources);
       }
 
-      // معالجة النص لاستخراج JSON
-      const textResponse = res.text || "";
-      const jsonMatch = textResponse.match(/\[.*\]/s);
-      let rawData = [];
+      const rawData = extractJsonFromText(response.text || "");
       
-      if (jsonMatch) {
-        try {
-          rawData = JSON.parse(jsonMatch[0]);
-        } catch (e) {
-          console.error("JSON Parse Error:", e);
-          throw new Error("تنسيق البيانات غير صحيح");
-        }
-      } else {
-        throw new Error("لم يتم العثور على بيانات صالحة");
+      if (!rawData || !Array.isArray(rawData)) {
+        throw new Error("تنسيق البيانات المستلمة غير صالح");
       }
 
       const processed: TrendingAd[] = [];
@@ -139,14 +143,14 @@ const App: React.FC = () => {
         
         processed.push({
           id: item.id || Math.random().toString(36).substr(2, 9),
-          title: item.title_ar || "منتج ترند",
+          title: item.title_ar || "منتج ترند جديد",
           thumbnail: imageUrl,
           videoUrl: 'https://cdn.pixabay.com/video/2021/04/12/70860-536967732_tiny.mp4',
-          price: item.price_mad || 349,
-          description: item.description_ar || "هذا المنتج يحقق مبيعات خيالية حالياً.",
-          platform: (item.platform === 'tiktok' ? 'tiktok' : 'facebook') as any,
+          price: item.price_mad || 299,
+          description: item.description_ar || "منتج رائع يحقق مبيعات عالية في الوقت الحالي.",
+          platform: (item.platform || 'tiktok') as any,
           country: (['MA', 'SA', 'AE'].includes(item.country) ? item.country : 'MA') as any,
-          views: item.views || Math.floor(Math.random() * 500000) + 100000,
+          views: item.views || Math.floor(Math.random() * 800000) + 100000,
           likes: Math.floor(Math.random() * 20000),
           shares: Math.floor(Math.random() * 3000),
           category: item.category || 'إلكترونيات',
@@ -166,8 +170,8 @@ const App: React.FC = () => {
       
       setActiveTab('ads');
     } catch (error: any) {
-      console.error("Discovery Error:", error);
-      alert(`عذراً، فشل جلب التريندات: ${error.message || 'خطأ في الاتصال'}. يرجى المحاولة بعد قليل.`);
+      console.error("Discovery Error Details:", error);
+      alert(`فشل التحديث: ${error.message || 'حدث خطأ غير متوقع'}. يرجى المحاولة لاحقاً.`);
     } finally {
       setIsAiLoading(false);
     }
@@ -218,7 +222,7 @@ const App: React.FC = () => {
       {/* Sidebar */}
       <aside className={`${isSidebarOpen ? 'w-72' : 'w-20'} bg-white border-l border-slate-200 transition-all duration-300 flex flex-col h-screen z-50 sticky top-0 shadow-xl`}>
         <div className="p-6 flex items-center gap-3 border-b border-slate-100">
-          <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-100">
+          <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-lg">
             <TrendingUp size={24} />
           </div>
           {isSidebarOpen && <h1 className="text-xl font-black text-slate-800 tracking-tight">ترند ماينيا</h1>}
@@ -245,7 +249,7 @@ const App: React.FC = () => {
           <button
             onClick={discoverRealTrends}
             disabled={isAiLoading}
-            className="w-full mt-6 bg-gradient-to-r from-indigo-600 to-violet-600 text-white p-4 rounded-2xl font-black flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 hover:shadow-indigo-200 active:scale-95 transition-all disabled:opacity-50 group"
+            className="w-full mt-6 bg-gradient-to-r from-indigo-600 to-violet-600 text-white p-4 rounded-2xl font-black flex items-center justify-center gap-2 shadow-lg hover:shadow-indigo-200 active:scale-95 transition-all disabled:opacity-50 group"
           >
             {isAiLoading ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} className="group-hover:rotate-180 transition-all duration-500" />}
             {isSidebarOpen && <span>تحديث التريندات</span>}
@@ -260,22 +264,16 @@ const App: React.FC = () => {
             <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text" 
-              placeholder="ابحث عن منتج رابح..."
+              placeholder="ابحث في التريندات..."
               className="w-full bg-slate-50 border border-slate-200 rounded-xl pr-12 pl-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
               value={filters.search}
               onChange={(e) => setFilters({...filters, search: e.target.value})}
             />
           </div>
           <div className="flex gap-4 items-center">
-            {sources.length > 0 && isSidebarOpen && (
-              <div className="hidden lg:flex items-center gap-2 px-4 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-[10px] font-bold border border-indigo-100 animate-pulse">
-                <Globe size={12} />
-                بيانات حية من {sources.length} مصدر
-              </div>
-            )}
-            <div className="bg-green-50 text-green-700 px-3 py-1.5 rounded-lg text-[10px] font-black tracking-widest uppercase border border-green-100">
-              AI Market Analyzer
-            </div>
+             <div className="bg-green-50 text-green-700 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border border-green-100">
+               Live AI Market Analysis
+             </div>
           </div>
         </header>
 
@@ -298,6 +296,27 @@ const App: React.FC = () => {
 
           {activeTab === 'ads' && (
             <>
+              {sources.length > 0 && (
+                <div className="mb-8 p-6 bg-white rounded-[2rem] border border-slate-200 shadow-sm animate-in slide-in-from-top-4">
+                  <h4 className="font-black text-slate-800 mb-4 flex items-center gap-2">
+                    <LinkIcon size={18} className="text-indigo-600" /> مصادر البيانات المعتمدة:
+                  </h4>
+                  <div className="flex flex-wrap gap-3">
+                    {sources.map((s, i) => (
+                      <a 
+                        key={i} 
+                        href={s.uri} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-[10px] bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-700 px-3 py-1.5 rounded-full border border-slate-100 transition-colors flex items-center gap-2"
+                      >
+                        <ExternalLink size={10} /> {s.title}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 pb-32">
                 {filteredAds.length > 0 ? filteredAds.map((ad) => (
                   <div 
@@ -334,8 +353,8 @@ const App: React.FC = () => {
                     <div className="bg-slate-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
                       <Search className="text-slate-300" size={40} />
                     </div>
-                    <h3 className="text-2xl font-black text-slate-800 mb-2">لا توجد منتجات حالياً</h3>
-                    <p className="text-slate-500 font-medium">اضغط "تحديث التريندات" لتشغيل محرك البحث بالذكاء الاصطناعي</p>
+                    <h3 className="text-2xl font-black text-slate-800 mb-2">لا توجد منتجات</h3>
+                    <p className="text-slate-500 font-medium">اضغط "تحديث التريندات" لتفعيل محرك البحث الذكي</p>
                   </div>
                 )}
               </div>
@@ -350,24 +369,24 @@ const App: React.FC = () => {
                    <p className="text-5xl font-black tracking-tight">{orders.length}</p>
                  </div>
                  <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-                   <p className="text-slate-400 font-bold text-sm mb-2 flex items-center gap-2"><DollarSign size={16}/> المبيعات المتوقعة</p>
+                   <p className="text-slate-400 font-bold text-sm mb-2 flex items-center gap-2"><DollarSign size={16}/> المبيعات المحققة</p>
                    <p className="text-5xl font-black text-indigo-600 tracking-tight">{orders.reduce((a,b)=>a+b.amount, 0)} <small className="text-lg font-bold">د.م</small></p>
                  </div>
               </div>
               
               <div className="bg-white rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden">
                 <div className="p-10 border-b border-slate-100 flex justify-between items-center">
-                  <h3 className="font-black text-2xl text-slate-800">سجل المبيعات والطلبات</h3>
+                  <h3 className="font-black text-2xl text-slate-800">سجل الطلبيات</h3>
                   <button onClick={() => { if(confirm('هل تريد مسح السجل؟')) { localStorage.removeItem('orders'); setOrders([]); } }} className="text-xs text-red-400 font-black uppercase">مسح السجل</button>
                 </div>
                 <div className="overflow-x-auto">
                    <table className="w-full text-right">
                       <thead className="bg-slate-50/50 text-slate-400 text-xs font-black uppercase tracking-widest">
                          <tr>
-                            <th className="p-8">المنتج المطلوب</th>
-                            <th className="p-8">اسم الزبون</th>
+                            <th className="p-8">المنتج</th>
+                            <th className="p-8">الزبون</th>
                             <th className="p-8">المبلغ</th>
-                            <th className="p-8">حالة الطلب</th>
+                            <th className="p-8">الحالة</th>
                          </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
@@ -377,12 +396,12 @@ const App: React.FC = () => {
                              <td className="p-8 font-bold text-slate-600">{o.customerName}</td>
                              <td className="p-8 font-black text-xl text-indigo-600">{o.amount} د.م</td>
                              <td className="p-8">
-                                <span className="bg-amber-100 text-amber-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider">في انتظار التاكيد</span>
+                                <span className="bg-amber-100 text-amber-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider">بانتظار التأكيد</span>
                              </td>
                            </tr>
                          )) : (
                            <tr>
-                             <td colSpan={4} className="p-24 text-center text-slate-300 font-black text-xl">لا توجد مبيعات حالياً</td>
+                             <td colSpan={4} className="p-24 text-center text-slate-300 font-black text-xl">لا توجد مبيعات مسجلة</td>
                            </tr>
                          )}
                       </tbody>
@@ -440,8 +459,8 @@ const App: React.FC = () => {
                   {orderSuccess ? (
                     <div className="text-center py-24">
                       <div className="w-28 h-28 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner"><CheckCircle size={56} className="animate-bounce" /></div>
-                      <h3 className="text-4xl font-black mb-3 text-slate-900">شكراً لثقتك!</h3>
-                      <p className="text-slate-500 font-bold text-xl">سنتواصل معك قريباً لتأكيد طلبك.</p>
+                      <h3 className="text-4xl font-black mb-3 text-slate-900">تم استلام طلبك!</h3>
+                      <p className="text-slate-500 font-bold text-xl">سنتصل بك في أقل من 24 ساعة.</p>
                     </div>
                   ) : (
                     <form onSubmit={handleOrderSubmit} className="space-y-8">
@@ -453,12 +472,12 @@ const App: React.FC = () => {
                         </div>
                       </div>
                       <div className="space-y-5">
-                        <input required placeholder="الاسم بالكامل" className="w-full bg-slate-50 border border-slate-200 p-6 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all text-lg font-bold" value={checkoutData.name} onChange={e => setCheckoutData({...checkoutData, name: e.target.value})} />
+                        <input required placeholder="الاسم الكامل" className="w-full bg-slate-50 border border-slate-200 p-6 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all text-lg font-bold" value={checkoutData.name} onChange={e => setCheckoutData({...checkoutData, name: e.target.value})} />
                         <input required placeholder="المدينة" className="w-full bg-slate-50 border border-slate-200 p-6 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all text-lg font-bold" value={checkoutData.city} onChange={e => setCheckoutData({...checkoutData, city: e.target.value})} />
                         <input required placeholder="رقم الهاتف" className="w-full bg-slate-50 border border-slate-200 p-6 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all text-lg font-bold text-ltr" type="tel" value={checkoutData.phone} onChange={e => setCheckoutData({...checkoutData, phone: e.target.value})} />
                       </div>
                       <button type="submit" disabled={isOrdering} className="w-full bg-indigo-600 text-white py-8 rounded-[3rem] font-black text-3xl shadow-2xl shadow-indigo-100 hover:scale-[1.02] active:scale-95 transition-all mt-6">
-                        {isOrdering ? <Loader2 className="animate-spin mx-auto" size={32} /> : 'تأكيد الطلب الآن'}
+                        {isOrdering ? <Loader2 className="animate-spin mx-auto" size={32} /> : 'تأكيد الشراء الآن'}
                       </button>
                       <button type="button" onClick={() => setShowCheckout(false)} className="w-full text-slate-400 font-bold py-2">رجوع</button>
                     </form>
