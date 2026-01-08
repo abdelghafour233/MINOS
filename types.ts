@@ -1,5 +1,5 @@
 
-export type Platform = 'facebook' | 'tiktok' | 'instagram';
+export type Platform = 'facebook' | 'tiktok' | 'instagram' | 'aliexpress';
 export type Country = 'MA' | 'SA' | 'AE' | 'KW' | 'EG';
 
 export interface TrendingAd {
@@ -18,6 +18,7 @@ export interface TrendingAd {
   firstSeen: string;
   lastSeen: string;
   isWinning: boolean;
+  sourceUrl?: string;
 }
 
 export interface FilterState {
@@ -38,10 +39,15 @@ export interface Order {
   amount: number;
   date: string;
   status: 'pending' | 'shipped' | 'delivered';
+  syncedToSheets: boolean;
 }
 
-export interface PixelConfig {
-  facebook?: string;
-  google?: string;
-  tiktok?: string;
+export interface IntegrationConfig {
+  apifyToken?: string;
+  apifyActorId?: string;
+  zapierWebhookUrl?: string;
+  googleSheetUrl?: string;
+  facebookPixel?: string;
+  googlePixel?: string;
+  tiktokPixel?: string;
 }
