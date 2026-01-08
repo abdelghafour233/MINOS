@@ -29,8 +29,8 @@ export const CATEGORIES = [
 export const MOCK_TRENDS: TrendingAd[] = [
   {
     id: '1',
-    title: 'خلاط محمول لاسلكي فائق القوة',
-    thumbnail: 'https://loremflickr.com/400/500/blender,portable',
+    title: 'خلاط محمول لاسلكي فائق القوة للرياضيين',
+    thumbnail: 'https://images.unsplash.com/photo-1570222020676-969231783ae8?auto=format&fit=crop&q=80&w=600',
     platform: 'tiktok',
     country: 'SA',
     views: 1200000,
@@ -43,8 +43,8 @@ export const MOCK_TRENDS: TrendingAd[] = [
   },
   {
     id: '2',
-    title: 'مصباح ذكي متعدد الألوان لغرف النوم',
-    thumbnail: 'https://loremflickr.com/400/500/smart,lamp,rgb',
+    title: 'مصباح مكتبي ذكي مريح للعين مع شاحن لاسلكي',
+    thumbnail: 'https://images.unsplash.com/photo-1534073828943-f801091bb18c?auto=format&fit=crop&q=80&w=600',
     platform: 'facebook',
     country: 'MA',
     views: 850000,
@@ -57,8 +57,8 @@ export const MOCK_TRENDS: TrendingAd[] = [
   },
   {
     id: '3',
-    title: 'منظم مكياج دوار احترافي',
-    thumbnail: 'https://loremflickr.com/400/500/makeup,organizer',
+    title: 'منظم مكياج أكريليك فاخر بتصميم عصري',
+    thumbnail: 'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&q=80&w=600',
     platform: 'instagram',
     country: 'AE',
     views: 2300000,
@@ -71,8 +71,8 @@ export const MOCK_TRENDS: TrendingAd[] = [
   },
   {
     id: '4',
-    title: 'سماعات بلوتوث رياضية حديثة',
-    thumbnail: 'https://loremflickr.com/400/500/earbuds,wireless',
+    title: 'سماعات رأس لاسلكية بخاصية إلغاء الضوضاء',
+    thumbnail: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=600',
     platform: 'tiktok',
     country: 'KW',
     views: 500000,
@@ -85,8 +85,8 @@ export const MOCK_TRENDS: TrendingAd[] = [
   },
   {
     id: '5',
-    title: 'مكنسة سيارة محمولة قوية',
-    thumbnail: 'https://loremflickr.com/400/500/car,vacuum',
+    title: 'مكنسة سيارة محمولة بقوة شفط جبارة',
+    thumbnail: 'https://images.unsplash.com/photo-1563131237-7290aa62f7d7?auto=format&fit=crop&q=80&w=600',
     platform: 'facebook',
     country: 'MA',
     views: 320000,
@@ -99,8 +99,8 @@ export const MOCK_TRENDS: TrendingAd[] = [
   },
   {
     id: '6',
-    title: 'وسادة رقبة طبية مريحة',
-    thumbnail: 'https://loremflickr.com/400/500/neck,pillow,travel',
+    title: 'وسادة رقبة طبية للسفر لمسافات طويلة',
+    thumbnail: 'https://images.unsplash.com/photo-1520170350707-b2da59970118?auto=format&fit=crop&q=80&w=600',
     platform: 'instagram',
     country: 'SA',
     views: 940000,
