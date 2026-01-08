@@ -1,41 +1,26 @@
 
-export type Category = 'electronics' | 'home' | 'cars';
+export type Platform = 'facebook' | 'tiktok' | 'instagram';
+export type Country = 'MA' | 'SA' | 'AE' | 'KW' | 'EG';
 
-export interface Product {
+export interface TrendingAd {
   id: string;
-  name: string;
-  price: number;
-  category: Category;
-  image: string;
-  description: string;
-  stock: number;
+  title: string;
+  thumbnail: string;
+  platform: Platform;
+  country: Country;
+  views: number;
+  likes: number;
+  shares: number;
+  category: string;
+  firstSeen: string;
+  lastSeen: string;
+  isWinning: boolean;
 }
 
-export interface Order {
-  id: string;
-  customerName: string;
-  city: string;
-  phone: string;
-  items: { productId: string; quantity: number; price: number }[];
-  total: number;
-  status: 'pending' | 'shipped' | 'delivered' | 'cancelled';
-  createdAt: string;
-}
-
-export interface TrackingConfig {
-  facebookPixel: string;
-  googleAnalytics: string;
-  tiktokPixel: string;
-  googleSheetsUrl: string;
-  customHeaderJs: string;
-  customFooterJs: string;
-}
-
-export interface DomainConfig {
-  domainName: string;
-  nameServers: string[];
-}
-
-export interface CartItem extends Product {
-  quantity: number;
+export interface FilterState {
+  search: string;
+  platform: Platform | 'all';
+  country: Country | 'all';
+  category: string;
+  sortBy: 'views' | 'date' | 'likes';
 }

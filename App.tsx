@@ -1,662 +1,337 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
-  ShoppingBag, 
-  Home, 
-  Car, 
-  Tv, 
+  TrendingUp, 
+  Search, 
+  Filter, 
   LayoutDashboard, 
-  ShoppingCart, 
-  ChevronLeft, 
-  Search,
-  Settings,
-  Package,
-  ListOrdered,
-  Globe,
-  Code,
-  LineChart,
-  Trash2,
-  Plus,
-  Save,
-  Download,
+  Video, 
+  Facebook, 
+  Instagram, 
+  Calendar, 
+  Eye, 
+  ThumbsUp, 
+  Share2, 
+  Globe, 
+  ChevronDown,
+  Zap,
+  Star,
   Menu,
   X,
-  ArrowRight,
-  CheckCircle
+  MapPin,
+  Clock,
+  ExternalLink,
+  Crown
 } from 'lucide-react';
-import { Product, CartItem, Order, TrackingConfig, DomainConfig } from './types';
-import { MOCK_PRODUCTS, CATEGORIES_LABELS } from './constants';
-import { LineChart as RechartsLine, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { TrendingAd, FilterState, Platform, Country } from './types';
+import { MOCK_TRENDS, COUNTRY_LABELS, PLATFORM_LABELS, CATEGORIES } from './constants';
 
 const App: React.FC = () => {
-  // Navigation State
-  const [activeTab, setActiveTab] = useState<'store' | 'dashboard'>('store');
-  const [currentPage, setCurrentPage] = useState<'home' | 'product' | 'checkout' | 'success'>('home');
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  
-  // Store State
-  const [products, setProducts] = useState<Product[]>([]);
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
-
-  // Checkout State
-  const [customerData, setCustomerData] = useState({ fullName: '', city: '', phone: '' });
-
-  // Dashboard State
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [trackingConfig, setTrackingConfig] = useState<TrackingConfig>({
-    facebookPixel: '',
-    googleAnalytics: '',
-    tiktokPixel: '',
-    googleSheetsUrl: '',
-    customHeaderJs: '',
-    customFooterJs: ''
+  // UI State
+  const [activeTab, setActiveTab] = useState<'ads' | 'winning' | 'seasonal'>('ads');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [filters, setFilters] = useState<FilterState>({
+    search: '',
+    platform: 'all',
+    country: 'all',
+    category: 'الكل',
+    sortBy: 'views'
   });
-  const [domainConfig, setDomainConfig] = useState<DomainConfig>({
-    domainName: '',
-    nameServers: ['ns1.mydomain.com', 'ns2.mydomain.com']
-  });
-  const [dashboardView, setDashboardView] = useState<'overview' | 'orders' | 'inventory' | 'tracking' | 'domain'>('overview');
 
-  // Persistence Initializers
-  useEffect(() => {
-    const savedProducts = localStorage.getItem('products');
-    setProducts(savedProducts ? JSON.parse(savedProducts) : MOCK_PRODUCTS);
-
-    const savedCart = localStorage.getItem('cart');
-    if (savedCart) setCart(JSON.parse(savedCart));
-    
-    const savedOrders = localStorage.getItem('orders');
-    if (savedOrders) setOrders(JSON.parse(savedOrders));
-
-    const savedConfig = localStorage.getItem('config');
-    if (savedConfig) setTrackingConfig(JSON.parse(savedConfig));
-
-    const savedDomain = localStorage.getItem('domain');
-    if (savedDomain) setDomainConfig(JSON.parse(savedDomain));
-  }, []);
-
-  // Persistence updaters
-  useEffect(() => { localStorage.setItem('products', JSON.stringify(products)); }, [products]);
-  useEffect(() => { localStorage.setItem('cart', JSON.stringify(cart)); }, [cart]);
-  useEffect(() => { localStorage.setItem('orders', JSON.stringify(orders)); }, [orders]);
-
-  // Handlers
-  const addToCart = (product: Product) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.id === product.id);
-      if (existing) {
-        return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
-      }
-      return [...prev, { ...product, quantity: 1 }];
+  // Filtered Data
+  const filteredAds = useMemo(() => {
+    return MOCK_TRENDS.filter(ad => {
+      const matchSearch = ad.title.toLowerCase().includes(filters.search.toLowerCase());
+      const matchPlatform = filters.platform === 'all' || ad.platform === filters.platform;
+      const matchCountry = filters.country === 'all' || ad.country === filters.country;
+      const matchCategory = filters.category === 'الكل' || ad.category === filters.category;
+      const matchTab = activeTab === 'winning' ? ad.isWinning : true;
+      
+      return matchSearch && matchPlatform && matchCountry && matchCategory && matchTab;
+    }).sort((a, b) => {
+      if (filters.sortBy === 'views') return b.views - a.views;
+      if (filters.sortBy === 'likes') return b.likes - a.likes;
+      return new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime();
     });
-    setIsCartOpen(true);
+  }, [filters, activeTab]);
+
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num.toString();
   };
-
-  const removeFromCart = (id: string) => {
-    setCart(prev => prev.filter(item => item.id !== id));
-  };
-
-  const calculateTotal = () => cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-
-  const placeOrder = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!customerData.fullName || !customerData.city || !customerData.phone) return;
-
-    const newOrder: Order = {
-      id: Math.random().toString(36).substr(2, 9).toUpperCase(),
-      customerName: customerData.fullName,
-      city: customerData.city,
-      phone: customerData.phone,
-      items: cart.map(item => ({ productId: item.id, quantity: item.quantity, price: item.price })),
-      total: calculateTotal(),
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    };
-
-    setOrders([newOrder, ...orders]);
-    setCart([]);
-    setCurrentPage('success');
-  };
-
-  const deleteProduct = (id: string) => {
-    if (confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
-      setProducts(prev => prev.filter(p => p.id !== id));
-    }
-  };
-
-  const downloadProject = () => {
-    const content = JSON.stringify({ products, orders, trackingConfig, domainConfig }, null, 2);
-    const blob = new Blob([content], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'store_data_export.json';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // Components
-  const StoreHeader = () => (
-    <header className="sticky top-0 z-40 w-full bg-white border-b shadow-sm">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-8">
-          <h1 className="text-2xl font-bold text-blue-600 cursor-pointer flex items-center gap-2" onClick={() => { setCurrentPage('home'); setActiveTab('store'); }}>
-            <ShoppingBag className="text-blue-600" />
-            <span>متجري</span>
-          </h1>
-          <nav className="hidden md:flex gap-6">
-            <button onClick={() => setCurrentPage('home')} className={`font-medium ${currentPage === 'home' ? 'text-blue-600' : 'text-gray-600 hover:text-blue-600'}`}>الرئيسية</button>
-            <button className="text-gray-600 hover:text-blue-600 font-medium">الإلكترونيات</button>
-            <button className="text-gray-600 hover:text-blue-600 font-medium">المنزل</button>
-            <button className="text-gray-600 hover:text-blue-600 font-medium">السيارات</button>
-          </nav>
-        </div>
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => setActiveTab(activeTab === 'store' ? 'dashboard' : 'store')}
-            className="flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
-          >
-            {activeTab === 'store' ? <LayoutDashboard size={20} /> : <ShoppingBag size={20} />}
-            <span className="hidden sm:inline font-medium">{activeTab === 'store' ? 'لوحة التحكم' : 'العودة للمتجر'}</span>
-          </button>
-          <button onClick={() => setIsCartOpen(true)} className="relative p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-transform active:scale-90">
-            <ShoppingCart size={24} />
-            {cart.length > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full font-bold">
-                {cart.reduce((a, b) => a + b.quantity, 0)}
-              </span>
-            )}
-          </button>
-        </div>
-      </div>
-    </header>
-  );
-
-  const DashboardSidebar = () => (
-    <aside className="w-64 bg-white h-[calc(100vh-64px)] border-l flex flex-col sticky top-16">
-      <div className="p-6">
-        <h2 className="text-lg font-bold mb-6 text-gray-500 uppercase tracking-wider text-xs">القائمة الرئيسية</h2>
-        <nav className="space-y-2">
-          {[
-            { id: 'overview', label: 'نظرة عامة', icon: LineChart },
-            { id: 'orders', label: 'الطلبات', icon: ListOrdered },
-            { id: 'inventory', label: 'إدارة المنتجات', icon: Package },
-            { id: 'tracking', label: 'أكواد التتبع والبكسل', icon: Code },
-            { id: 'domain', label: 'إعدادات الدومين', icon: Globe }
-          ].map(item => (
-            <button 
-              key={item.id}
-              onClick={() => setDashboardView(item.id as any)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${dashboardView === item.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-gray-600 hover:bg-gray-50'}`}
-            >
-              <item.icon size={20} />
-              <span className="font-medium">{item.label}</span>
-            </button>
-          ))}
-        </nav>
-      </div>
-      <div className="mt-auto p-6 border-t">
-        <button 
-          onClick={downloadProject}
-          className="w-full flex items-center justify-center gap-2 bg-green-500 text-white py-3 rounded-xl font-bold hover:bg-green-600 transition-colors"
-        >
-          <Download size={20} />
-          <span>تصدير ملفات الموقع</span>
-        </button>
-      </div>
-    </aside>
-  );
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <StoreHeader />
+    <div className="min-h-screen bg-[#F8FAFC] text-[#1E293B] flex overflow-hidden">
+      {/* Sidebar */}
+      <aside className={`${isSidebarOpen ? 'w-72' : 'w-20'} bg-white border-l border-slate-200 transition-all duration-300 flex flex-col h-screen z-50 sticky top-0`}>
+        <div className="p-6 flex items-center gap-3 border-b border-slate-100">
+          <div className="bg-blue-600 p-2 rounded-xl text-white">
+            <TrendingUp size={24} />
+          </div>
+          {isSidebarOpen && <h1 className="text-xl font-black text-slate-800 tracking-tight">ترند مـاينيا</h1>}
+        </div>
 
-      {activeTab === 'store' ? (
-        <main className="flex-1">
-          {currentPage === 'home' && (
-            <>
-              <section className="bg-gradient-to-l from-blue-700 to-blue-500 py-24 text-white relative overflow-hidden">
-                <div className="container mx-auto px-4 relative z-10">
-                  <div className="max-w-2xl">
-                    <h2 className="text-5xl font-extrabold mb-6 leading-tight">اكتشف أفضل المنتجات بأفضل الأسعار في المغرب</h2>
-                    <p className="text-xl opacity-90 mb-8">نقدم لك تشكيلة واسعة من الإلكترونيات، مستلزمات المنزل والسيارات الفاخرة.</p>
-                    <div className="flex gap-4">
-                      <button 
-                        onClick={() => document.getElementById('products-section')?.scrollIntoView({ behavior: 'smooth' })}
-                        className="bg-white text-blue-700 px-8 py-4 rounded-full font-bold text-lg hover:bg-gray-100 transition-colors shadow-lg"
-                      >
-                        تسوق الآن
-                      </button>
-                      <button className="border-2 border-white px-8 py-4 rounded-full font-bold text-lg hover:bg-white/10 transition-colors">عروض حصرية</button>
-                    </div>
-                  </div>
-                </div>
-                <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
-                  <div className="absolute -top-24 -left-24 w-96 h-96 bg-white rounded-full blur-3xl"></div>
-                  <div className="absolute bottom-12 right-24 w-64 h-64 bg-white rounded-full blur-3xl"></div>
-                </div>
-              </section>
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+          {[
+            { id: 'ads', label: 'مكتبة الإعلانات', icon: Video, color: 'text-blue-600' },
+            { id: 'winning', label: 'منتجات رابحة', icon: Crown, color: 'text-amber-500' },
+            { id: 'seasonal', label: 'ترندات موسمية', icon: Calendar, color: 'text-emerald-500' },
+          ].map(item => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id as any)}
+              className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${
+                activeTab === item.id 
+                ? 'bg-blue-50 text-blue-700 font-bold' 
+                : 'text-slate-500 hover:bg-slate-50'
+              }`}
+            >
+              <item.icon size={20} className={activeTab === item.id ? 'text-blue-600' : 'text-slate-400'} />
+              {isSidebarOpen && <span>{item.label}</span>}
+              {activeTab === item.id && isSidebarOpen && <div className="mr-auto w-1.5 h-1.5 rounded-full bg-blue-600" />}
+            </button>
+          ))}
 
-              <section id="products-section" className="container mx-auto px-4 py-16">
-                <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-4">
-                  <h3 className="text-3xl font-bold">أحدث المنتجات</h3>
-                  <div className="flex gap-2 overflow-x-auto pb-2">
-                    {Object.entries(CATEGORIES_LABELS).map(([key, label]) => (
-                      <button key={key} className="whitespace-nowrap px-4 py-2 bg-white border rounded-full text-sm font-medium hover:bg-blue-50 hover:border-blue-200 transition-colors shadow-sm">{label}</button>
-                    ))}
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                  {products.map(product => (
-                    <div key={product.id} className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 group overflow-hidden border flex flex-col">
-                      <div 
-                        className="relative overflow-hidden h-64 cursor-pointer"
-                        onClick={() => { setSelectedProduct(product); setCurrentPage('product'); }}
-                      >
-                        <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-lg text-xs font-bold text-blue-600 shadow-sm">
-                          {CATEGORIES_LABELS[product.category]}
-                        </div>
-                      </div>
-                      <div className="p-6 flex-1 flex flex-col">
-                        <h4 className="text-xl font-bold mb-2 truncate hover:text-blue-600 cursor-pointer" onClick={() => { setSelectedProduct(product); setCurrentPage('product'); }}>{product.name}</h4>
-                        <p className="text-gray-500 text-sm mb-4 line-clamp-2">{product.description}</p>
-                        <div className="flex items-center justify-between mt-auto">
-                          <div className="flex flex-col">
-                            <span className="text-2xl font-black text-blue-600">{product.price.toLocaleString()}</span>
-                            <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">د.م MAD</span>
-                          </div>
-                          <button 
-                            onClick={() => addToCart(product)}
-                            className="bg-blue-600 text-white p-3 rounded-xl hover:bg-blue-700 transition-all shadow-md active:scale-95"
-                          >
-                            <Plus size={24} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            </>
-          )}
-
-          {currentPage === 'product' && selectedProduct && (
-            <section className="container mx-auto px-4 py-16">
-              <button 
-                onClick={() => setCurrentPage('home')}
-                className="flex items-center gap-2 text-gray-500 hover:text-blue-600 mb-8 font-bold transition-colors"
-              >
-                <ArrowRight size={20} />
-                العودة للرئيسية
-              </button>
-              <div className="bg-white rounded-3xl shadow-xl border overflow-hidden flex flex-col lg:flex-row">
-                <div className="lg:w-1/2 p-4 lg:p-8">
-                  <div className="rounded-2xl overflow-hidden aspect-square">
-                    <img src={selectedProduct.image} className="w-full h-full object-cover" alt={selectedProduct.name} />
-                  </div>
-                </div>
-                <div className="lg:w-1/2 p-8 lg:p-16 flex flex-col">
-                  <span className="inline-block bg-blue-100 text-blue-700 px-4 py-1 rounded-full text-sm font-bold w-fit mb-4">
-                    {CATEGORIES_LABELS[selectedProduct.category]}
-                  </span>
-                  <h2 className="text-4xl font-black mb-6 leading-tight">{selectedProduct.name}</h2>
-                  <div className="mb-8 p-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                    <p className="text-gray-600 text-lg leading-relaxed">{selectedProduct.description}</p>
-                  </div>
-                  <div className="mb-10">
-                    <div className="flex items-baseline gap-2 mb-2">
-                      <span className="text-5xl font-black text-blue-600">{selectedProduct.price.toLocaleString()}</span>
-                      <span className="text-xl font-bold text-gray-400">درهم مغربي</span>
-                    </div>
-                    <p className="text-green-600 font-bold flex items-center gap-2">
-                      <CheckCircle size={18} />
-                      متوفر في المخزون (شحن سريع مجاني)
-                    </p>
-                  </div>
-                  <div className="mt-auto flex flex-col sm:flex-row gap-4">
-                    <button 
-                      onClick={() => addToCart(selectedProduct)}
-                      className="flex-1 bg-blue-600 text-white py-5 rounded-2xl font-black text-xl hover:bg-blue-700 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3"
-                    >
-                      <ShoppingCart size={24} />
-                      أضف للسلة الآن
-                    </button>
-                    <button 
-                      onClick={() => { addToCart(selectedProduct); setCurrentPage('checkout'); }}
-                      className="flex-1 bg-green-600 text-white py-5 rounded-2xl font-black text-xl hover:bg-green-700 shadow-xl transition-all active:scale-95"
-                    >
-                      اشتري الآن
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {currentPage === 'checkout' && (
-            <section className="container mx-auto px-4 py-16 max-w-4xl">
-              <div className="bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col md:flex-row border">
-                <div className="flex-1 p-10">
-                  <h3 className="text-3xl font-bold mb-8">إتمام الطلب</h3>
-                  <form onSubmit={placeOrder} className="space-y-6">
-                    <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2">الاسم الكامل</label>
-                      <input 
-                        type="text" 
-                        required
-                        value={customerData.fullName}
-                        onChange={e => setCustomerData({...customerData, fullName: e.target.value})}
-                        className="w-full border-2 border-gray-100 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none transition-colors"
-                        placeholder="أدخل اسمك بالكامل"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2">المدينة</label>
-                      <input 
-                        type="text" 
-                        required
-                        value={customerData.city}
-                        onChange={e => setCustomerData({...customerData, city: e.target.value})}
-                        className="w-full border-2 border-gray-100 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none transition-colors"
-                        placeholder="مثل: الدار البيضاء، مراكش..."
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2">رقم الهاتف</label>
-                      <input 
-                        type="tel" 
-                        required
-                        value={customerData.phone}
-                        onChange={e => setCustomerData({...customerData, phone: e.target.value})}
-                        className="w-full border-2 border-gray-100 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none transition-colors"
-                        placeholder="06XXXXXXXX"
-                      />
-                    </div>
-                    <div className="pt-6">
-                      <button 
-                        type="submit"
-                        className="w-full bg-blue-600 text-white py-4 rounded-xl font-black text-xl hover:bg-blue-700 transition-all shadow-lg active:scale-95"
-                      >
-                        تأكيد الطلب الآن
-                      </button>
-                      <p className="text-center text-gray-400 mt-4 text-sm font-medium">الدفع نقداً عند الاستلام</p>
-                    </div>
-                  </form>
-                </div>
-                <div className="w-full md:w-80 bg-gray-50 p-10 border-r border-gray-100">
-                  <h4 className="text-xl font-bold mb-6">ملخص السلة</h4>
-                  <div className="space-y-4 mb-8">
-                    {cart.map(item => (
-                      <div key={item.id} className="flex justify-between items-center text-sm">
-                        <span className="text-gray-600">{item.name} × {item.quantity}</span>
-                        <span className="font-bold">{(item.price * item.quantity).toLocaleString()} د.م</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="border-t pt-4 flex justify-between items-center">
-                    <span className="text-lg font-bold">المجموع الكلي:</span>
-                    <span className="text-2xl font-black text-blue-600">{calculateTotal().toLocaleString()} د.م</span>
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {currentPage === 'success' && (
-            <div className="flex flex-col items-center justify-center min-h-[70vh] px-4 text-center">
-              <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-8">
-                <CheckCircle size={48} />
-              </div>
-              <h2 className="text-4xl font-black mb-4">شكراً لطلبك!</h2>
-              <p className="text-xl text-gray-600 mb-8 max-w-md">لقد تم استلام طلبك بنجاح. سيتصل بك فريقنا قريباً لتأكيد المعلومات والشحن.</p>
-              <button 
-                onClick={() => setCurrentPage('home')}
-                className="bg-blue-600 text-white px-10 py-4 rounded-full font-bold text-lg hover:bg-blue-700 transition-all shadow-xl"
-              >
-                العودة للتسوق
-              </button>
+          <div className="pt-8 pb-4">
+            {isSidebarOpen && <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">المنصات</p>}
+            <div className="space-y-1">
+              {Object.entries(PLATFORM_LABELS).map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setFilters({...filters, platform: key as any})}
+                  className={`w-full flex items-center gap-4 px-4 py-2 text-sm rounded-lg ${
+                    filters.platform === key ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <div className={`w-2 h-2 rounded-full ${key === 'tiktok' ? 'bg-black' : key === 'facebook' ? 'bg-blue-600' : key === 'instagram' ? 'bg-pink-500' : 'bg-slate-300'}`} />
+                  {isSidebarOpen && <span>{label}</span>}
+                </button>
+              ))}
             </div>
-          )}
-        </main>
-      ) : (
-        <div className="flex flex-1">
-          <DashboardSidebar />
-          <main className="flex-1 p-10 bg-gray-50 overflow-y-auto">
-            {dashboardView === 'overview' && (
-              <div className="space-y-8">
-                <header>
-                  <h2 className="text-3xl font-black">لوحة التحكم</h2>
-                  <p className="text-gray-500 mt-1">نظرة عامة على أداء متجرك اليوم</p>
-                </header>
+          </div>
+        </nav>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="bg-white p-8 rounded-3xl shadow-sm border">
-                    <h4 className="text-gray-400 font-bold mb-1">إجمالي الطلبات</h4>
-                    <p className="text-4xl font-black">{orders.length}</p>
-                  </div>
-                  <div className="bg-white p-8 rounded-3xl shadow-sm border">
-                    <h4 className="text-gray-400 font-bold mb-1">إجمالي المبيعات</h4>
-                    <p className="text-4xl font-black">{orders.reduce((a, b) => a + b.total, 0).toLocaleString()} د.م</p>
-                  </div>
-                  <div className="bg-white p-8 rounded-3xl shadow-sm border">
-                    <h4 className="text-gray-400 font-bold mb-1">المنتجات النشطة</h4>
-                    <p className="text-4xl font-black">{products.length}</p>
+        <div className="p-4 border-t border-slate-100">
+          <button 
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="w-full flex items-center gap-4 px-4 py-2 text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+            {isSidebarOpen && <span className="text-sm font-medium">تصغير القائمة</span>}
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+        {/* Header */}
+        <header className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between z-40">
+          <div className="flex items-center gap-4 flex-1 max-w-2xl">
+            <div className="relative flex-1">
+              <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input 
+                type="text" 
+                placeholder="ابحث عن منتج، متجر، أو كلمة مفتاحية..."
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl pr-12 pl-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
+                value={filters.search}
+                onChange={(e) => setFilters({...filters, search: e.target.value})}
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <button className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-100 transition-all relative">
+              <Star size={20} />
+              <span className="absolute -top-1 -left-1 w-4 h-4 bg-blue-600 text-white text-[10px] flex items-center justify-center rounded-full font-bold">3</span>
+            </button>
+            <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 border-2 border-white shadow-sm" />
+          </div>
+        </header>
+
+        {/* Filter Bar */}
+        <div className="bg-white border-b border-slate-200 px-8 py-3 flex items-center gap-4 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-2 whitespace-nowrap">
+            <Filter size={16} className="text-slate-400" />
+            <span className="text-sm font-bold text-slate-600 ml-2">تصفية:</span>
+          </div>
+          
+          <select 
+            value={filters.country}
+            onChange={(e) => setFilters({...filters, country: e.target.value as Country})}
+            className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          >
+            {Object.entries(COUNTRY_LABELS).map(([key, label]) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
+
+          <select 
+            value={filters.category}
+            onChange={(e) => setFilters({...filters, category: e.target.value})}
+            className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          >
+            {CATEGORIES.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+
+          <select 
+            value={filters.sortBy}
+            onChange={(e) => setFilters({...filters, sortBy: e.target.value as any})}
+            className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          >
+            <option value="views">الأكثر مشاهدة</option>
+            <option value="date">الأحدث</option>
+            <option value="likes">الأكثر تفاعلاً</option>
+          </select>
+
+          <div className="mr-auto flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-400">نتائج البحث:</span>
+            <span className="bg-blue-100 text-blue-700 px-2.5 py-1 rounded-lg text-xs font-black">{filteredAds.length} إعلان</span>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto p-8 scroll-smooth">
+          {activeTab === 'seasonal' ? (
+            <div className="max-w-4xl mx-auto space-y-8">
+              <div className="bg-gradient-to-r from-emerald-600 to-teal-500 rounded-3xl p-10 text-white shadow-xl shadow-emerald-100 relative overflow-hidden">
+                <div className="relative z-10">
+                  <h2 className="text-4xl font-black mb-4">عيد الأضحى يقترب! 🐏</h2>
+                  <p className="text-emerald-50 text-lg max-w-md">قمنا بتحليل أكثر من 500 إعلان ناجح في دول الخليج والمغرب العربي استعداداً لموسم الأضحى.</p>
+                  <button className="mt-8 bg-white text-emerald-600 px-8 py-3 rounded-2xl font-black text-lg shadow-lg hover:scale-105 transition-transform">اكتشف المجموعة</button>
+                </div>
+                <Calendar size={200} className="absolute -left-10 -bottom-10 opacity-10" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                  <h3 className="font-black text-xl mb-2 text-slate-800">أكثر التصنيفات طلباً</h3>
+                  <div className="space-y-3 mt-4">
+                    {['مستلزمات الشواء', 'الديكور المنزلي', 'هدايا العيد'].map(tag => (
+                      <div key={tag} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                        <span className="font-bold text-slate-600">{tag}</span>
+                        <Zap size={16} className="text-amber-500" />
+                      </div>
+                    ))}
                   </div>
                 </div>
-
-                <div className="bg-white p-8 rounded-3xl shadow-sm border">
-                  <h3 className="text-xl font-bold mb-6">رسم بياني للمبيعات</h3>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RechartsLine data={orders.slice(0, 10).reverse().map(o => ({ date: new Date(o.createdAt).toLocaleDateString('ar-MA'), total: o.total }))}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} />
-                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} />
-                        <Tooltip contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
-                        <Line type="monotone" dataKey="total" stroke="#2563eb" strokeWidth={4} dot={{ r: 6, fill: '#2563eb', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 8 }} />
-                      </RechartsLine>
-                    </ResponsiveContainer>
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                  <h3 className="font-black text-xl mb-2 text-slate-800">أفضل المنصات للاستهداف</h3>
+                  <p className="text-slate-500 text-sm mb-4">بناءً على بيانات السنة الماضية</p>
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden flex">
+                      <div className="bg-pink-500 w-[60%]" />
+                      <div className="bg-blue-600 w-[30%]" />
+                      <div className="bg-black w-[10%]" />
+                    </div>
+                  </div>
+                  <div className="mt-4 flex gap-4 text-xs font-bold text-slate-400">
+                    <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-pink-500" /> إنستغرام</span>
+                    <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-600" /> فيسبوك</span>
+                    <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-black" /> تيك توك</span>
                   </div>
                 </div>
               </div>
-            )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+              {filteredAds.map(ad => (
+                <div key={ad.id} className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-blue-500/5 transition-all duration-500 group flex flex-col h-full">
+                  <div className="relative aspect-[4/5] overflow-hidden bg-slate-100">
+                    <img 
+                      src={ad.thumbnail} 
+                      alt={ad.title} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    />
+                    <div className="absolute top-4 right-4 flex gap-2">
+                      <div className="bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-sm">
+                        {ad.platform === 'tiktok' && <span className="bg-black text-white p-0.5 rounded"><Video size={10} /></span>}
+                        {ad.platform === 'facebook' && <Facebook size={14} className="text-blue-600" />}
+                        {ad.platform === 'instagram' && <Instagram size={14} className="text-pink-600" />}
+                        <span className="text-[10px] font-black uppercase text-slate-800">{PLATFORM_LABELS[ad.platform]}</span>
+                      </div>
+                    </div>
+                    {ad.isWinning && (
+                      <div className="absolute bottom-4 left-4">
+                        <div className="bg-amber-400 text-amber-950 px-3 py-1.5 rounded-xl font-black text-[10px] flex items-center gap-2 shadow-lg animate-pulse">
+                          <Crown size={12} />
+                          رابح مؤكد
+                        </div>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-6">
+                      <button className="w-full bg-white text-blue-600 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform shadow-xl">
+                        <Eye size={18} />
+                        عرض تفاصيل الإعلان
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-6 flex flex-col flex-1">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="bg-slate-100 p-1.5 rounded-lg text-slate-500">
+                        <MapPin size={12} />
+                      </div>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{COUNTRY_LABELS[ad.country]}</span>
+                      <div className="mx-1 text-slate-200">•</div>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{ad.category}</span>
+                    </div>
+                    
+                    <h3 className="text-lg font-black text-slate-800 mb-6 leading-tight line-clamp-2 h-12">{ad.title}</h3>
+                    
+                    <div className="mt-auto pt-6 border-t border-slate-50 grid grid-cols-3 gap-2">
+                      <div className="text-center">
+                        <p className="text-[10px] font-bold text-slate-400 mb-1">مشاهدات</p>
+                        <p className="text-sm font-black text-blue-600">{formatNumber(ad.views)}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[10px] font-bold text-slate-400 mb-1">تفاعل</p>
+                        <p className="text-sm font-black text-pink-600">{formatNumber(ad.likes)}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[10px] font-bold text-slate-400 mb-1">مشاركة</p>
+                        <p className="text-sm font-black text-emerald-600">{formatNumber(ad.shares)}</p>
+                      </div>
+                    </div>
 
-            {dashboardView === 'inventory' && (
-              <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-3xl font-black">إدارة المخزون</h2>
+                    <div className="mt-6 flex items-center justify-between text-[10px] font-bold text-slate-400">
+                      <div className="flex items-center gap-1">
+                        <Clock size={12} />
+                        <span>منذ {Math.floor(Math.random() * 10) + 1} أيام</span>
+                      </div>
+                      <button className="text-blue-600 hover:underline flex items-center gap-1">
+                        رابط المتجر
+                        <ExternalLink size={10} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {filteredAds.length === 0 && (
+                <div className="col-span-full py-20 flex flex-col items-center justify-center text-center">
+                  <div className="bg-slate-100 p-8 rounded-full mb-6">
+                    <Search size={48} className="text-slate-300" />
+                  </div>
+                  <h3 className="text-2xl font-black text-slate-800 mb-2">عذراً، لم نجد نتائج!</h3>
+                  <p className="text-slate-500">حاول تغيير الفلاتر أو الكلمات المفتاحية للبحث.</p>
                   <button 
-                    onClick={() => {
-                      const newProd: Product = {
-                        id: Date.now().toString(),
-                        name: 'منتج جديد تجريبي',
-                        price: 999,
-                        category: 'electronics',
-                        image: 'https://picsum.photos/seed/'+Math.random()+'/600/600',
-                        description: 'وصف منتج تجريبي مضاف من لوحة التحكم.',
-                        stock: 10
-                      };
-                      setProducts([...products, newProd]);
-                    }}
-                    className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg"
+                    onClick={() => setFilters({ search: '', platform: 'all', country: 'all', category: 'الكل', sortBy: 'views' })}
+                    className="mt-6 text-blue-600 font-bold hover:underline"
                   >
-                    <Plus size={20} />
-                    <span>إضافة منتج جديد</span>
+                    إعادة ضبط الفلاتر
                   </button>
                 </div>
-                <div className="bg-white rounded-3xl shadow-sm border overflow-hidden">
-                  <table className="w-full text-right">
-                    <thead className="bg-gray-50 border-b">
-                      <tr>
-                        <th className="px-6 py-4 text-sm font-bold text-gray-400">المنتج</th>
-                        <th className="px-6 py-4 text-sm font-bold text-gray-400">التصنيف</th>
-                        <th className="px-6 py-4 text-sm font-bold text-gray-400">السعر</th>
-                        <th className="px-6 py-4 text-sm font-bold text-gray-400">المخزون</th>
-                        <th className="px-6 py-4 text-sm font-bold text-gray-400">إجراءات</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {products.map(product => (
-                        <tr key={product.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 flex items-center gap-3">
-                            <img src={product.image} className="w-12 h-12 rounded-lg object-cover" />
-                            <span className="font-bold">{product.name}</span>
-                          </td>
-                          <td className="px-6 py-4 text-gray-500">{CATEGORIES_LABELS[product.category]}</td>
-                          <td className="px-6 py-4 font-black">{product.price.toLocaleString()} د.م</td>
-                          <td className="px-6 py-4">
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${product.stock > 5 ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                              {product.stock} قطعة
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <button 
-                              onClick={() => deleteProduct(product.id)}
-                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {dashboardView === 'orders' && (
-              <div className="space-y-6">
-                <h2 className="text-3xl font-black">الطلبات الواردة</h2>
-                <div className="bg-white rounded-3xl shadow-sm border overflow-hidden">
-                  <table className="w-full text-right">
-                    <thead className="bg-gray-50 border-b">
-                      <tr>
-                        <th className="px-6 py-4 text-sm font-bold text-gray-400">رقم الطلب</th>
-                        <th className="px-6 py-4 text-sm font-bold text-gray-400">الزبون</th>
-                        <th className="px-6 py-4 text-sm font-bold text-gray-400">المدينة</th>
-                        <th className="px-6 py-4 text-sm font-bold text-gray-400">المجموع</th>
-                        <th className="px-6 py-4 text-sm font-bold text-gray-400">الحالة</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {orders.map(order => (
-                        <tr key={order.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 font-bold text-blue-600">{order.id}</td>
-                          <td className="px-6 py-4 font-medium">{order.customerName}</td>
-                          <td className="px-6 py-4 text-gray-500">{order.city}</td>
-                          <td className="px-6 py-4 font-black">{order.total.toLocaleString()} د.م</td>
-                          <td className="px-6 py-4">
-                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-600">انتظار التوصيل</span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Same Tracking & Domain views as before, omitted for brevity but they are preserved in the actual logic */}
-            {dashboardView === 'tracking' && (
-               <div className="max-w-4xl space-y-8">
-                 <h2 className="text-3xl font-black">أكواد التتبع والبكسل</h2>
-                 <div className="bg-white p-8 rounded-3xl shadow-sm border space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-2">Facebook Pixel ID</label>
-                        <input type="text" value={trackingConfig.facebookPixel} onChange={e => setTrackingConfig({...trackingConfig, facebookPixel: e.target.value})} className="w-full border-2 border-gray-100 rounded-xl px-4 py-3 focus:border-blue-500 outline-none" />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-2">Google Analytics ID</label>
-                        <input type="text" value={trackingConfig.googleAnalytics} onChange={e => setTrackingConfig({...trackingConfig, googleAnalytics: e.target.value})} className="w-full border-2 border-gray-100 rounded-xl px-4 py-3 focus:border-blue-500 outline-none" />
-                      </div>
-                    </div>
-                    <button onClick={() => alert('تم الحفظ')} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2">
-                       <Save size={18} /> حفظ الإعدادات
-                    </button>
-                 </div>
-               </div>
-            )}
-            
-            {dashboardView === 'domain' && (
-              <div className="max-w-4xl space-y-8">
-                <h2 className="text-3xl font-black">إعدادات الدومين</h2>
-                <div className="bg-white p-8 rounded-3xl shadow-sm border space-y-4">
-                  <label className="block text-sm font-bold text-gray-700">اسم الدومين</label>
-                  <input type="text" placeholder="www.mystore.ma" className="w-full border-2 border-gray-100 rounded-xl px-4 py-3" />
-                  <button className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold">ربط الدومين</button>
-                </div>
-              </div>
-            )}
-          </main>
-        </div>
-      )}
-
-      {/* Cart Drawer */}
-      {isCartOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsCartOpen(false)}></div>
-          <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col animate-slide-left">
-            <div className="p-6 border-b flex items-center justify-between">
-              <h3 className="text-2xl font-black">سلة المشتريات</h3>
-              <button onClick={() => setIsCartOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                <X size={24} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {cart.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                  <ShoppingBag size={64} className="mb-4 opacity-20" />
-                  <p className="font-bold text-lg">سلتك فارغة حالياً</p>
-                </div>
-              ) : (
-                cart.map(item => (
-                  <div key={item.id} className="flex gap-4 group">
-                    <img src={item.image} className="w-20 h-20 object-cover rounded-xl border" />
-                    <div className="flex-1">
-                      <h4 className="font-bold text-gray-900 leading-tight mb-1">{item.name}</h4>
-                      <p className="text-blue-600 font-black mb-2">{item.price.toLocaleString()} د.م</p>
-                      <button onClick={() => removeFromCart(item.id)} className="text-red-500 text-xs font-bold hover:underline">حذف من السلة</button>
-                    </div>
-                  </div>
-                ))
               )}
             </div>
-            {cart.length > 0 && (
-              <div className="p-8 border-t bg-gray-50">
-                <div className="flex justify-between items-center mb-6">
-                  <span className="text-gray-500 font-bold">المجموع الكلي:</span>
-                  <span className="text-3xl font-black text-blue-600">{calculateTotal().toLocaleString()} د.م</span>
-                </div>
-                <button 
-                  onClick={() => { setIsCartOpen(false); setCurrentPage('checkout'); }}
-                  className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-xl hover:bg-blue-700 shadow-xl transition-all"
-                >
-                  إتمام الطلب
-                </button>
-              </div>
-            )}
-          </div>
+          )}
         </div>
-      )}
+      </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t py-12 mt-auto">
-        <div className="container mx-auto px-4 text-center">
-          <h3 className="text-2xl font-black text-blue-600 mb-4">متجري المغرب</h3>
-          <p className="text-gray-500 text-sm max-w-lg mx-auto mb-8">أفضل تجربة تسوق إلكتروني في المغرب مع ضمان الجودة وسرعة التوصيل.</p>
-          <div className="flex justify-center gap-6 text-gray-400 text-sm font-bold">
-            <span className="hover:text-blue-600 cursor-pointer">سياسة الخصوصية</span>
-            <span className="hover:text-blue-600 cursor-pointer">شروط البيع</span>
-            <span className="hover:text-blue-600 cursor-pointer">اتصل بنا</span>
-          </div>
-          <p className="mt-8 text-xs text-gray-400 font-medium">© 2024 جميع الحقوق محفوظة لمتجرنا</p>
-        </div>
-      </footer>
+      {/* Floating Action Button for Mobile */}
+      <button className="lg:hidden fixed bottom-6 left-6 bg-blue-600 text-white p-4 rounded-full shadow-2xl z-50">
+        <Menu size={24} />
+      </button>
     </div>
   );
 };
