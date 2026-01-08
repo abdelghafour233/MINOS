@@ -46,27 +46,23 @@ const App: React.FC = () => {
     sortBy: 'views'
   });
 
-  // Steps for loading message
   const loadingMessages = [
     "جاري مسح منصة TikTok لاكتشاف الفيديوهات الأكثر تفاعلاً...",
     "تحليل إعلانات Facebook في منطقة الشرق الأوسط وشمال أفريقيا...",
     "تحديد المنتجات ذات الطلب العالي ونسبة المنافسة المنخفضة...",
-    "استخراج روابط المنتجات وتفاصيل الأداء..."
+    "البحث عن صور حقيقية تعبر عن المنتجات المكتشفة..."
   ];
 
-  // Initialize ads and auto-discover
   useEffect(() => {
     const saved = localStorage.getItem('trending_ads');
     if (saved) {
       setAds(JSON.parse(saved));
     } else {
       setAds(MOCK_TRENDS);
-      // Auto trigger first discovery if it's the first time
       setTimeout(() => discoverRealTrends(), 1000);
     }
   }, []);
 
-  // Cycle loading messages
   useEffect(() => {
     let interval: any;
     if (isAiLoading) {
@@ -77,35 +73,35 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [isAiLoading]);
 
-  // AI Discovery Function
   const discoverRealTrends = async () => {
     if (isAiLoading) return;
     setIsAiLoading(true);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const prompt = `Act as a world-class dropshipping product researcher. 
-      Find 6 "Winning Products" that are currently trending in the last 7 days of May 2024.
+      Find 6 "Winning Products" that are currently trending in May 2024.
       Focus specifically on the GCC (Saudi Arabia, UAE) and Morocco markets.
       
       Instructions:
       1. Search for viral TikTok ads and Facebook winning products.
       2. Choose products that have high "problem-solving" value or high "wow factor".
-      3. Return ONLY a valid JSON array of objects.
-      4. Each object must have:
+      3. CRITICAL: For each product, determine its English name (e.g., "Flame Diffuser", "Massage Gun").
+      4. Use this English name to create a thumbnail URL in this format: 
+         'https://loremflickr.com/400/500/{EnglishNameKeyWords}'
+         Example: if the product is a car vacuum, thumbnail is 'https://loremflickr.com/400/500/car,vacuum'
+      
+      Return ONLY a valid JSON array of objects with:
          - id: short unique string
-         - title: Catchy Arabic marketing title (max 5 words)
-         - thumbnail: 'https://picsum.photos/seed/{id}/400/500'
+         - title: Catchy Arabic marketing title
+         - thumbnail: The dynamic URL created above
          - platform: 'tiktok', 'facebook', or 'instagram'
          - country: 'SA', 'MA', or 'AE'
-         - views: number between 100,000 and 2,000,000
-         - likes: number between 5,000 and 100,000
-         - shares: number between 500 and 10,000
+         - views: number
+         - likes: number
+         - shares: number
          - category: Choose from: إلكترونيات, منزل, تجميل, أدوات مطبخ, سيارات
-         - firstSeen: ISO date in May 2024
-         - lastSeen: Current date
          - isWinning: true
-      
-      Format your response strictly as JSON.`;
+      `;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-pro-preview',
@@ -119,7 +115,6 @@ const App: React.FC = () => {
       const resultText = response.text || "[]";
       const newTrends: TrendingAd[] = JSON.parse(resultText);
       
-      // Combine and filter duplicates
       setAds(prev => {
         const combined = [...newTrends, ...prev];
         const unique = combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
@@ -135,7 +130,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Filtered Data
   const filteredAds = useMemo(() => {
     return ads.filter(ad => {
       const matchSearch = ad.title.toLowerCase().includes(filters.search.toLowerCase());
@@ -148,7 +142,7 @@ const App: React.FC = () => {
     }).sort((a, b) => {
       if (filters.sortBy === 'views') return b.views - a.views;
       if (filters.sortBy === 'likes') return b.likes - a.likes;
-      return new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime();
+      return b.views - a.views; // Fallback to views if no date
     });
   }, [filters, activeTab, ads]);
 
@@ -175,7 +169,6 @@ const App: React.FC = () => {
         </div>
 
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          {/* AI Discover Button */}
           <button
             onClick={discoverRealTrends}
             disabled={isAiLoading}
@@ -260,10 +253,6 @@ const App: React.FC = () => {
               <RefreshCw size={16} className={isAiLoading ? 'animate-spin' : ''} />
               تحديث
             </button>
-            <button className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-100 transition-all relative">
-              <Star size={20} />
-              <span className="absolute -top-1 -left-1 w-4 h-4 bg-blue-600 text-white text-[10px] flex items-center justify-center rounded-full font-bold">3</span>
-            </button>
             <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 border-2 border-white shadow-sm cursor-pointer" />
           </div>
         </header>
@@ -301,7 +290,6 @@ const App: React.FC = () => {
             className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/10 font-bold cursor-pointer"
           >
             <option value="views">الأكثر مشاهدة</option>
-            <option value="date">الأحدث</option>
             <option value="likes">الأكثر تفاعلاً</option>
           </select>
 
@@ -326,7 +314,6 @@ const App: React.FC = () => {
                   {loadingMessages[loadingStep]}
                 </p>
               </div>
-              <p className="text-slate-500 max-w-md text-lg">سوف يتم عرض المنتجات الرابحة فور الانتهاء من التحليل.</p>
               <div className="mt-12 flex gap-3">
                 <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
                 <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
@@ -335,127 +322,75 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {activeTab === 'seasonal' ? (
-            <div className="max-w-4xl mx-auto space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-              <div className="bg-gradient-to-r from-emerald-600 to-teal-500 rounded-[3rem] p-12 text-white shadow-2xl shadow-emerald-100 relative overflow-hidden">
-                <div className="relative z-10">
-                  <span className="bg-white/20 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest mb-6 inline-block">ترند الموسم</span>
-                  <h2 className="text-5xl font-black mb-6">عيد الأضحى يقترب! 🐏</h2>
-                  <p className="text-emerald-50 text-xl max-w-md leading-relaxed mb-10">قمنا بتحليل أكثر من 500 إعلان ناجح في دول الخليج والمغرب العربي استعداداً لموسم الأضحى.</p>
-                  <button className="bg-white text-emerald-600 px-10 py-4 rounded-2xl font-black text-lg shadow-xl hover:scale-105 transition-all active:scale-95">اكتشف المجموعة</button>
-                </div>
-                <Calendar size={300} className="absolute -left-20 -bottom-20 opacity-10 rotate-12" />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-lg transition-shadow">
-                  <h3 className="font-black text-2xl mb-4 text-slate-800">أكثر التصنيفات طلباً</h3>
-                  <div className="space-y-4">
-                    {['مستلزمات الشواء', 'الديكور المنزلي', 'هدايا العيد', 'السكاكين والأدوات'].map(tag => (
-                      <div key={tag} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl group cursor-pointer hover:bg-emerald-50 transition-colors">
-                        <span className="font-bold text-slate-700 group-hover:text-emerald-700">{tag}</span>
-                        <Zap size={18} className="text-amber-500 group-hover:scale-125 transition-transform" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 pb-20">
+            {filteredAds.map((ad, idx) => (
+              <div 
+                key={ad.id} 
+                className="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-500 group flex flex-col h-full animate-in fade-in slide-in-from-bottom-4"
+                style={{ animationDelay: `${idx * 50}ms` }}
+              >
+                <div className="relative aspect-[4/5] overflow-hidden bg-slate-100">
+                  <img 
+                    src={ad.thumbnail} 
+                    alt={ad.title} 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
+                  />
+                  <div className="absolute top-5 right-5 flex gap-2">
+                    <div className="bg-white/95 backdrop-blur-md px-4 py-2 rounded-2xl flex items-center gap-2 shadow-lg">
+                      {ad.platform === 'tiktok' && <div className="bg-black text-white p-1 rounded-md"><Video size={12} /></div>}
+                      {ad.platform === 'facebook' && <Facebook size={16} className="text-blue-600" />}
+                      {ad.platform === 'instagram' && <Instagram size={16} className="text-pink-600" />}
+                      <span className="text-[10px] font-black uppercase text-slate-800 tracking-wider">{PLATFORM_LABELS[ad.platform]}</span>
+                    </div>
+                  </div>
+                  {ad.isWinning && (
+                    <div className="absolute bottom-5 left-5">
+                      <div className="bg-amber-400 text-amber-950 px-4 py-2 rounded-2xl font-black text-[11px] flex items-center gap-2 shadow-xl border border-amber-300">
+                        <Crown size={14} />
+                        رابح مؤكد
                       </div>
-                    ))}
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex items-end p-8">
+                    <button className="w-full bg-white text-blue-600 py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transform translate-y-10 group-hover:translate-y-0 transition-transform shadow-2xl hover:bg-blue-50">
+                      <Eye size={20} />
+                      عرض تفاصيل الإعلان
+                    </button>
                   </div>
                 </div>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 pb-20">
-              {filteredAds.map((ad, idx) => (
-                <div 
-                  key={ad.id} 
-                  className="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-500 group flex flex-col h-full animate-in fade-in slide-in-from-bottom-4"
-                  style={{ animationDelay: `${idx * 50}ms` }}
-                >
-                  <div className="relative aspect-[4/5] overflow-hidden bg-slate-100">
-                    <img 
-                      src={ad.thumbnail} 
-                      alt={ad.title} 
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
-                    />
-                    <div className="absolute top-5 right-5 flex gap-2">
-                      <div className="bg-white/95 backdrop-blur-md px-4 py-2 rounded-2xl flex items-center gap-2 shadow-lg">
-                        {ad.platform === 'tiktok' && <div className="bg-black text-white p-1 rounded-md"><Video size={12} /></div>}
-                        {ad.platform === 'facebook' && <Facebook size={16} className="text-blue-600" />}
-                        {ad.platform === 'instagram' && <Instagram size={16} className="text-pink-600" />}
-                        <span className="text-[10px] font-black uppercase text-slate-800 tracking-wider">{PLATFORM_LABELS[ad.platform]}</span>
-                      </div>
+                
+                <div className="p-8 flex flex-col flex-1">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="bg-slate-100 p-2 rounded-xl text-slate-500">
+                      <MapPin size={14} />
                     </div>
-                    {ad.isWinning && (
-                      <div className="absolute bottom-5 left-5">
-                        <div className="bg-amber-400 text-amber-950 px-4 py-2 rounded-2xl font-black text-[11px] flex items-center gap-2 shadow-xl animate-pulse border border-amber-300">
-                          <Crown size={14} />
-                          رابح مؤكد
-                        </div>
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex items-end p-8">
-                      <button className="w-full bg-white text-blue-600 py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transform translate-y-10 group-hover:translate-y-0 transition-transform shadow-2xl hover:bg-blue-50">
-                        <Eye size={20} />
-                        عرض تفاصيل الإعلان
-                      </button>
-                    </div>
+                    <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{COUNTRY_LABELS[ad.country]}</span>
+                    <div className="mx-1 text-slate-300">•</div>
+                    <span className="text-xs font-black text-blue-600 uppercase tracking-widest">{ad.category}</span>
                   </div>
                   
-                  <div className="p-8 flex flex-col flex-1">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="bg-slate-100 p-2 rounded-xl text-slate-500">
-                        <MapPin size={14} />
-                      </div>
-                      <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{COUNTRY_LABELS[ad.country]}</span>
-                      <div className="mx-1 text-slate-300">•</div>
-                      <span className="text-xs font-black text-blue-600 uppercase tracking-widest">{ad.category}</span>
+                  <h3 className="text-xl font-black text-slate-800 mb-6 leading-tight line-clamp-2 h-14 group-hover:text-blue-600 transition-colors">{ad.title}</h3>
+                  
+                  <div className="mt-auto pt-6 border-t border-slate-50 grid grid-cols-3 gap-2">
+                    <div className="text-center">
+                      <p className="text-[10px] font-bold text-slate-400 mb-1">مشاهدات</p>
+                      <p className="text-base font-black text-slate-800">{formatNumber(ad.views)}</p>
                     </div>
-                    
-                    <h3 className="text-xl font-black text-slate-800 mb-6 leading-tight line-clamp-2 h-14 group-hover:text-blue-600 transition-colors">{ad.title}</h3>
-                    
-                    <div className="mt-auto pt-6 border-t border-slate-50 grid grid-cols-3 gap-2">
-                      <div className="text-center">
-                        <p className="text-[10px] font-bold text-slate-400 mb-1">مشاهدات</p>
-                        <p className="text-base font-black text-slate-800">{formatNumber(ad.views)}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-[10px] font-bold text-slate-400 mb-1">تفاعل</p>
-                        <p className="text-base font-black text-pink-600">{formatNumber(ad.likes)}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-[10px] font-bold text-slate-400 mb-1">مشاركة</p>
-                        <p className="text-base font-black text-emerald-600">{formatNumber(ad.shares)}</p>
-                      </div>
+                    <div className="text-center">
+                      <p className="text-[10px] font-bold text-slate-400 mb-1">تفاعل</p>
+                      <p className="text-base font-black text-pink-600">{formatNumber(ad.likes)}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[10px] font-bold text-slate-400 mb-1">مشاركة</p>
+                      <p className="text-base font-black text-emerald-600">{formatNumber(ad.shares)}</p>
                     </div>
                   </div>
                 </div>
-              ))}
-              
-              {filteredAds.length === 0 && !isAiLoading && (
-                <div className="col-span-full py-32 flex flex-col items-center justify-center text-center">
-                  <div className="bg-slate-100 p-12 rounded-full mb-8">
-                    <Search size={64} className="text-slate-300" />
-                  </div>
-                  <h3 className="text-3xl font-black text-slate-800 mb-4">عذراً، لم نجد نتائج!</h3>
-                  <p className="text-slate-500 text-lg">حاول تغيير الفلاتر أو اضغط على زر التحديث لجلب تريندات جديدة.</p>
-                  <button 
-                    onClick={() => setFilters({ search: '', platform: 'all', country: 'all', category: 'الكل', sortBy: 'views' })}
-                    className="mt-8 bg-blue-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all"
-                  >
-                    إعادة ضبط الفلاتر
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+              </div>
+            ))}
+          </div>
         </div>
       </main>
-
-      {/* Floating Action Button for Mobile */}
-      <button 
-        onClick={discoverRealTrends}
-        disabled={isAiLoading}
-        className="lg:hidden fixed bottom-6 left-6 bg-blue-600 text-white p-5 rounded-full shadow-2xl z-50 hover:scale-110 active:scale-95 transition-all disabled:opacity-50"
-      >
-        {isAiLoading ? <Loader2 size={24} className="animate-spin" /> : <RefreshCw size={24} />}
-      </button>
     </div>
   );
 };

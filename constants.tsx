@@ -22,16 +22,15 @@ export const CATEGORIES = [
   'إلكترونيات',
   'منزل',
   'تجميل',
-  'ألعاب أطفال',
-  'سيارات',
-  'أدوات مطبخ'
+  'أدوات مطبخ',
+  'سيارات'
 ];
 
 export const MOCK_TRENDS: TrendingAd[] = [
   {
     id: '1',
     title: 'خلاط محمول لاسلكي فائق القوة',
-    thumbnail: 'https://picsum.photos/seed/blender/400/500',
+    thumbnail: 'https://loremflickr.com/400/500/blender,portable',
     platform: 'tiktok',
     country: 'SA',
     views: 1200000,
@@ -44,8 +43,8 @@ export const MOCK_TRENDS: TrendingAd[] = [
   },
   {
     id: '2',
-    title: 'مصباح ذكي متعدد الألوان بـ 16 مليون لون',
-    thumbnail: 'https://picsum.photos/seed/light/400/500',
+    title: 'مصباح ذكي متعدد الألوان لغرف النوم',
+    thumbnail: 'https://loremflickr.com/400/500/smart,lamp,rgb',
     platform: 'facebook',
     country: 'MA',
     views: 850000,
@@ -58,8 +57,8 @@ export const MOCK_TRENDS: TrendingAd[] = [
   },
   {
     id: '3',
-    title: 'منظم مكياج دوار 360 درجة',
-    thumbnail: 'https://picsum.photos/seed/makeup/400/500',
+    title: 'منظم مكياج دوار احترافي',
+    thumbnail: 'https://loremflickr.com/400/500/makeup,organizer',
     platform: 'instagram',
     country: 'AE',
     views: 2300000,
@@ -72,8 +71,8 @@ export const MOCK_TRENDS: TrendingAd[] = [
   },
   {
     id: '4',
-    title: 'سماعات بلوتوث رياضية عازلة للضوضاء',
-    thumbnail: 'https://picsum.photos/seed/earbuds/400/500',
+    title: 'سماعات بلوتوث رياضية حديثة',
+    thumbnail: 'https://loremflickr.com/400/500/earbuds,wireless',
     platform: 'tiktok',
     country: 'KW',
     views: 500000,
@@ -86,8 +85,8 @@ export const MOCK_TRENDS: TrendingAd[] = [
   },
   {
     id: '5',
-    title: 'مجموعة أدوات تنظيف السيارة الاحترافية',
-    thumbnail: 'https://picsum.photos/seed/carwash/400/500',
+    title: 'مكنسة سيارة محمولة قوية',
+    thumbnail: 'https://loremflickr.com/400/500/car,vacuum',
     platform: 'facebook',
     country: 'MA',
     views: 320000,
@@ -100,8 +99,8 @@ export const MOCK_TRENDS: TrendingAd[] = [
   },
   {
     id: '6',
-    title: 'وسادة رقبة مريحة للسفر الطويل',
-    thumbnail: 'https://picsum.photos/seed/pillow/400/500',
+    title: 'وسادة رقبة طبية مريحة',
+    thumbnail: 'https://loremflickr.com/400/500/neck,pillow,travel',
     platform: 'instagram',
     country: 'SA',
     views: 940000,
