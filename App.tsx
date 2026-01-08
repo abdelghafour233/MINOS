@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   TrendingUp, 
   Search, 
@@ -21,15 +21,21 @@ import {
   MapPin,
   Clock,
   ExternalLink,
-  Crown
+  Crown,
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import { TrendingAd, FilterState, Platform, Country } from './types';
 import { MOCK_TRENDS, COUNTRY_LABELS, PLATFORM_LABELS, CATEGORIES } from './constants';
+import { GoogleGenAI } from "@google/genai";
 
 const App: React.FC = () => {
   // UI State
   const [activeTab, setActiveTab] = useState<'ads' | 'winning' | 'seasonal'>('ads');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [ads, setAds] = useState<TrendingAd[]>([]);
+  
   const [filters, setFilters] = useState<FilterState>({
     search: '',
     platform: 'all',
@@ -38,9 +44,74 @@ const App: React.FC = () => {
     sortBy: 'views'
   });
 
+  // Initialize ads with mock data or local storage
+  useEffect(() => {
+    const saved = localStorage.getItem('trending_ads');
+    if (saved) {
+      setAds(JSON.parse(saved));
+    } else {
+      setAds(MOCK_TRENDS);
+    }
+  }, []);
+
+  // AI Discovery Function
+  const discoverRealTrends = async () => {
+    setIsAiLoading(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const prompt = `Find 5 currently trending "winning products" for dropshipping and e-commerce in May 2024. 
+      Focus on viral products on TikTok, Facebook, and Instagram.
+      For each product, provide:
+      1. A catchy title in Arabic.
+      2. The platform where it's trending (tiktok, facebook, or instagram).
+      3. Primary country (SA, MA, or AE).
+      4. Estimated views and likes.
+      5. Category.
+      6. A brief description of why it's winning.
+      
+      Return the data strictly as a JSON array of objects with this structure:
+      {
+        "id": "unique_string",
+        "title": "string in Arabic",
+        "thumbnail": "https://picsum.photos/seed/{id}/400/500",
+        "platform": "tiktok|facebook|instagram",
+        "country": "SA|MA|AE",
+        "views": number,
+        "likes": number,
+        "shares": number,
+        "category": "string in Arabic",
+        "firstSeen": "2024-05-01",
+        "lastSeen": "2024-05-20",
+        "isWinning": true
+      }`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: prompt,
+        config: {
+          tools: [{ googleSearch: {} }],
+          responseMimeType: "application/json"
+        },
+      });
+
+      const resultText = response.text || "[]";
+      const newTrends: TrendingAd[] = JSON.parse(resultText);
+      
+      const updatedAds = [...newTrends, ...ads].slice(0, 20); // Keep latest 20
+      setAds(updatedAds);
+      localStorage.setItem('trending_ads', JSON.stringify(updatedAds));
+      alert("تم اكتشاف منتجات رابحة جديدة بنجاح!");
+    } catch (error) {
+      console.error("AI Discovery Error:", error);
+      alert("حدث خطأ أثناء البحث عن التريندات. يرجى المحاولة لاحقاً.");
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
   // Filtered Data
   const filteredAds = useMemo(() => {
-    return MOCK_TRENDS.filter(ad => {
+    return ads.filter(ad => {
       const matchSearch = ad.title.toLowerCase().includes(filters.search.toLowerCase());
       const matchPlatform = filters.platform === 'all' || ad.platform === filters.platform;
       const matchCountry = filters.country === 'all' || ad.country === filters.country;
@@ -53,7 +124,7 @@ const App: React.FC = () => {
       if (filters.sortBy === 'likes') return b.likes - a.likes;
       return new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime();
     });
-  }, [filters, activeTab]);
+  }, [filters, activeTab, ads]);
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
@@ -73,10 +144,20 @@ const App: React.FC = () => {
         </div>
 
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+          {/* AI Discover Button */}
+          <button
+            onClick={discoverRealTrends}
+            disabled={isAiLoading}
+            className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl transition-all mb-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-200 hover:scale-[1.02] active:scale-95 disabled:opacity-70 disabled:hover:scale-100`}
+          >
+            {isAiLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} className="text-yellow-300 fill-yellow-300" />}
+            {isSidebarOpen && <span className="font-black text-sm">اكتشاف عبر الذكاء الاصطناعي</span>}
+          </button>
+
           {[
-            { id: 'ads', label: 'مكتبة الإعلانات', icon: Video, color: 'text-blue-600' },
-            { id: 'winning', label: 'منتجات رابحة', icon: Crown, color: 'text-amber-500' },
-            { id: 'seasonal', label: 'ترندات موسمية', icon: Calendar, color: 'text-emerald-500' },
+            { id: 'ads', label: 'مكتبة الإعلانات', icon: Video },
+            { id: 'winning', label: 'منتجات رابحة', icon: Crown },
+            { id: 'seasonal', label: 'ترندات موسمية', icon: Calendar },
           ].map(item => (
             <button
               key={item.id}
@@ -192,7 +273,23 @@ const App: React.FC = () => {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-8 scroll-smooth">
+        <div className="flex-1 overflow-y-auto p-8 scroll-smooth relative">
+          {isAiLoading && (
+            <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-30 flex flex-col items-center justify-center text-center p-8">
+              <div className="relative mb-8">
+                <Loader2 size={80} className="text-blue-600 animate-spin" />
+                <Sparkles size={32} className="text-amber-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+              </div>
+              <h2 className="text-3xl font-black text-slate-800 mb-4">جاري تحليل تريندات السوق...</h2>
+              <p className="text-slate-600 max-w-md text-lg">يقوم الذكاء الاصطناعي الآن بمسح منصات التواصل الاجتماعي لاكتشاف المنتجات التي تحقق أعلى مبيعات حالياً.</p>
+              <div className="mt-8 flex gap-2">
+                <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce delay-75"></div>
+                <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce delay-150"></div>
+                <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce delay-300"></div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'seasonal' ? (
             <div className="max-w-4xl mx-auto space-y-8">
               <div className="bg-gradient-to-r from-emerald-600 to-teal-500 rounded-3xl p-10 text-white shadow-xl shadow-emerald-100 relative overflow-hidden">
@@ -213,22 +310,6 @@ const App: React.FC = () => {
                         <Zap size={16} className="text-amber-500" />
                       </div>
                     ))}
-                  </div>
-                </div>
-                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                  <h3 className="font-black text-xl mb-2 text-slate-800">أفضل المنصات للاستهداف</h3>
-                  <p className="text-slate-500 text-sm mb-4">بناءً على بيانات السنة الماضية</p>
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden flex">
-                      <div className="bg-pink-500 w-[60%]" />
-                      <div className="bg-blue-600 w-[30%]" />
-                      <div className="bg-black w-[10%]" />
-                    </div>
-                  </div>
-                  <div className="mt-4 flex gap-4 text-xs font-bold text-slate-400">
-                    <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-pink-500" /> إنستغرام</span>
-                    <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-600" /> فيسبوك</span>
-                    <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-black" /> تيك توك</span>
                   </div>
                 </div>
               </div>
@@ -293,36 +374,9 @@ const App: React.FC = () => {
                         <p className="text-sm font-black text-emerald-600">{formatNumber(ad.shares)}</p>
                       </div>
                     </div>
-
-                    <div className="mt-6 flex items-center justify-between text-[10px] font-bold text-slate-400">
-                      <div className="flex items-center gap-1">
-                        <Clock size={12} />
-                        <span>منذ {Math.floor(Math.random() * 10) + 1} أيام</span>
-                      </div>
-                      <button className="text-blue-600 hover:underline flex items-center gap-1">
-                        رابط المتجر
-                        <ExternalLink size={10} />
-                      </button>
-                    </div>
                   </div>
                 </div>
               ))}
-              
-              {filteredAds.length === 0 && (
-                <div className="col-span-full py-20 flex flex-col items-center justify-center text-center">
-                  <div className="bg-slate-100 p-8 rounded-full mb-6">
-                    <Search size={48} className="text-slate-300" />
-                  </div>
-                  <h3 className="text-2xl font-black text-slate-800 mb-2">عذراً، لم نجد نتائج!</h3>
-                  <p className="text-slate-500">حاول تغيير الفلاتر أو الكلمات المفتاحية للبحث.</p>
-                  <button 
-                    onClick={() => setFilters({ search: '', platform: 'all', country: 'all', category: 'الكل', sortBy: 'views' })}
-                    className="mt-6 text-blue-600 font-bold hover:underline"
-                  >
-                    إعادة ضبط الفلاتر
-                  </button>
-                </div>
-              )}
             </div>
           )}
         </div>
