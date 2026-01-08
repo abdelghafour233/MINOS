@@ -20,7 +20,6 @@ const App: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [pixelConfig, setPixelConfig] = useState<PixelConfig>({});
   
-  // Modal & Selection
   const [selectedAd, setSelectedAd] = useState<TrendingAd | null>(null);
   const [showCheckout, setShowCheckout] = useState(false);
   const [checkoutData, setCheckoutData] = useState({ name: '', city: '', phone: '' });
@@ -36,10 +35,10 @@ const App: React.FC = () => {
   });
 
   const loadingMessages = [
-    "جاري مسح قواعد بيانات TikTok لاكتشاف الفيديوهات الأكثر تفاعلاً...",
-    "تحليل إعلانات Facebook النشطة في المغرب والخليج...",
-    "توليد صور فوتوغرافية احترافية للمنتجات المكتشفة...",
-    "تجهيز روابط الإعلانات الأصلية ومراجعات المنتجات..."
+    "جاري الاتصال بقواعد بيانات التريندات العالمية...",
+    "تحليل تفاعل الجمهور على TikTok و Facebook...",
+    "توليد صور احترافية مطابقة للمنتجات المكتشفة...",
+    "تجهيز روابط البحث المباشرة عن الإعلانات..."
   ];
 
   useEffect(() => {
@@ -47,7 +46,11 @@ const App: React.FC = () => {
     const savedOrders = localStorage.getItem('orders');
     const savedPixels = localStorage.getItem('pixels');
     
-    if (savedAds) setAds(JSON.parse(savedAds)); else setAds(MOCK_TRENDS);
+    if (savedAds) {
+      try { setAds(JSON.parse(savedAds)); } catch(e) { setAds(MOCK_TRENDS); }
+    } else {
+      setAds(MOCK_TRENDS);
+    }
     if (savedOrders) setOrders(JSON.parse(savedOrders));
     if (savedPixels) setPixelConfig(JSON.parse(savedPixels));
   }, []);
@@ -57,24 +60,27 @@ const App: React.FC = () => {
     if (isAiLoading) {
       interval = setInterval(() => {
         setLoadingStep(prev => (prev + 1) % loadingMessages.length);
-      }, 3000);
+      }, 2500);
     }
     return () => clearInterval(interval);
   }, [isAiLoading]);
 
-  // توليد صورة احترافية للمنتج
+  // وظيفة تنظيف استجابة JSON من أي علامات Markdown
+  const cleanJsonResponse = (text: string) => {
+    return text.replace(/```json/g, '').replace(/```/g, '').trim();
+  };
+
   const generateProductImage = async (ai: any, title: string): Promise<string> => {
     try {
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
-        contents: {
-          parts: [{ text: `High-quality commercial product photography of ${title}, professional studio lighting, clean white background, 4k resolution, e-commerce style.` }]
-        },
+        contents: [{ parts: [{ text: `Professional commercial product photography of ${title}, high resolution, studio lighting, white background, 4k.` }] }],
         config: { imageConfig: { aspectRatio: "1:1" } }
       });
       const part = response.candidates[0].content.parts.find((p: any) => p.inlineData);
       return part ? `data:image/png;base64,${part.inlineData.data}` : `https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600`;
     } catch (e) {
+      console.error("Image generation failed:", e);
       return `https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600`;
     }
   };
@@ -82,35 +88,46 @@ const App: React.FC = () => {
   const discoverRealTrends = async () => {
     if (isAiLoading) return;
     setIsAiLoading(true);
+    setLoadingStep(0);
+
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
-      // البحث عن منتجات رابحة حقيقية
-      const textPrompt = `Find 5 highly trending "Winning Products" for dropshipping in 2024 (focus on Moroccan and Saudi markets). 
-      For each product, return JSON object in array: {id, title_ar, title_en, price_mad, description_ar, platform, country, category, views}.
-      The products must be real and currently trending.`;
+      const textPrompt = `Find 6 highly trending Winning Products for dropshipping in Morocco and Gulf countries (Saudi Arabia, UAE) for May 2024. 
+      Return ONLY a JSON array of objects. 
+      Structure: [{"id": "string", "title_ar": "اسم المنتج بالعربية", "title_en": "English name", "price_mad": number, "description_ar": "وصف جذاب", "platform": "tiktok"|"facebook", "country": "MA"|"SA"|"AE", "category": "electronics"|"home"|"beauty", "views": number}].
+      Ensure the data is realistic and the JSON is valid.`;
 
       const res = await ai.models.generateContent({
         model: 'gemini-3-pro-preview',
-        contents: textPrompt,
-        config: { tools: [{ googleSearch: {} }], responseMimeType: "application/json" }
+        contents: [{ parts: [{ text: textPrompt }] }],
+        config: { 
+          tools: [{ googleSearch: {} }], 
+          responseMimeType: "application/json" 
+        }
       });
 
-      const rawData = JSON.parse(res.text || "[]");
+      const cleanedText = cleanJsonResponse(res.text || "[]");
+      const rawData = JSON.parse(cleanedText);
+      
+      if (!Array.isArray(rawData)) throw new Error("Invalid response format");
+
       const processed: TrendingAd[] = [];
 
       for (const item of rawData) {
-        const imageUrl = await generateProductImage(ai, item.title_en);
+        // توليد صورة مخصصة لكل منتج
+        const imageUrl = await generateProductImage(ai, item.title_en || item.title_ar);
+        
         processed.push({
           id: item.id || Math.random().toString(36).substr(2, 9),
-          title: item.title_ar,
+          title: item.title_ar || "منتج رائع",
           thumbnail: imageUrl,
-          videoUrl: 'https://cdn.pixabay.com/video/2021/04/12/70860-536967732_tiny.mp4', // فيديو توضيحي
+          videoUrl: 'https://cdn.pixabay.com/video/2021/04/12/70860-536967732_tiny.mp4',
           price: item.price_mad || 299,
-          description: item.description_ar,
-          platform: item.platform || 'tiktok',
-          country: item.country || 'MA',
-          views: item.views || Math.floor(Math.random() * 2000000) + 100000,
+          description: item.description_ar || "منتج ترند عالي الجودة متوفر حالياً.",
+          platform: (item.platform as any) || 'tiktok',
+          country: (item.country as any) || 'MA',
+          views: item.views || Math.floor(Math.random() * 1000000),
           likes: Math.floor(Math.random() * 50000),
           shares: Math.floor(Math.random() * 5000),
           category: item.category || 'إلكترونيات',
@@ -122,11 +139,14 @@ const App: React.FC = () => {
       
       setAds(prev => {
         const unique = [...processed, ...prev].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
-        localStorage.setItem('trending_ads', JSON.stringify(unique.slice(0, 30)));
-        return unique.slice(0, 30);
+        localStorage.setItem('trending_ads', JSON.stringify(unique.slice(0, 40)));
+        return unique.slice(0, 40);
       });
+      
+      setActiveTab('ads'); // العودة لصفحة الإعلانات بعد التحديث
     } catch (error) {
-      console.error(error);
+      console.error("Error discovering trends:", error);
+      alert("عذراً، حدث خطأ أثناء جلب البيانات. يرجى المحاولة مرة أخرى.");
     } finally {
       setIsAiLoading(false);
     }
@@ -160,7 +180,7 @@ const App: React.FC = () => {
         setOrderSuccess(false);
         setShowCheckout(false);
         setSelectedAd(null);
-      }, 2500);
+      }, 2000);
     }, 1500);
   };
 
@@ -204,9 +224,9 @@ const App: React.FC = () => {
           <button
             onClick={discoverRealTrends}
             disabled={isAiLoading}
-            className="w-full mt-6 bg-gradient-to-r from-indigo-600 to-violet-600 text-white p-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-indigo-200 transition-all disabled:opacity-50"
+            className="w-full mt-6 bg-gradient-to-r from-indigo-600 to-violet-600 text-white p-4 rounded-2xl font-black flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 hover:shadow-indigo-200 transition-all disabled:opacity-50 group active:scale-95"
           >
-            {isAiLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+            {isAiLoading ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} className="group-hover:rotate-180 transition-transform duration-500" />}
             {isSidebarOpen && <span>تحديث التريندات</span>}
           </button>
         </nav>
@@ -220,40 +240,43 @@ const App: React.FC = () => {
             <input 
               type="text" 
               placeholder="ابحث عن منتج رابح..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pr-12 pl-4 py-2.5 text-sm outline-none"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pr-12 pl-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
               value={filters.search}
               onChange={(e) => setFilters({...filters, search: e.target.value})}
             />
           </div>
           <div className="flex gap-4 items-center">
-            <div className="bg-green-50 text-green-700 px-3 py-1.5 rounded-lg text-xs font-black">
-              LIVE MARKET ANALYSIS
+            <div className="bg-green-50 text-green-700 px-3 py-1.5 rounded-lg text-[10px] font-black tracking-widest uppercase">
+              Live Monitoring
             </div>
-            <div className="h-10 w-10 rounded-full bg-slate-200 border border-white" />
+            <div className="h-10 w-10 rounded-full bg-slate-100 border border-slate-200" />
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-8 relative no-scrollbar">
+        <div className="flex-1 overflow-y-auto p-8 relative no-scrollbar bg-[#F8FAFC]">
           {isAiLoading && (
-            <div className="absolute inset-0 bg-white/80 backdrop-blur-md z-50 flex flex-col items-center justify-center text-center">
-              <div className="relative mb-6">
-                <Loader2 size={80} className="text-indigo-600 animate-spin" />
-                <Play size={30} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-indigo-400 fill-indigo-400" />
+            <div className="absolute inset-0 bg-white/90 backdrop-blur-md z-[100] flex flex-col items-center justify-center text-center p-6">
+              <div className="relative mb-8">
+                <Loader2 size={100} className="text-indigo-600 animate-spin opacity-20" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Sparkles size={40} className="text-indigo-600 animate-pulse" />
+                </div>
               </div>
-              <h2 className="text-3xl font-black text-slate-800 mb-2">تحليل التريندات بالذكاء الاصطناعي...</h2>
-              <p className="text-indigo-600 font-bold text-lg animate-pulse">{loadingMessages[loadingStep]}</p>
+              <h2 className="text-3xl font-black text-slate-800 mb-3">جاري استخراج البيانات...</h2>
+              <p className="text-indigo-600 font-bold text-xl animate-bounce">{loadingMessages[loadingStep]}</p>
+              <p className="mt-10 text-slate-400 text-sm max-w-sm">نحن نستخدم الذكاء الاصطناعي لمسح الويب واكتشاف المنتجات الأكثر طلباً في الأسواق العربية حالياً.</p>
             </div>
           )}
 
           {activeTab === 'ads' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {filteredAds.map((ad) => (
+              {filteredAds.length > 0 ? filteredAds.map((ad) => (
                 <div 
                   key={ad.id} 
                   className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 group cursor-pointer flex flex-col"
                   onClick={() => setSelectedAd(ad)}
                 >
-                  <div className="relative aspect-square overflow-hidden bg-slate-100">
+                  <div className="relative aspect-square overflow-hidden bg-slate-50">
                     <img src={ad.thumbnail} alt={ad.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                     <div className="absolute top-4 left-4">
                       <div className="bg-amber-400 text-amber-950 px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1 shadow-lg">
@@ -264,51 +287,97 @@ const App: React.FC = () => {
                   </div>
                   <div className="p-6 flex flex-col flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase">{ad.category}</span>
+                      <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase tracking-wider">{ad.category}</span>
+                      <span className="text-slate-300">|</span>
+                      <span className="text-[10px] font-bold text-slate-500">{COUNTRY_LABELS[ad.country]}</span>
                     </div>
-                    <h3 className="text-lg font-bold text-slate-800 mb-4 line-clamp-2 h-14 leading-tight">{ad.title}</h3>
+                    <h3 className="text-lg font-bold text-slate-800 mb-4 line-clamp-2 h-14 leading-tight group-hover:text-indigo-600 transition-colors">{ad.title}</h3>
                     <div className="flex items-center justify-between mt-auto">
-                      <span className="text-2xl font-black text-indigo-600">{ad.price} <small className="text-sm">د.م</small></span>
+                      <span className="text-2xl font-black text-indigo-600">{ad.price} <small className="text-sm font-bold">د.م</small></span>
                       <div className="bg-slate-50 text-slate-400 p-2 rounded-xl group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                        <Video size={18} />
+                        <Play size={18} fill="currentColor" />
                       </div>
                     </div>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="col-span-full text-center py-20">
+                  <div className="bg-slate-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Search className="text-slate-400" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-800">لا توجد منتجات مطابقة</h3>
+                  <p className="text-slate-500">حاول تغيير كلمة البحث أو اضغط على "تحديث التريندات"</p>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Dashboards and Settings are the same as before... */}
           {activeTab === 'dashboard' && (
-            <div className="max-w-6xl mx-auto space-y-8">
-              <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden p-8">
-                <h3 className="font-bold text-xl mb-6">الطلبات الواردة</h3>
+            <div className="max-w-6xl mx-auto space-y-8 pb-20">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                   <p className="text-slate-400 font-bold text-sm mb-1">إجمالي الطلبات</p>
+                   <p className="text-4xl font-black">{orders.length}</p>
+                 </div>
+                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                   <p className="text-slate-400 font-bold text-sm mb-1">المبيعات المتوقعة</p>
+                   <p className="text-4xl font-black text-indigo-600">{orders.reduce((a,b)=>a+b.amount, 0)} <small className="text-sm">د.م</small></p>
+                 </div>
+              </div>
+              
+              <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-8 border-b border-slate-100 flex justify-between items-center">
+                  <h3 className="font-bold text-xl">سجل المبيعات</h3>
+                  <button onClick={() => { localStorage.removeItem('orders'); setOrders([]); }} className="text-xs text-red-500 font-bold">مسح السجل</button>
+                </div>
                 <div className="overflow-x-auto">
                    <table className="w-full text-right">
-                      <thead className="bg-slate-50 text-slate-500">
+                      <thead className="bg-slate-50 text-slate-500 text-xs font-black uppercase">
                          <tr>
-                            <th className="p-4">المنتج</th>
-                            <th className="p-4">الزبون</th>
-                            <th className="p-4">المدينة</th>
-                            <th className="p-4">المبلغ</th>
-                            <th className="p-4">الحالة</th>
+                            <th className="p-6">الطلب</th>
+                            <th className="p-6">الزبون</th>
+                            <th className="p-6">المدينة</th>
+                            <th className="p-6">المبلغ</th>
+                            <th className="p-6">الحالة</th>
                          </tr>
                       </thead>
-                      <tbody>
-                         {orders.map(o => (
-                           <tr key={o.id} className="border-t border-slate-100">
-                             <td className="p-4 font-bold">{o.productTitle}</td>
-                             <td className="p-4">{o.customerName}</td>
-                             <td className="p-4">{o.city}</td>
-                             <td className="p-4 font-black">{o.amount} د.م</td>
-                             <td className="p-4"><span className="bg-amber-50 text-amber-600 px-2 py-1 rounded-full text-[10px] font-bold">انتظار</span></td>
+                      <tbody className="divide-y divide-slate-100">
+                         {orders.length > 0 ? orders.map(o => (
+                           <tr key={o.id} className="hover:bg-slate-50 transition-colors">
+                             <td className="p-6 font-bold text-indigo-600">{o.productTitle}</td>
+                             <td className="p-6 font-medium">{o.customerName}</td>
+                             <td className="p-6">{o.city}</td>
+                             <td className="p-6 font-black">{o.amount} د.م</td>
+                             <td className="p-6"><span className="bg-amber-50 text-amber-600 px-3 py-1 rounded-full text-[10px] font-black uppercase">انتظار التاكيد</span></td>
                            </tr>
-                         ))}
+                         )) : (
+                           <tr>
+                             <td colSpan={5} className="p-20 text-center text-slate-400 font-bold">لا توجد طلبات مسجلة حالياً</td>
+                           </tr>
+                         )}
                       </tbody>
                    </table>
                 </div>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'settings' && (
+            <div className="max-w-4xl mx-auto space-y-8 pb-20">
+               <div className="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                  <h3 className="text-2xl font-black mb-8 flex items-center gap-3">إعدادات المتجر والتتبع</h3>
+                  <div className="space-y-6">
+                     <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">Facebook Pixel ID</label>
+                        <input type="text" placeholder="1234567890" className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl outline-none" defaultValue={pixelConfig.facebook} />
+                     </div>
+                     <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">Google Analytics ID</label>
+                        <input type="text" placeholder="G-XXXXXX" className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl outline-none" defaultValue={pixelConfig.google} />
+                     </div>
+                     <button className="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black">حفظ الإعدادات</button>
+                  </div>
+               </div>
             </div>
           )}
         </div>
@@ -316,31 +385,30 @@ const App: React.FC = () => {
 
       {/* Product Modal */}
       {selectedAd && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 md:p-10">
-          <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-xl" onClick={() => setSelectedAd(null)} />
-          <div className="bg-white w-full max-w-6xl h-full md:h-auto md:max-h-[90vh] rounded-[3rem] relative overflow-hidden flex flex-col md:flex-row shadow-2xl animate-in zoom-in-95 duration-300">
-            <button onClick={() => setSelectedAd(null)} className="absolute top-6 left-6 z-20 bg-white/20 text-white p-2 rounded-full"><X size={24} /></button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10">
+          <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-xl" onClick={() => setSelectedAd(null)} />
+          <div className="bg-white w-full max-w-6xl h-full md:h-auto md:max-h-[92vh] rounded-[3rem] relative overflow-hidden flex flex-col md:flex-row shadow-2xl animate-in zoom-in-95 duration-300">
+            <button onClick={() => setSelectedAd(null)} className="absolute top-6 left-6 z-[110] bg-white/10 text-white p-2 rounded-full hover:bg-white/20 transition-all"><X size={24} /></button>
             
-            <div className="md:w-1/2 bg-black flex flex-col items-center justify-center relative">
+            <div className="md:w-1/2 bg-black flex flex-col items-center justify-center relative min-h-[300px]">
               <video 
                 key={selectedAd.id}
                 className="w-full h-full object-contain"
                 src={selectedAd.videoUrl}
-                autoPlay loop controls
+                autoPlay loop controls muted
               />
-              {/* روابط خارجية ذكية */}
               <div className="absolute bottom-6 right-6 left-6 flex gap-3">
                 <a 
                   href={`https://www.tiktok.com/search?q=${encodeURIComponent(selectedAd.title)}`} 
                   target="_blank" 
-                  className="flex-1 bg-white/10 backdrop-blur-md text-white py-3 rounded-2xl flex items-center justify-center gap-2 font-bold text-xs hover:bg-white/20 transition-all"
+                  className="flex-1 bg-white/20 backdrop-blur-xl text-white py-3 rounded-2xl flex items-center justify-center gap-2 font-bold text-xs hover:bg-white/40 transition-all"
                 >
-                  <Video size={16} /> مشاهدة على TikTok
+                  <Video size={16} /> ابحث في TikTok
                 </a>
                 <a 
                   href={`https://www.youtube.com/results?search_query=${encodeURIComponent(selectedAd.title)}+review`} 
                   target="_blank" 
-                  className="flex-1 bg-white/10 backdrop-blur-md text-white py-3 rounded-2xl flex items-center justify-center gap-2 font-bold text-xs hover:bg-white/20 transition-all"
+                  className="flex-1 bg-white/20 backdrop-blur-xl text-white py-3 rounded-2xl flex items-center justify-center gap-2 font-bold text-xs hover:bg-white/40 transition-all"
                 >
                   <Youtube size={16} /> مراجعات يوتيوب
                 </a>
@@ -350,44 +418,59 @@ const App: React.FC = () => {
             <div className="md:w-1/2 p-8 md:p-12 overflow-y-auto bg-white flex flex-col no-scrollbar">
               {showCheckout ? (
                 <div className="animate-in slide-in-from-left-4">
-                  <h2 className="text-3xl font-black mb-8">تفاصيل الشحن 📦</h2>
+                  <h2 className="text-3xl font-black mb-8">إتمام الطلب 🛍️</h2>
                   {orderSuccess ? (
                     <div className="text-center py-20">
-                      <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6"><CheckCircle size={40} /></div>
-                      <h3 className="text-2xl font-black mb-2">تم الطلب بنجاح!</h3>
-                      <p className="text-slate-500">سنتصل بك لتأكيد الشحن.</p>
+                      <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6"><CheckCircle size={48} className="animate-bounce" /></div>
+                      <h3 className="text-3xl font-black mb-2 text-slate-800">شكراً لك!</h3>
+                      <p className="text-slate-500 font-bold">تم استلام طلبك بنجاح، سنتصل بك قريباً.</p>
                     </div>
                   ) : (
                     <form onSubmit={handleOrderSubmit} className="space-y-6">
-                      <input required placeholder="الاسم الكامل" className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl outline-none" value={checkoutData.name} onChange={e => setCheckoutData({...checkoutData, name: e.target.value})} />
-                      <input required placeholder="المدينة" className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl outline-none" value={checkoutData.city} onChange={e => setCheckoutData({...checkoutData, city: e.target.value})} />
-                      <input required placeholder="رقم الهاتف" className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl outline-none text-ltr" value={checkoutData.phone} onChange={e => setCheckoutData({...checkoutData, phone: e.target.value})} />
-                      <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black text-xl">تأكيد الشراء الآن</button>
+                      <div className="bg-slate-50 p-4 rounded-2xl flex items-center gap-4 mb-6">
+                        <img src={selectedAd.thumbnail} className="w-16 h-16 rounded-xl object-cover" />
+                        <div>
+                          <p className="font-bold text-sm text-slate-800 line-clamp-1">{selectedAd.title}</p>
+                          <p className="text-indigo-600 font-black">{selectedAd.price} د.م</p>
+                        </div>
+                      </div>
+                      <input required placeholder="الاسم الكامل" className="w-full bg-slate-50 border border-slate-200 p-5 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all" value={checkoutData.name} onChange={e => setCheckoutData({...checkoutData, name: e.target.value})} />
+                      <input required placeholder="المدينة" className="w-full bg-slate-50 border border-slate-200 p-5 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all" value={checkoutData.city} onChange={e => setCheckoutData({...checkoutData, city: e.target.value})} />
+                      <input required placeholder="رقم الهاتف" className="w-full bg-slate-50 border border-slate-200 p-5 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-ltr" type="tel" value={checkoutData.phone} onChange={e => setCheckoutData({...checkoutData, phone: e.target.value})} />
+                      <button type="submit" disabled={isOrdering} className="w-full bg-indigo-600 text-white py-6 rounded-[2rem] font-black text-2xl shadow-xl shadow-indigo-100 hover:scale-[1.02] active:scale-95 transition-all">
+                        {isOrdering ? <Loader2 className="animate-spin mx-auto" /> : 'تأكيد الطلب الآن'}
+                      </button>
+                      <button type="button" onClick={() => setShowCheckout(false)} className="w-full text-slate-400 font-bold py-2">رجوع</button>
                     </form>
                   )}
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center gap-3 mb-4">
-                    <span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-[10px] font-black uppercase">{selectedAd.category}</span>
-                    <span className="text-slate-400 font-bold flex items-center gap-1"><MapPin size={14} /> {COUNTRY_LABELS[selectedAd.country]}</span>
+                  <div className="flex items-center gap-3 mb-6">
+                    <span className="bg-indigo-50 text-indigo-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">{selectedAd.category}</span>
+                    <span className="text-slate-300">|</span>
+                    <span className="text-slate-500 font-bold flex items-center gap-1.5"><MapPin size={16} /> {COUNTRY_LABELS[selectedAd.country]}</span>
                   </div>
-                  <h2 className="text-4xl font-black text-slate-800 mb-6 leading-tight">{selectedAd.title}</h2>
-                  <div className="flex items-center gap-4 mb-8">
-                    <span className="text-5xl font-black text-indigo-600">{selectedAd.price} <small className="text-xl font-bold">د.م</small></span>
-                    <span className="text-slate-300 line-through text-2xl">{(selectedAd.price * 1.5).toFixed(0)} د.م</span>
+                  <h2 className="text-4xl font-black text-slate-800 mb-6 leading-[1.1]">{selectedAd.title}</h2>
+                  <div className="flex items-center gap-6 mb-10">
+                    <span className="text-6xl font-black text-indigo-600">{selectedAd.price} <small className="text-xl font-bold">د.م</small></span>
+                    <div className="flex flex-col">
+                       <span className="text-slate-300 line-through text-2xl">{(selectedAd.price * 1.5).toFixed(0)} د.م</span>
+                       <span className="text-red-500 font-black text-sm uppercase">خصم 40% اليوم</span>
+                    </div>
                   </div>
-                  <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 mb-8">
-                    <h4 className="font-black text-slate-800 mb-3">وصف المنتج الذكي:</h4>
-                    <p className="text-slate-600 leading-relaxed font-medium">
-                      {selectedAd.description || 'هذا المنتج مرشح ليكون "Winner" في حملتك القادمة، يتميز بتفاعل عالي جداً في المنصات وحل مشكلة حقيقية للمستهلك.'}
+                  <div className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100 mb-10 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-2 h-full bg-indigo-600 opacity-20" />
+                    <h4 className="font-black text-slate-800 mb-4 flex items-center gap-2">لماذا هذا المنتج رابح؟</h4>
+                    <p className="text-slate-600 leading-relaxed font-medium text-lg">
+                      {selectedAd.description}
                     </p>
                   </div>
-                  <button onClick={() => setShowCheckout(true)} className="w-full bg-indigo-600 text-white py-6 rounded-[2rem] font-black text-2xl shadow-xl shadow-indigo-100 hover:scale-[1.02] active:scale-95 transition-all mt-auto flex items-center justify-center gap-3">
+                  <button onClick={() => setShowCheckout(true)} className="w-full bg-indigo-600 text-white py-8 rounded-[2.5rem] font-black text-2xl shadow-2xl shadow-indigo-100 hover:scale-[1.02] active:scale-95 transition-all mt-auto flex items-center justify-center gap-4">
                     <ShoppingCart /> اطلب الآن (الدفع عند الاستلام)
                   </button>
-                  <div className="mt-4 flex items-center justify-center gap-2 text-slate-400 font-bold text-xs">
-                     <ShieldCheck size={14} /> ضمان استرجاع الأموال خلال 30 يوم
+                  <div className="mt-6 flex items-center justify-center gap-3 text-slate-400 font-bold text-xs opacity-60">
+                     <ShieldCheck size={16} /> تسوق آمن 100% | توصيل سريع لجميع المدن
                   </div>
                 </>
               )}
