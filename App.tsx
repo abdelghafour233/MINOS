@@ -36,10 +36,10 @@ const App: React.FC = () => {
   });
 
   const loadingMessages = [
-    "جاري الوصول إلى بيانات السوق عبر Google Search...",
-    "تحليل المنتجات الأكثر طلباً في المغرب والخليج...",
-    "توليد صور فوتوغرافية تجارية عالية الجودة...",
-    "تحديث لوحة البيانات بالنتائج النهائية..."
+    "جاري الاتصال بمحركات البحث العالمية...",
+    "تحليل تريندات الأسواق في المغرب والخليج العربي...",
+    "توليد صور احترافية للمنتجات المختارة...",
+    "تحديث قاعدة البيانات والروابط المباشرة..."
   ];
 
   useEffect(() => {
@@ -73,7 +73,7 @@ const App: React.FC = () => {
     try {
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
-        contents: { parts: [{ text: `Professional e-commerce product photography of ${title}, isolated on white background, studio lighting, 4k high resolution.` }] },
+        contents: { parts: [{ text: `Professional studio photography of ${title}, white background, 4k high resolution, e-commerce style.` }] },
         config: { imageConfig: { aspectRatio: "1:1" } }
       });
       const part = response.candidates?.[0]?.content?.parts.find((p: any) => p.inlineData);
@@ -92,38 +92,22 @@ const App: React.FC = () => {
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
-      const promptText = `Find 8 currently trending "Winning Products" for e-commerce in Morocco, Saudi Arabia, and UAE for June 2024. 
-      Focus on innovative gadgets, home solutions, or trending beauty tools. 
-      Return the results as a JSON array of objects.`;
+      // طلب واضح لاستخراج البيانات مع البحث
+      const promptText = `Find 6 "Winning Products" currently trending for e-commerce in Morocco, UAE, and Saudi Arabia for late 2024. 
+      Identify products with high viral potential.
+      Return the results strictly as a valid JSON array.
+      Required fields per object: id, title_ar, title_en, price_mad (number), description_ar, platform (tiktok/facebook), country (MA/SA/AE), category (electronics/home/beauty), views (number).
+      Do not include any text outside the JSON array.`;
 
       const res = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: promptText,
+        model: 'gemini-3-pro-preview',
+        contents: [{ parts: [{ text: promptText }] }],
         config: { 
-          tools: [{ googleSearch: {} }],
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                id: { type: Type.STRING },
-                title_ar: { type: Type.STRING },
-                title_en: { type: Type.STRING },
-                price_mad: { type: Type.NUMBER },
-                description_ar: { type: Type.STRING },
-                platform: { type: Type.STRING },
-                country: { type: Type.STRING },
-                category: { type: Type.STRING },
-                views: { type: Type.NUMBER }
-              },
-              required: ["id", "title_ar", "title_en", "price_mad", "description_ar", "platform", "country", "category"]
-            }
-          }
+          tools: [{ googleSearch: {} }]
         }
       });
 
-      // استخراج روابط المصادر (Grounding)
+      // استخراج الروابط (Grounding)
       const groundingChunks = res.candidates?.[0]?.groundingMetadata?.groundingChunks;
       if (groundingChunks) {
         const extractedSources = groundingChunks
@@ -132,12 +116,20 @@ const App: React.FC = () => {
         setSources(extractedSources);
       }
 
+      // معالجة النص لاستخراج JSON
+      const textResponse = res.text || "";
+      const jsonMatch = textResponse.match(/\[.*\]/s);
       let rawData = [];
-      try {
-        rawData = JSON.parse(res.text || "[]");
-      } catch (parseError) {
-        console.error("Parse Error:", res.text);
-        throw new Error("Invalid response format from AI");
+      
+      if (jsonMatch) {
+        try {
+          rawData = JSON.parse(jsonMatch[0]);
+        } catch (e) {
+          console.error("JSON Parse Error:", e);
+          throw new Error("تنسيق البيانات غير صحيح");
+        }
+      } else {
+        throw new Error("لم يتم العثور على بيانات صالحة");
       }
 
       const processed: TrendingAd[] = [];
@@ -147,14 +139,14 @@ const App: React.FC = () => {
         
         processed.push({
           id: item.id || Math.random().toString(36).substr(2, 9),
-          title: item.title_ar || "منتج رائع",
+          title: item.title_ar || "منتج ترند",
           thumbnail: imageUrl,
           videoUrl: 'https://cdn.pixabay.com/video/2021/04/12/70860-536967732_tiny.mp4',
-          price: item.price_mad || 299,
-          description: item.description_ar || "منتج ترند عالي الجودة متوفر حالياً.",
+          price: item.price_mad || 349,
+          description: item.description_ar || "هذا المنتج يحقق مبيعات خيالية حالياً.",
           platform: (item.platform === 'tiktok' ? 'tiktok' : 'facebook') as any,
-          country: (['MA', 'SA', 'AE', 'KW', 'EG'].includes(item.country) ? item.country : 'MA') as any,
-          views: item.views || Math.floor(Math.random() * 900000) + 100000,
+          country: (['MA', 'SA', 'AE'].includes(item.country) ? item.country : 'MA') as any,
+          views: item.views || Math.floor(Math.random() * 500000) + 100000,
           likes: Math.floor(Math.random() * 20000),
           shares: Math.floor(Math.random() * 3000),
           category: item.category || 'إلكترونيات',
@@ -165,8 +157,9 @@ const App: React.FC = () => {
       }
       
       setAds(prev => {
-        const unique = [...processed, ...prev].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
-        const result = unique.slice(0, 60);
+        const combined = [...processed, ...prev];
+        const unique = combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+        const result = unique.slice(0, 50);
         localStorage.setItem('trending_ads', JSON.stringify(result));
         return result;
       });
@@ -174,7 +167,7 @@ const App: React.FC = () => {
       setActiveTab('ads');
     } catch (error: any) {
       console.error("Discovery Error:", error);
-      alert(`عذراً، حدث خطأ: ${error.message || 'فشل الاتصال بالخدمة'}. تأكد من اتصال الإنترنت وحاول مرة أخرى.`);
+      alert(`عذراً، فشل جلب التريندات: ${error.message || 'خطأ في الاتصال'}. يرجى المحاولة بعد قليل.`);
     } finally {
       setIsAiLoading(false);
     }
@@ -277,11 +270,11 @@ const App: React.FC = () => {
             {sources.length > 0 && isSidebarOpen && (
               <div className="hidden lg:flex items-center gap-2 px-4 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-[10px] font-bold border border-indigo-100 animate-pulse">
                 <Globe size={12} />
-                تم جلب بيانات من {sources.length} مصدر موثوق
+                بيانات حية من {sources.length} مصدر
               </div>
             )}
             <div className="bg-green-50 text-green-700 px-3 py-1.5 rounded-lg text-[10px] font-black tracking-widest uppercase border border-green-100">
-              AI Market Sync
+              AI Market Analyzer
             </div>
           </div>
         </header>
@@ -295,7 +288,7 @@ const App: React.FC = () => {
                   <Sparkles size={32} className="text-indigo-600 animate-pulse" />
                 </div>
               </div>
-              <h2 className="text-4xl font-black text-slate-900 mb-4 tracking-tight">جاري مسح الأسواق...</h2>
+              <h2 className="text-4xl font-black text-slate-900 mb-4 tracking-tight">استكشاف المنتجات الرابحة...</h2>
               <p className="text-indigo-600 font-bold text-xl h-8">{loadingMessages[loadingStep]}</p>
               <div className="mt-12 w-64 bg-slate-100 h-1.5 rounded-full overflow-hidden">
                 <div className="bg-indigo-600 h-full animate-pulse w-full" />
@@ -305,27 +298,6 @@ const App: React.FC = () => {
 
           {activeTab === 'ads' && (
             <>
-              {sources.length > 0 && (
-                <div className="mb-8 p-6 bg-white rounded-[2rem] border border-slate-200 shadow-sm animate-in slide-in-from-top-4">
-                  <h4 className="font-black text-slate-800 mb-4 flex items-center gap-2">
-                    <LinkIcon size={18} className="text-indigo-600" /> مصادر البحث الحالية:
-                  </h4>
-                  <div className="flex flex-wrap gap-3">
-                    {sources.map((s, i) => (
-                      <a 
-                        key={i} 
-                        href={s.uri} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-[10px] bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-700 px-3 py-1.5 rounded-full border border-slate-100 transition-colors flex items-center gap-2"
-                      >
-                        <ExternalLink size={10} /> {s.title}
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 pb-32">
                 {filteredAds.length > 0 ? filteredAds.map((ad) => (
                   <div 
@@ -394,7 +366,6 @@ const App: React.FC = () => {
                          <tr>
                             <th className="p-8">المنتج المطلوب</th>
                             <th className="p-8">اسم الزبون</th>
-                            <th className="p-8">المدينة</th>
                             <th className="p-8">المبلغ</th>
                             <th className="p-8">حالة الطلب</th>
                          </tr>
@@ -402,20 +373,16 @@ const App: React.FC = () => {
                       <tbody className="divide-y divide-slate-50">
                          {orders.length > 0 ? orders.map(o => (
                            <tr key={o.id} className="hover:bg-slate-50/50 transition-colors">
-                             <td className="p-8">
-                                <div className="font-bold text-slate-800 text-lg">{o.productTitle}</div>
-                                <div className="text-[10px] text-slate-400 font-black mt-1">ID: {o.id}</div>
-                             </td>
+                             <td className="p-8 font-bold text-slate-800 text-lg">{o.productTitle}</td>
                              <td className="p-8 font-bold text-slate-600">{o.customerName}</td>
-                             <td className="p-8 text-slate-500 font-medium">{o.city}</td>
-                             <td className="p-8 font-black text-xl text-indigo-600">{o.amount} <small className="text-xs">د.م</small></td>
+                             <td className="p-8 font-black text-xl text-indigo-600">{o.amount} د.م</td>
                              <td className="p-8">
-                                <span className="bg-amber-100 text-amber-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider ring-1 ring-amber-200">في انتظار التاكيد</span>
+                                <span className="bg-amber-100 text-amber-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider">في انتظار التاكيد</span>
                              </td>
                            </tr>
                          )) : (
                            <tr>
-                             <td colSpan={5} className="p-24 text-center text-slate-300 font-black text-xl">لا توجد أي مبيعات مسجلة حتى الآن</td>
+                             <td colSpan={4} className="p-24 text-center text-slate-300 font-black text-xl">لا توجد مبيعات حالياً</td>
                            </tr>
                          )}
                       </tbody>
@@ -427,7 +394,7 @@ const App: React.FC = () => {
 
           {activeTab === 'settings' && (
             <div className="max-w-4xl mx-auto space-y-8 pb-32">
-               <div className="bg-white p-12 rounded-[3.5rem] border border-slate-200 shadow-sm relative overflow-hidden">
+               <div className="bg-white p-12 rounded-[3.5rem] border border-slate-200 shadow-sm">
                   <h3 className="text-3xl font-black mb-10 flex items-center gap-4 text-slate-900">
                     <Database className="text-indigo-600" /> إعدادات البكسل والتتبع
                   </h3>
@@ -435,16 +402,14 @@ const App: React.FC = () => {
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div>
                            <label className="block text-sm font-black text-slate-700 mb-3 uppercase tracking-wider">Facebook Pixel ID</label>
-                           <input type="text" placeholder="1234567890..." className="w-full bg-slate-50 border border-slate-200 p-5 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-mono" defaultValue={pixelConfig.facebook} />
+                           <input type="text" placeholder="12345..." className="w-full bg-slate-50 border border-slate-200 p-5 rounded-2xl outline-none" defaultValue={pixelConfig.facebook} />
                         </div>
                         <div>
                            <label className="block text-sm font-black text-slate-700 mb-3 uppercase tracking-wider">Google Analytics ID</label>
-                           <input type="text" placeholder="G-XXXXXX..." className="w-full bg-slate-50 border border-slate-200 p-5 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-mono" defaultValue={pixelConfig.google} />
+                           <input type="text" placeholder="G-XXX..." className="w-full bg-slate-50 border border-slate-200 p-5 rounded-2xl outline-none" defaultValue={pixelConfig.google} />
                         </div>
                      </div>
-                     <div className="pt-6 border-t border-slate-100">
-                        <button className="bg-indigo-600 text-white px-10 py-5 rounded-[2rem] font-black text-xl shadow-xl shadow-indigo-100 hover:scale-[1.02] active:scale-95 transition-all">حفظ التعديلات</button>
-                     </div>
+                     <button className="bg-indigo-600 text-white px-10 py-5 rounded-[2rem] font-black text-xl">حفظ التعديلات</button>
                   </div>
                </div>
             </div>
@@ -466,22 +431,6 @@ const App: React.FC = () => {
                 src={selectedAd.videoUrl}
                 autoPlay loop controls muted
               />
-              <div className="absolute bottom-8 right-8 left-8 flex gap-4">
-                <a 
-                  href={`https://www.tiktok.com/search?q=${encodeURIComponent(selectedAd.title)}`} 
-                  target="_blank" 
-                  className="flex-1 bg-white/10 backdrop-blur-2xl text-white py-4 rounded-2xl flex items-center justify-center gap-3 font-black text-sm hover:bg-white/20 transition-all border border-white/10"
-                >
-                  <Video size={20} /> بحث TikTok
-                </a>
-                <a 
-                  href={`https://www.youtube.com/results?search_query=${encodeURIComponent(selectedAd.title)}+review`} 
-                  target="_blank" 
-                  className="flex-1 bg-white/10 backdrop-blur-2xl text-white py-4 rounded-2xl flex items-center justify-center gap-3 font-black text-sm hover:bg-white/20 transition-all border border-white/10"
-                >
-                  <Youtube size={20} /> مراجعات
-                </a>
-              </div>
             </div>
 
             <div className="md:w-1/2 p-10 md:p-16 overflow-y-auto bg-white flex flex-col no-scrollbar">
@@ -491,8 +440,8 @@ const App: React.FC = () => {
                   {orderSuccess ? (
                     <div className="text-center py-24">
                       <div className="w-28 h-28 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner"><CheckCircle size={56} className="animate-bounce" /></div>
-                      <h3 className="text-4xl font-black mb-3 text-slate-900 text-center">شكراً لثقتك!</h3>
-                      <p className="text-slate-500 font-bold text-xl text-center">لقد استلمنا طلبك، وسنتواصل معك خلال 24 ساعة.</p>
+                      <h3 className="text-4xl font-black mb-3 text-slate-900">شكراً لثقتك!</h3>
+                      <p className="text-slate-500 font-bold text-xl">سنتواصل معك قريباً لتأكيد طلبك.</p>
                     </div>
                   ) : (
                     <form onSubmit={handleOrderSubmit} className="space-y-8">
@@ -500,18 +449,18 @@ const App: React.FC = () => {
                         <img src={selectedAd.thumbnail} className="w-20 h-20 rounded-2xl object-cover shadow-lg" />
                         <div>
                           <p className="font-black text-lg text-slate-800 line-clamp-1">{selectedAd.title}</p>
-                          <p className="text-indigo-600 font-black text-2xl">{selectedAd.price} <small className="text-xs">د.م</small></p>
+                          <p className="text-indigo-600 font-black text-2xl">{selectedAd.price} د.م</p>
                         </div>
                       </div>
                       <div className="space-y-5">
                         <input required placeholder="الاسم بالكامل" className="w-full bg-slate-50 border border-slate-200 p-6 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all text-lg font-bold" value={checkoutData.name} onChange={e => setCheckoutData({...checkoutData, name: e.target.value})} />
                         <input required placeholder="المدينة" className="w-full bg-slate-50 border border-slate-200 p-6 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all text-lg font-bold" value={checkoutData.city} onChange={e => setCheckoutData({...checkoutData, city: e.target.value})} />
-                        <input required placeholder="رقم الهاتف (واتساب)" className="w-full bg-slate-50 border border-slate-200 p-6 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all text-lg font-bold text-ltr" type="tel" value={checkoutData.phone} onChange={e => setCheckoutData({...checkoutData, phone: e.target.value})} />
+                        <input required placeholder="رقم الهاتف" className="w-full bg-slate-50 border border-slate-200 p-6 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all text-lg font-bold text-ltr" type="tel" value={checkoutData.phone} onChange={e => setCheckoutData({...checkoutData, phone: e.target.value})} />
                       </div>
                       <button type="submit" disabled={isOrdering} className="w-full bg-indigo-600 text-white py-8 rounded-[3rem] font-black text-3xl shadow-2xl shadow-indigo-100 hover:scale-[1.02] active:scale-95 transition-all mt-6">
-                        {isOrdering ? <Loader2 className="animate-spin mx-auto" size={32} /> : 'تأكيد الشراء الآن'}
+                        {isOrdering ? <Loader2 className="animate-spin mx-auto" size={32} /> : 'تأكيد الطلب الآن'}
                       </button>
-                      <button type="button" onClick={() => setShowCheckout(false)} className="w-full text-slate-400 font-bold py-2 hover:text-slate-600 transition-colors">إلغاء والعودة</button>
+                      <button type="button" onClick={() => setShowCheckout(false)} className="w-full text-slate-400 font-bold py-2">رجوع</button>
                     </form>
                   )}
                 </div>
@@ -519,19 +468,17 @@ const App: React.FC = () => {
                 <>
                   <div className="flex items-center gap-4 mb-8">
                     <span className="bg-indigo-50 text-indigo-700 px-5 py-2 rounded-2xl text-xs font-black uppercase tracking-[0.2em]">{selectedAd.category}</span>
-                    <span className="text-slate-200">|</span>
                     <span className="text-slate-500 font-black flex items-center gap-2 text-sm"><MapPin size={18} /> {COUNTRY_LABELS[selectedAd.country]}</span>
                   </div>
                   <h2 className="text-5xl font-black text-slate-900 mb-8 leading-[1.15] tracking-tight">{selectedAd.title}</h2>
                   <div className="flex items-center gap-8 mb-12">
                     <span className="text-7xl font-black text-indigo-600 tracking-tighter">{selectedAd.price} <small className="text-2xl font-bold">د.م</small></span>
                     <div className="flex flex-col">
-                       <span className="text-slate-300 line-through text-3xl">{(selectedAd.price * 1.6).toFixed(0)} د.م</span>
-                       <span className="bg-red-50 text-red-600 px-3 py-1 rounded-lg font-black text-sm uppercase mt-1 self-start">خصم حصري 40%</span>
+                       <span className="text-slate-300 line-through text-3xl">{(selectedAd.price * 1.5).toFixed(0)} د.م</span>
+                       <span className="bg-red-50 text-red-600 px-3 py-1 rounded-lg font-black text-sm mt-1">توفير كبير</span>
                     </div>
                   </div>
-                  <div className="bg-slate-50 p-10 rounded-[3rem] border border-slate-100 mb-12 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-2.5 h-full bg-indigo-600" />
+                  <div className="bg-slate-50 p-10 rounded-[3rem] border border-slate-100 mb-12">
                     <h4 className="font-black text-slate-900 mb-5 text-xl flex items-center gap-3">
                       <Sparkles className="text-amber-500" /> تحليل المنتج:
                     </h4>
@@ -540,11 +487,11 @@ const App: React.FC = () => {
                     </p>
                   </div>
                   <button onClick={() => setShowCheckout(true)} className="w-full bg-indigo-600 text-white py-10 rounded-[3.5rem] font-black text-3xl shadow-2xl shadow-indigo-100 hover:scale-[1.03] active:scale-95 transition-all mt-auto flex items-center justify-center gap-5">
-                    <ShoppingCart size={32} /> شراء المنتج الآن
+                    <ShoppingCart size={32} /> اطلب الآن - دفع عند الاستلام
                   </button>
-                  <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-slate-400 font-black text-xs opacity-70">
-                     <div className="flex items-center gap-2"><ShieldCheck size={20} /> دفع عند الاستلام</div>
-                     <div className="flex items-center gap-2"><Globe size={20} /> شحن سريع للمنزل</div>
+                  <div className="mt-8 flex items-center justify-center gap-6 text-slate-400 font-black text-xs opacity-70">
+                     <div className="flex items-center gap-2"><ShieldCheck size={20} /> تسوق آمن</div>
+                     <div className="flex items-center gap-2"><Globe size={20} /> شحن لكل المدن</div>
                   </div>
                 </>
               )}
