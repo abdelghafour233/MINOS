@@ -1,12 +1,12 @@
 
-export type Platform = 'facebook' | 'tiktok' | 'instagram' | 'aliexpress';
+export type Platform = 'facebook' | 'tiktok' | 'instagram' | 'aliexpress' | 'snapchat' | 'youcan';
 export type Country = 'MA' | 'SA' | 'AE' | 'KW' | 'EG';
 
 export interface TrendingAd {
   id: string;
   title: string;
   thumbnail: string;
-  additionalImage?: string; // حقل الصورة الإضافية
+  additionalImage?: string; 
   videoUrl?: string;
   price: number;
   description?: string;
