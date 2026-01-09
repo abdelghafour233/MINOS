@@ -6,6 +6,7 @@ export interface TrendingAd {
   id: string;
   title: string;
   thumbnail: string;
+  additionalImage?: string; // حقل الصورة الإضافية
   videoUrl?: string;
   price: number;
   description?: string;
