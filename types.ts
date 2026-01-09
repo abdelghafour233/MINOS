@@ -1,54 +1,25 @@
 
-export type Platform = 'facebook' | 'tiktok' | 'instagram' | 'aliexpress' | 'snapchat' | 'youcan';
-export type Country = 'MA' | 'SA' | 'AE' | 'KW' | 'EG';
+export type Platform = 'windows' | 'gaming' | 'software' | 'streaming' | 'vpn' | 'design';
 
-export interface TrendingAd {
+export interface DigitalKeyProduct {
   id: string;
   title: string;
   thumbnail: string;
-  additionalImage?: string; 
-  videoUrl?: string;
   price: number;
-  description?: string;
+  description: string;
   platform: Platform;
-  country: Country;
-  views: number;
-  likes: number;
-  shares: number;
   category: string;
-  firstSeen: string;
-  lastSeen: string;
-  isWinning: boolean;
-  sourceUrl?: string;
+  isAvailable: boolean;
+  keyFormat: string; // e.g. XXXX-XXXX-XXXX
+  rating: number;
+  salesCount: number;
+  deliveryTime: 'instant' | '1-24h';
 }
 
-export interface FilterState {
-  search: string;
-  platform: Platform | 'all';
-  country: Country | 'all';
-  category: string;
-  sortBy: 'views' | 'date' | 'likes';
-}
-
-export interface Order {
-  id: string;
-  customerName: string;
-  city: string;
-  phone: string;
+export interface UserOrder {
+  orderId: string;
   productId: string;
   productTitle: string;
-  amount: number;
-  date: string;
-  status: 'pending' | 'shipped' | 'delivered';
-  syncedToSheets: boolean;
-}
-
-export interface IntegrationConfig {
-  apifyToken?: string;
-  apifyActorId?: string;
-  zapierWebhookUrl?: string;
-  googleSheetUrl?: string;
-  facebookPixel?: string;
-  googlePixel?: string;
-  tiktokPixel?: string;
+  generatedKey: string;
+  purchaseDate: string;
 }
