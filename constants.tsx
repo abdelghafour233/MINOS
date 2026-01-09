@@ -2,7 +2,7 @@
 import { TrendingAd, Country } from './types';
 
 export const COUNTRY_LABELS: Record<Country | 'all', string> = {
-  all: 'كل الدول',
+  all: 'كل المناطق',
   MA: 'المغرب',
   SA: 'السعودية',
   AE: 'الإمارات',
@@ -19,63 +19,64 @@ export const PLATFORM_LABELS = {
 
 export const CATEGORIES = [
   'الكل',
-  'إلكترونيات',
-  'منزل',
-  'تجميل',
-  'أدوات مطبخ',
-  'سيارات'
+  'اشتراكات',
+  'ألعاب',
+  'برامج',
+  'دورات تدريبية',
+  'بطاقات هدايا',
+  'خدمات رقمية'
 ];
 
 export const MOCK_TRENDS: TrendingAd[] = [
   {
-    id: '1',
-    title: 'خلاط محمول لاسلكي فائق القوة للرياضيين',
-    thumbnail: 'https://images.unsplash.com/photo-1570222020676-969231783ae8?auto=format&fit=crop&q=80&w=600',
+    id: 'd1',
+    title: 'اشتراك Canva Pro - سنة كاملة برابط خاص',
+    thumbnail: 'https://images.unsplash.com/photo-1626785774573-4b799315345d?auto=format&fit=crop&q=80&w=600',
     videoUrl: 'https://cdn.pixabay.com/video/2021/04/12/70860-536967732_tiny.mp4',
-    price: 299,
-    description: 'خلاط عصري يسهل حمله في الحقيبة الرياضية، بطارية تدوم طويلاً وشفرات من الفولاذ المقاوم للصدأ.',
+    price: 99,
+    description: 'احصل على كافة مميزات كانفا برو على حسابك الشخصي. تصاميم غير محدودة، إزالة الخلفية، وآلاف الخطوط العربية والأجنبية.',
+    platform: 'instagram',
+    country: 'MA',
+    views: 450000,
+    likes: 12000,
+    shares: 800,
+    category: 'برامج',
+    firstSeen: '2024-10-01',
+    lastSeen: '2024-12-15',
+    isWinning: true
+  },
+  {
+    id: 'd2',
+    title: 'دورة احتراف التجارة الإلكترونية في المغرب (E-com Local)',
+    thumbnail: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&q=80&w=600',
+    videoUrl: 'https://cdn.pixabay.com/video/2020/09/24/50865-462968846_tiny.mp4',
+    price: 499,
+    description: 'تعلم استراتيجيات البيع المحلي في المغرب من الصفر. اختيار المنتج، إعلانات فيسبوك، وإدارة فريق التوصيل.',
+    platform: 'facebook',
+    country: 'MA',
+    views: 890000,
+    likes: 35000,
+    shares: 2400,
+    category: 'دورات تدريبية',
+    firstSeen: '2024-11-20',
+    lastSeen: '2025-01-10',
+    isWinning: true
+  },
+  {
+    id: 'd3',
+    title: 'كتاب "عقلية المليونير" - نسخة إلكترونية PDF',
+    thumbnail: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&q=80&w=600',
+    videoUrl: 'https://cdn.pixabay.com/video/2022/10/24/136340-763407005_tiny.mp4',
+    price: 45,
+    description: 'أفضل الكتب مبيعاً في تطوير الذات متاح الآن للقراءة على هاتفك أو حاسوبك بجودة عالية.',
     platform: 'tiktok',
     country: 'SA',
     views: 1200000,
-    likes: 45000,
-    shares: 1200,
-    category: 'أدوات مطبخ',
-    firstSeen: '2024-05-01',
-    lastSeen: '2024-05-15',
-    isWinning: true
-  },
-  {
-    id: '2',
-    title: 'مصباح مكتبي ذكي مريح للعين مع شاحن لاسلكي',
-    thumbnail: 'https://images.unsplash.com/photo-1534073828943-f801091bb18c?auto=format&fit=crop&q=80&w=600',
-    videoUrl: 'https://cdn.pixabay.com/video/2020/09/24/50865-462968846_tiny.mp4',
-    price: 450,
-    description: 'مصباح LED ذكي مع إمكانية التحكم في شدة الإضاءة وشحن هاتفك لاسلكياً في نفس الوقت.',
-    platform: 'facebook',
-    country: 'MA',
-    views: 850000,
-    likes: 12000,
-    shares: 800,
-    category: 'منزل',
-    firstSeen: '2024-04-20',
-    lastSeen: '2024-05-10',
-    isWinning: false
-  },
-  {
-    id: '3',
-    title: 'منظم مكياج أكريليك فاخر بتصميم عصري',
-    thumbnail: 'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&q=80&w=600',
-    videoUrl: 'https://cdn.pixabay.com/video/2022/10/24/136340-763407005_tiny.mp4',
-    price: 180,
-    description: 'وداعاً للفوضى مع هذا المنظم الأنيق الذي يتسع لجميع مستحضرات التجميل الخاصة بك.',
-    platform: 'instagram',
-    country: 'AE',
-    views: 2300000,
     likes: 98000,
     shares: 4500,
-    category: 'تجميل',
-    firstSeen: '2024-05-10',
-    lastSeen: '2024-05-16',
-    isWinning: true
+    category: 'خدمات رقمية',
+    firstSeen: '2024-12-10',
+    lastSeen: '2024-12-25',
+    isWinning: false
   }
 ];
