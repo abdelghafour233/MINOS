@@ -625,10 +625,10 @@ const App: React.FC = () => {
                     <div className="flex items-center gap-6"><button onClick={() => setIsCheckingOut(false)} className={`p-4 rounded-full text-emerald-500 hover:bg-emerald-600 hover:text-white transition-all border ${borderLight} shadow-md`}><ChevronLeft size={24} /></button><h3 className={`text-4xl font-black ${textPrimary} tracking-tighter`}>معلومات التوصيل</h3></div>
                     <div className="flex-1 space-y-8 mt-6">
                       <div className="space-y-3">
-                        <label className={`text-[10px] ${textSecondary} uppercase font-black px-6`}>الاسم الكامل</label>
+                        <label className={`text-[10px] ${textSecondary} uppercase font-black px-6`}>الاسم</label>
                         <div className={`${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-7 rounded-[2.2rem] flex items-center gap-4 focus-within:border-emerald-500 transition-all`}>
                           <User size={24} className={textSecondary} />
-                          <input type="text" placeholder="اسمك الكامل" className={`bg-transparent border-none outline-none flex-1 ${textPrimary} font-bold text-xl`} value={customerInfo.fullName} onChange={(e) => setCustomerInfo({...customerInfo, fullName: e.target.value})} />
+                          <input type="text" placeholder="اسمك" className={`bg-transparent border-none outline-none flex-1 ${textPrimary} font-bold text-xl`} value={customerInfo.fullName} onChange={(e) => setCustomerInfo({...customerInfo, fullName: e.target.value})} />
                         </div>
                       </div>
                       <div className="space-y-3">
@@ -670,7 +670,7 @@ const App: React.FC = () => {
           <div className={`${bgSidebar} w-full max-w-2xl rounded-[4rem] p-16 text-center relative border ${borderLight} animate-in bounce-in shadow-2xl duration-700`}>
              <div className="w-28 h-28 bg-gradient-to-tr from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center text-black mx-auto mb-10 shadow-xl shadow-emerald-500/30"><Check size={60} strokeWidth={4} /></div>
              <h3 className={`text-5xl font-black ${textPrimary} mb-6 tracking-tighter`}>تم استلام طلبك!</h3>
-             <p className={`${textSecondary} font-bold text-xl mb-12`}>سيد {activeOrder.customer.fullName}، شكراً لثقتك بمتجرنا. سنتصل بك قريباً في مدينة {activeOrder.customer.city} لتأكيد عملية الشحن.</p>
+             <p className={`${textSecondary} font-bold text-xl mb-12`}>شكراً {activeOrder.customer.fullName} لثقتك بمتجرنا. سنتصل بك قريباً في مدينة {activeOrder.customer.city} لتأكيد عملية الشحن.</p>
              <button onClick={() => setActiveOrder(null)} className={`w-full ${theme === 'dark' ? 'bg-white text-black' : 'bg-slate-900 text-white'} py-6 rounded-3xl font-black transition-all border ${borderLight} text-xl active:scale-95 shadow-xl`}>العودة للتسوق</button>
           </div>
         </div>
