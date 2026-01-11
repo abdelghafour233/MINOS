@@ -7,7 +7,8 @@ import {
   Zap, ShieldCheck, ChevronLeft, Bell, ArrowUpRight,
   Settings, Edit3, Trash2, LayoutDashboard, Save, Plus,
   Lock, LogOut, KeyRound, PlusCircle, PackagePlus,
-  Eye, EyeOff, Sun, Moon, Image as ImageIcon, Upload, Plus as PlusIcon, RefreshCw
+  Eye, EyeOff, Sun, Moon, Image as ImageIcon, Upload, Plus as PlusIcon, RefreshCw,
+  Link as LinkIcon, Share2, Copy
 } from 'lucide-react';
 import { StoreProduct, StoreOrder, CustomerInfo, Category } from './types';
 import { MOCK_PRODUCTS, CATEGORIES, MOROCCAN_CITIES } from './constants';
@@ -47,13 +48,17 @@ const App: React.FC = () => {
   const STORAGE_KEY_PRODUCTS = 'ecom_products_v4_final';
   const STORAGE_KEY_ORDERS = 'ecom_orders_v4_final';
 
+  // التحقق من وجود منتج في الرابط عند التحميل
   useEffect(() => {
     const authStatus = sessionStorage.getItem('admin_auth');
     if (authStatus === 'true') setIsAdminAuthenticated(true);
 
     const savedProducts = localStorage.getItem(STORAGE_KEY_PRODUCTS);
+    let currentProducts = MOCK_PRODUCTS;
+    
     if (savedProducts) {
-      setProducts(JSON.parse(savedProducts));
+      currentProducts = JSON.parse(savedProducts);
+      setProducts(currentProducts);
     } else {
       setProducts(MOCK_PRODUCTS); 
       localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(MOCK_PRODUCTS));
@@ -62,20 +67,44 @@ const App: React.FC = () => {
     const savedOrders = localStorage.getItem(STORAGE_KEY_ORDERS);
     if (savedOrders) {
       try { setOrders(JSON.parse(savedOrders)); } catch(e) { setOrders([]); }
-    } else {
-      setOrders([]);
-      localStorage.setItem(STORAGE_KEY_ORDERS, JSON.stringify([]));
+    }
+
+    // التعامل مع روابط المنتجات (مثلاً: ?p=prod-id)
+    const urlParams = new URLSearchParams(window.location.search);
+    const productId = urlParams.get('p');
+    if (productId) {
+      const product = currentProducts.find(p => p.id === productId);
+      if (product) {
+        setSelectedProduct(product);
+      }
     }
   }, []);
 
+  // تحديث الرابط عند اختيار منتج أو إغلاقه
   useEffect(() => {
+    const url = new URL(window.location.href);
     if (selectedProduct) {
+      url.searchParams.set('p', selectedProduct.id);
       setActiveGalleryImage(selectedProduct.thumbnail);
+    } else {
+      url.searchParams.delete('p');
     }
+    window.history.pushState({}, '', url.toString());
   }, [selectedProduct]);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
+
+  const copyToClipboard = (text: string, message: string = "تم النسخ بنجاح!") => {
+    navigator.clipboard.writeText(text);
+    alert(message);
+  };
+
+  const getProductLink = (id: string) => {
+    const url = new URL(window.location.origin + window.location.pathname);
+    url.searchParams.set('p', id);
+    return url.toString();
   };
 
   const resetStoreData = () => {
@@ -361,7 +390,10 @@ const App: React.FC = () => {
                       </div>
                       <div className={`p-8 flex items-center justify-between mt-auto ${theme === 'light' ? 'bg-slate-50/50' : ''}`}>
                         <span className="text-2xl font-black text-emerald-600">{product.price} DH</span>
-                        <button onClick={() => setSelectedProduct(product)} className="bg-emerald-600 text-black p-4 rounded-2xl shadow-xl hover:bg-emerald-500 transition-all active:scale-95 green-glow-hover"><ShoppingCart size={20} /></button>
+                        <div className="flex gap-2">
+                           <button onClick={() => copyToClipboard(getProductLink(product.id), "تم نسخ رابط المنتج لمشاركته!")} className={`${theme === 'dark' ? 'bg-white/10' : 'bg-slate-100'} ${textSecondary} p-4 rounded-2xl hover:text-emerald-500 transition-all active:scale-95`} title="نسخ الرابط"><LinkIcon size={20} /></button>
+                           <button onClick={() => setSelectedProduct(product)} className="bg-emerald-600 text-black p-4 rounded-2xl shadow-xl hover:bg-emerald-500 transition-all active:scale-95 green-glow-hover"><ShoppingCart size={20} /></button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -422,8 +454,9 @@ const App: React.FC = () => {
                            />
                            <div className="flex-1 space-y-4">
                               <div><h4 className={`text-xl font-black ${textPrimary}`}>{p.title}</h4><p className="text-sm font-bold text-emerald-500">{p.price} DH</p></div>
-                              <div className="flex gap-3">
-                                 <button onClick={() => startEditProduct(p)} className={`flex-1 ${theme === 'dark' ? 'bg-white/5' : 'bg-slate-50'} py-3 rounded-xl font-black text-xs hover:bg-emerald-600 hover:text-black transition-all flex items-center justify-center gap-2 border ${borderLight}`}><Edit3 size={14} /> تعديل</button>
+                              <div className="flex flex-wrap gap-2">
+                                 <button onClick={() => copyToClipboard(getProductLink(p.id), "تم نسخ رابط الإعلان المباشر!")} className={`flex-1 ${theme === 'dark' ? 'bg-emerald-500/10' : 'bg-emerald-50'} text-emerald-500 py-3 px-4 rounded-xl font-black text-[10px] hover:bg-emerald-500 hover:text-black transition-all flex items-center justify-center gap-2 border border-emerald-500/20`}><Copy size={14} /> رابط الإعلان</button>
+                                 <button onClick={() => startEditProduct(p)} className={`flex-1 ${theme === 'dark' ? 'bg-white/5' : 'bg-slate-50'} py-3 px-4 rounded-xl font-black text-[10px] hover:bg-emerald-600 hover:text-black transition-all flex items-center justify-center gap-2 border ${borderLight}`}><Edit3 size={14} /> تعديل</button>
                                  <button onClick={() => deleteProduct(p.id)} className="p-3 bg-rose-500/10 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={16} /></button>
                               </div>
                            </div>
@@ -556,6 +589,7 @@ const App: React.FC = () => {
           <div className={`${bgSidebar} w-full max-w-7xl rounded-[4rem] relative overflow-hidden flex flex-col md:flex-row shadow-2xl border ${borderLight} max-h-[95vh] animate-in zoom-in-95 duration-500`}>
             
             <div className="absolute top-8 right-8 z-[110] flex items-center gap-4">
+              <button onClick={() => copyToClipboard(getProductLink(selectedProduct.id), "تم نسخ رابط هذا المنتج!")} className={`bg-white/5 hover:bg-white/10 ${textSecondary} p-4 rounded-full transition-all active:scale-90 border ${borderLight} shadow-lg`} title="مشاركة المنتج"><Share2 size={24} /></button>
               <button onClick={() => { setSelectedProduct(null); setIsCheckingOut(false); }} className={`bg-white/5 hover:bg-white/10 ${textSecondary} p-4 rounded-full transition-all active:scale-90 border ${borderLight} shadow-lg`}><X size={24} /></button>
             </div>
 
