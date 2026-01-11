@@ -7,12 +7,13 @@ import {
   Zap, ShieldCheck, ChevronLeft, Bell, ArrowUpRight,
   Settings, Edit3, Trash2, LayoutDashboard, Save, Plus,
   Lock, LogOut, KeyRound, PlusCircle, PackagePlus,
-  Eye, EyeOff, Sun, Moon, Image as ImageIcon, Upload, Plus as PlusIcon
+  Eye, EyeOff, Sun, Moon, Image as ImageIcon, Upload, Plus as PlusIcon, RefreshCw
 } from 'lucide-react';
 import { StoreProduct, StoreOrder, CustomerInfo, Category } from './types';
 import { MOCK_PRODUCTS, CATEGORIES } from './constants';
 
 const ADMIN_PASSWORD = 'admin'; 
+const PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1560393464-5c69a73c5770?q=80&w=500&auto=format&fit=crop';
 
 const App: React.FC = () => {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -75,6 +76,19 @@ const App: React.FC = () => {
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
+
+  const resetStoreData = () => {
+    if (window.confirm("سيتم مسح كافة البيانات المسجلة والطلبيات واستعادة المنتجات الافتراضية. هل أنت متأكد؟")) {
+      localStorage.removeItem(STORAGE_KEY_PRODUCTS);
+      localStorage.removeItem(STORAGE_KEY_ORDERS);
+      setProducts(MOCK_PRODUCTS);
+      setOrders([]);
+      localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(MOCK_PRODUCTS));
+      localStorage.setItem(STORAGE_KEY_ORDERS, JSON.stringify([]));
+      alert("تمت إعادة تعيين البيانات بنجاح!");
+      window.location.reload();
+    }
   };
 
   const handleAdminClick = () => {
@@ -235,6 +249,10 @@ const App: React.FC = () => {
     }
   };
 
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    e.currentTarget.src = PLACEHOLDER_IMAGE;
+  };
+
   const filteredProducts = activeTab === 'الكل' 
     ? products 
     : products.filter(p => p.category === activeTab);
@@ -275,11 +293,16 @@ const App: React.FC = () => {
           </button>
         </nav>
 
-        <div className="p-8 hidden md:block">
+        <div className="p-8 hidden md:block space-y-3">
            {isAdminAuthenticated && (
-             <button onClick={handleLogout} className="w-full bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white py-4 rounded-[1.8rem] flex items-center justify-center gap-3 transition-all border border-rose-500/20 font-black text-sm">
-               <LogOut size={18} /> تسجيل الخروج
-             </button>
+             <>
+               <button onClick={resetStoreData} className="w-full bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-white py-3 rounded-xl flex items-center justify-center gap-3 transition-all border border-amber-500/20 font-bold text-xs mb-2">
+                 <RefreshCw size={14} /> إعادة تعيين المتجر
+               </button>
+               <button onClick={handleLogout} className="w-full bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white py-4 rounded-[1.8rem] flex items-center justify-center gap-3 transition-all border border-rose-500/20 font-black text-sm">
+                 <LogOut size={18} /> تسجيل الخروج
+               </button>
+             </>
            )}
         </div>
       </aside>
@@ -327,7 +350,12 @@ const App: React.FC = () => {
                   {filteredProducts.map(product => (
                     <div key={product.id} className={`group relative ${bgCard} rounded-[2.8rem] border ${borderLight} overflow-hidden transition-all duration-500 hover:border-emerald-500/30 hover:-translate-y-2 flex flex-col h-full ${shadowCard}`}>
                       <div className="aspect-[3/4] overflow-hidden cursor-pointer" onClick={() => setSelectedProduct(product)}>
-                        <img src={product.thumbnail} alt={product.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
+                        <img 
+                          src={product.thumbnail} 
+                          alt={product.title} 
+                          onError={handleImageError}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" 
+                        />
                         <div className={`absolute inset-0 bg-gradient-to-t ${theme === 'dark' ? 'from-[#020617]' : 'from-white'} via-transparent to-transparent opacity-80 transition-opacity`}></div>
                         <div className="absolute bottom-8 right-8 left-8"><h4 className={`text-xl font-black ${textPrimary} leading-tight`}>{product.title}</h4></div>
                       </div>
@@ -387,7 +415,11 @@ const App: React.FC = () => {
                     ) : (
                       products.map(p => (
                         <div key={p.id} className={`${bgCard} border ${borderLight} p-8 rounded-[3rem] flex gap-8 group hover:border-emerald-500/20 transition-all ${shadowCard}`}>
-                           <img src={p.thumbnail} className={`w-32 h-32 object-cover rounded-[2rem] border ${borderLight} shadow-xl`} />
+                           <img 
+                             src={p.thumbnail} 
+                             onError={handleImageError}
+                             className={`w-32 h-32 object-cover rounded-[2rem] border ${borderLight} shadow-xl`} 
+                           />
                            <div className="flex-1 space-y-4">
                               <div><h4 className={`text-xl font-black ${textPrimary}`}>{p.title}</h4><p className="text-sm font-bold text-emerald-500">{p.price} DH</p></div>
                               <div className="flex gap-3">
@@ -469,7 +501,7 @@ const App: React.FC = () => {
                       >
                          {editingProduct.thumbnail ? (
                             <>
-                              <img src={editingProduct.thumbnail} className="w-full h-full object-cover" />
+                              <img src={editingProduct.thumbnail} onError={handleImageError} className="w-full h-full object-cover" />
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all">
                                  <Upload size={32} className="text-white" />
                               </div>
@@ -489,7 +521,7 @@ const App: React.FC = () => {
                       <div className="grid grid-cols-3 gap-4">
                          {(editingProduct.galleryImages || []).map((img, idx) => (
                             <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden group border border-emerald-500/10">
-                               <img src={img} className="w-full h-full object-cover" />
+                               <img src={img} onError={handleImageError} className="w-full h-full object-cover" />
                                <button 
                                  onClick={() => removeGalleryImage(idx)}
                                  className="absolute top-2 right-2 bg-rose-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
@@ -535,7 +567,7 @@ const App: React.FC = () => {
 
             <div className={`w-full md:w-1/2 ${theme === 'dark' ? 'bg-[#020617]' : 'bg-slate-50'} flex flex-col items-center justify-center p-8 md:p-12 overflow-hidden border-l ${borderLight}`}>
               <div className="relative w-full aspect-square md:aspect-[4/5] overflow-hidden rounded-[3.5rem] shadow-2xl border border-emerald-500/10 mb-8 group">
-                <img src={activeGalleryImage} className="w-full h-full object-cover animate-in fade-in zoom-in duration-500" />
+                <img src={activeGalleryImage} onError={handleImageError} className="w-full h-full object-cover animate-in fade-in zoom-in duration-500" />
               </div>
               
               <div className="flex items-center gap-4 overflow-x-auto no-scrollbar w-full py-2 px-4 justify-center">
@@ -545,7 +577,7 @@ const App: React.FC = () => {
                     onClick={() => setActiveGalleryImage(img)}
                     className={`relative w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 border-2 transition-all ${activeGalleryImage === img ? 'border-emerald-500 scale-110 shadow-lg shadow-emerald-500/20' : 'border-transparent opacity-50 hover:opacity-100'}`}
                   >
-                    <img src={img} className="w-full h-full object-cover" />
+                    <img src={img} onError={handleImageError} className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>

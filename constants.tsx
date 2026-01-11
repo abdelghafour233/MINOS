@@ -14,8 +14,8 @@ export const CATEGORIES: string[] = [
 export const MOCK_PRODUCTS: StoreProduct[] = [
   {
     id: 'prod-smart-glasses-premium',
-    title: 'نظارات ذكية بلوتوث',
-    thumbnail: 'https://images.unsplash.com/photo-1572635196237-14b3f281503f?q=80&w=1000&auto=format&fit=crop',
+    title: 'نظارات ذكية بلوتوت',
+    thumbnail: 'https://images.unsplash.com/photo-1572635148818-ef6fd45eb394?q=80&w=1000&auto=format&fit=crop',
     price: 199,
     category: 'نظارات',
     description: `واش كتحب تسمع الموسيقى وانت كتمشي فالمدينة أو فالطريق؟ 🎶🚗
@@ -38,7 +38,7 @@ export const MOCK_PRODUCTS: StoreProduct[] = [
 “منتج عالي الجودة ⭐⭐⭐⭐⭐، تجربة ممتازة لجميع السائقين ومحبي الموسيقى والمكالمات بسهولة وراحة`,
     stockStatus: 'available',
     rating: 5,
-    reviewsCount: 24,
+    reviewsCount: 48,
     shippingTime: '24-48 ساعة'
   }
 ];
