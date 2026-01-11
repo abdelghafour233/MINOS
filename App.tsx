@@ -7,7 +7,8 @@ import {
   PlusCircle, PackagePlus, Eye, EyeOff, Sun, Moon, Image as ImageIcon, 
   Upload, Plus as PlusIcon, RefreshCw, Link as LinkIcon, Share2, Copy, 
   Target, Facebook, Code, FileCode, KeyRound, Images, Camera, 
-  Activity, Info, Table, Database, ExternalLink
+  Activity, Info, Table, Database, ExternalLink, Filter, MoreVertical,
+  Calendar, CreditCard, Clock, CheckCircle2, AlertTriangle
 } from 'lucide-react';
 import { StoreProduct, StoreOrder, CustomerInfo, Category } from './types';
 import { MOCK_PRODUCTS, CATEGORIES, MOROCCAN_CITIES, STORE_CONFIG } from './constants';
@@ -18,56 +19,47 @@ const App: React.FC = () => {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [view, setView] = useState<'shop' | 'admin'>('shop');
   const [adminTab, setAdminTab] = useState<'orders' | 'products' | 'settings' | 'export'>('orders');
+  
+  // State for store data
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [orders, setOrders] = useState<StoreOrder[]>([]);
+  
+  // UI Interaction states
   const [selectedProduct, setSelectedProduct] = useState<StoreProduct | null>(null);
   const [activeGalleryImage, setActiveGalleryImage] = useState<string>('');
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [activeTab, setActiveTab] = useState('الكل');
   
-  // Facebook Pixel States
+  // Admin Management states
+  const [editingOrder, setEditingOrder] = useState<StoreOrder | null>(null);
+  const [viewingOrder, setViewingOrder] = useState<StoreOrder | null>(null);
+  const [editingProduct, setEditingProduct] = useState<StoreProduct | null>(null);
+  const [isAddingProduct, setIsAddingProduct] = useState(false);
+
+  // Config States
   const [pixelId, setPixelId] = useState<string>(STORE_CONFIG.pixelId);
   const [testEventCode, setTestEventCode] = useState<string>(STORE_CONFIG.testCode);
-
-  // Google Sheets States
   const [sheetId, setSheetId] = useState<string>(STORE_CONFIG.sheetId || '');
   const [sheetName, setSheetName] = useState<string>(STORE_CONFIG.sheetName || 'Orders');
   const [sheetScriptUrl, setSheetScriptUrl] = useState<string>(STORE_CONFIG.sheetScriptUrl || '');
   
+  // Auth states
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false); 
   const [loginError, setLoginError] = useState(false);
-
   const [adminPassword, setAdminPassword] = useState(DEFAULT_ADMIN_PASSWORD);
-  const [currentPassChange, setCurrentPassChange] = useState('');
-  const [newPassChange, setNewPassChange] = useState('');
-  const [confirmPassChange, setConfirmPassChange] = useState('');
-  const [passChangeMessage, setPassChangeMessage] = useState({ text: '', type: '' });
 
-  const [editingProduct, setEditingProduct] = useState<StoreProduct | null>(null);
-  const mainImageInputRef = useRef<HTMLInputElement>(null);
-  const galleryImageInputRef = useRef<HTMLInputElement>(null);
-
-  const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
-    fullName: '',
-    phoneNumber: '',
-    city: '',
-    address: ''
-  });
-  const [activeOrder, setActiveOrder] = useState<StoreOrder | null>(null);
-
-  const STORAGE_KEY_PRODUCTS = 'ecom_products_final_v5';
-  const STORAGE_KEY_ORDERS = 'ecom_orders_final_v5';
-  const STORAGE_KEY_CONFIG = 'ecom_config_v5';
-  const STORAGE_KEY_PASS = 'ecom_admin_pass_v5';
+  // Storage keys
+  const STORAGE_KEY_PRODUCTS = 'ecom_products_v6';
+  const STORAGE_KEY_ORDERS = 'ecom_orders_v6';
+  const STORAGE_KEY_CONFIG = 'ecom_config_v6';
+  const STORAGE_KEY_PASS = 'ecom_admin_pass_v6';
 
   const trackPixelEvent = (eventName: string, data?: any) => {
     if (typeof window !== 'undefined' && (window as any).fbq && pixelId) {
-      const payload = testEventCode 
-        ? { ...data, test_event_code: testEventCode } 
-        : data;
+      const payload = testEventCode ? { ...data, test_event_code: testEventCode } : data;
       (window as any).fbq('track', eventName, payload);
     }
   };
@@ -100,39 +92,38 @@ const App: React.FC = () => {
     const savedProducts = localStorage.getItem(STORAGE_KEY_PRODUCTS);
     let initialProducts = MOCK_PRODUCTS;
     if (savedProducts) {
-      try { initialProducts = JSON.parse(savedProducts); } catch (e) { initialProducts = MOCK_PRODUCTS; }
-      setProducts(initialProducts);
-    } else {
-      setProducts(MOCK_PRODUCTS);
+      // Fix: Cast JSON.parse result and use non-conflicting catch variable
+      try { initialProducts = JSON.parse(savedProducts) as StoreProduct[]; } catch (_e) { initialProducts = MOCK_PRODUCTS; }
     }
+    setProducts(initialProducts);
 
     const savedOrders = localStorage.getItem(STORAGE_KEY_ORDERS);
     if (savedOrders) {
-      try { setOrders(JSON.parse(savedOrders)); } catch(e) { setOrders([]); }
+      // Fix: Cast JSON.parse result and use non-conflicting catch variable
+      try { setOrders(JSON.parse(savedOrders) as StoreOrder[]); } catch(_e) { setOrders([]); }
     }
 
     const savedConfig = localStorage.getItem(STORAGE_KEY_CONFIG);
     if (savedConfig) {
-      const c = JSON.parse(savedConfig);
-      setPixelId(c.pixelId || STORE_CONFIG.pixelId);
-      setTestEventCode(c.testCode || STORE_CONFIG.testCode);
-      setSheetId(c.sheetId || STORE_CONFIG.sheetId);
-      setSheetName(c.sheetName || STORE_CONFIG.sheetName);
-      setSheetScriptUrl(c.sheetScriptUrl || STORE_CONFIG.sheetScriptUrl);
-    }
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const productId = urlParams.get('p');
-    if (productId) {
-      const product = initialProducts.find(p => p.id === productId);
-      if (product) setSelectedProduct(product);
+      // Fix: Handle JSON.parse in line 190-194 area to avoid unknown assignment to expected types
+      try {
+        const c = JSON.parse(savedConfig);
+        if (c && typeof c === 'object') {
+          setPixelId(c.pixelId || STORE_CONFIG.pixelId);
+          setTestEventCode(c.testCode || STORE_CONFIG.testCode);
+          setSheetId(c.sheetId || STORE_CONFIG.sheetId);
+          setSheetName(c.sheetName || STORE_CONFIG.sheetName);
+          setSheetScriptUrl(c.sheetScriptUrl || STORE_CONFIG.sheetScriptUrl);
+        }
+      } catch (_e) {
+        console.warn("Failed to parse store configuration from local storage.");
+      }
     }
   }, []);
 
+  // Sync scroll on product selection
   useEffect(() => {
-    const url = new URL(window.location.href);
     if (selectedProduct) {
-      url.searchParams.set('p', selectedProduct.id);
       setActiveGalleryImage(selectedProduct.thumbnail);
       trackPixelEvent('ViewContent', {
         content_name: selectedProduct.title,
@@ -142,71 +133,86 @@ const App: React.FC = () => {
         value: selectedProduct.price,
         currency: 'MAD'
       });
-    } else {
-      url.searchParams.delete('p');
     }
-    window.history.pushState({}, '', url.toString());
   }, [selectedProduct]);
 
-  const generateConstantsCode = () => {
-    const productsStr = JSON.stringify(products, null, 2);
-    const configStr = JSON.stringify({ 
-      pixelId, testCode: testEventCode, 
-      sheetId, sheetName, sheetScriptUrl,
-      storeName: 'Berrima Store', currency: 'DH' 
-    }, null, 2);
+  // Order Operations
+  const deleteOrder = (orderId: string) => {
+    if (window.confirm('هل أنت متأكد من حذف هذه الطلبية؟')) {
+      const updated = orders.filter(o => o.orderId !== orderId);
+      setOrders(updated);
+      localStorage.setItem(STORAGE_KEY_ORDERS, JSON.stringify(updated));
+    }
+  };
+
+  const saveOrderEdit = () => {
+    if (!editingOrder) return;
+    const updated = orders.map(o => o.orderId === editingOrder.orderId ? editingOrder : o);
+    setOrders(updated);
+    localStorage.setItem(STORAGE_KEY_ORDERS, JSON.stringify(updated));
+    setEditingOrder(null);
+  };
+
+  // Product Operations
+  const deleteProduct = (productId: string) => {
+    if (window.confirm('هل أنت متأكد من حذف هذا المنتج؟ سيختفي من المتجر.')) {
+      const updated = products.filter(p => p.id !== productId);
+      setProducts(updated);
+      localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(updated));
+    }
+  };
+
+  const saveProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct) return;
     
-    return `import { StoreProduct } from './types';\n\nexport const STORE_CONFIG = ${configStr};\n\nexport const MOROCCAN_CITIES = ${JSON.stringify(MOROCCAN_CITIES, null, 2)};\n\nexport const MOCK_PRODUCTS: StoreProduct[] = ${productsStr};\n\nexport const CATEGORIES = ${JSON.stringify(CATEGORIES, null, 2)};`;
+    let updatedProducts;
+    if (isAddingProduct) {
+      updatedProducts = [editingProduct, ...products];
+    } else {
+      updatedProducts = products.map(p => p.id === editingProduct.id ? editingProduct : p);
+    }
+    
+    setProducts(updatedProducts);
+    localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(updatedProducts));
+    setEditingProduct(null);
+    setIsAddingProduct(false);
   };
 
-  const copyToClipboard = (text: string, message: string = "تم النسخ!") => {
-    navigator.clipboard.writeText(text);
-    alert(message);
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, isGallery = false) => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'thumbnail' | 'gallery') => {
     const files = e.target.files;
     if (!files || !editingProduct) return;
-    (Array.from(files) as File[]).forEach(file => {
+    
+    // Fix: Explicitly type 'file' as File (which extends Blob) to satisfy reader.readAsDataURL requirements
+    Array.from(files).forEach((file: File) => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64String = reader.result as string;
-        if (isGallery) {
-          setEditingProduct(prev => prev ? { ...prev, galleryImages: [...(prev.galleryImages || []), base64String] } : null);
+        const base64 = reader.result as string;
+        if (type === 'thumbnail') {
+          setEditingProduct({ ...editingProduct, thumbnail: base64 });
         } else {
-          setEditingProduct(prev => prev ? { ...prev, thumbnail: base64String } : null);
+          setEditingProduct({ 
+            ...editingProduct, 
+            galleryImages: [...(editingProduct.galleryImages || []), base64] 
+          });
         }
       };
       reader.readAsDataURL(file);
     });
-    e.target.value = ''; 
   };
 
-  const sendOrderToSheet = async (order: StoreOrder) => {
-    if (!sheetScriptUrl) return;
-    try {
-      await fetch(sheetScriptUrl, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: order.orderId,
-          date: order.orderDate,
-          customer: order.customer.fullName,
-          phone: order.customer.phoneNumber,
-          city: order.customer.city,
-          product: order.productTitle,
-          price: order.productPrice
-        })
-      });
-    } catch (error) {
-      console.error('Error sending to sheet:', error);
-    }
-  };
+  // Customer Checkout Logic
+  const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
+    fullName: '',
+    phoneNumber: '',
+    city: '',
+    address: ''
+  });
+  const [activeOrder, setActiveOrder] = useState<StoreOrder | null>(null);
 
   const confirmOrder = async () => {
     if (!customerInfo.fullName || !customerInfo.phoneNumber || !customerInfo.city) {
-      alert("يرجى إكمال البيانات.");
+      alert("يرجى إكمال بيانات التوصيل.");
       return;
     }
     if (!selectedProduct) return;
@@ -232,28 +238,47 @@ const App: React.FC = () => {
       currency: 'MAD'
     });
 
-    // إرسال لغوغل شيت
-    if (sheetScriptUrl) await sendOrderToSheet(newOrder);
+    if (sheetScriptUrl) {
+      fetch(sheetScriptUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: newOrder.orderId,
+          date: newOrder.orderDate,
+          customer: newOrder.customer.fullName,
+          phone: newOrder.customer.phoneNumber,
+          city: newOrder.customer.city,
+          product: newOrder.productTitle,
+          price: newOrder.productPrice
+        })
+      }).catch(console.error);
+    }
 
     setActiveOrder(newOrder);
     setIsCheckingOut(false);
     setSelectedProduct(null);
   };
 
-  const saveConfigSettings = () => {
-    localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify({ 
-      pixelId, testCode: testEventCode,
-      sheetId, sheetName, sheetScriptUrl
-    }));
-    alert("✅ تم حفظ الإعدادات محلياً.");
+  const generateConstantsCode = () => {
+    return `import { StoreProduct } from './types';
+
+export const STORE_CONFIG = ${JSON.stringify({ 
+      pixelId, testCode: testEventCode, 
+      sheetId, sheetName, sheetScriptUrl,
+      storeName: 'Berrima Store', currency: 'DH' 
+    }, null, 2)};
+
+export const MOROCCAN_CITIES = ${JSON.stringify(MOROCCAN_CITIES, null, 2)};
+
+export const MOCK_PRODUCTS: StoreProduct[] = ${JSON.stringify(products, null, 2)};
+
+export const CATEGORIES = ${JSON.stringify(CATEGORIES, null, 2)};`;
   };
 
   const handleAdminClick = () => {
-    if (isAdminAuthenticated) {
-      setView('admin');
-    } else {
-      setShowLoginModal(true);
-    }
+    if (isAdminAuthenticated) setView('admin');
+    else setShowLoginModal(true);
   };
 
   const bgMain = theme === 'dark' ? 'bg-[#020617]' : 'bg-slate-50';
@@ -265,11 +290,11 @@ const App: React.FC = () => {
 
   return (
     <div className={`min-h-screen ${bgMain} ${textPrimary} flex flex-col md:flex-row font-['Tajawal'] overflow-hidden relative`}>
-      {/* Desktop Sidebar / Mobile Bottom Nav */}
+      {/* Sidebar/Navigation */}
       <aside className={`fixed md:relative bottom-0 left-0 right-0 md:top-0 w-full md:w-80 h-20 md:h-screen ${bgSidebar} border-t md:border-t-0 md:border-l ${borderLight} flex md:flex-col z-[100] transition-all shadow-2xl items-center justify-around md:justify-start`}>
         <div className="hidden md:flex p-8 items-center gap-4">
           <div className="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center text-black shadow-lg shadow-emerald-500/20"><Sparkles size={24} /></div>
-          <div><h1 className="text-2xl font-black uppercase">Berrima</h1><p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">berrima.store</p></div>
+          <div><h1 className="text-2xl font-black uppercase tracking-tighter">Berrima</h1><p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">berrima.store</p></div>
         </div>
         
         <nav className="flex-1 w-full flex md:flex-col px-4 md:mt-10 gap-2 md:space-y-4 items-center md:items-stretch">
@@ -281,7 +306,6 @@ const App: React.FC = () => {
             {isAdminAuthenticated ? <LayoutDashboard size={24} /> : <Lock size={24} />}
             <span className="text-[10px] md:text-lg font-bold">لوحة التحكم</span>
           </button>
-          
           <div className="md:hidden flex-1 flex flex-col items-center gap-1 px-5 py-3 rounded-2xl transition-all text-slate-400" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
             {theme === 'dark' ? <Sun size={24} /> : <Moon size={24} />}
             <span className="text-[10px] font-bold">{theme === 'dark' ? 'فاتح' : 'ليلي'}</span>
@@ -290,14 +314,14 @@ const App: React.FC = () => {
 
         {isAdminAuthenticated && (
           <div className="hidden md:block p-8">
-            <button onClick={() => { setIsAdminAuthenticated(false); setView('shop'); sessionStorage.removeItem('admin_auth'); }} className="w-full bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white py-4 rounded-[1.8rem] flex items-center justify-center gap-3 transition-all border border-rose-500/20 font-black text-sm"><LogOut size={18} /> تسجيل الخروج</button>
+            <button onClick={() => { setIsAdminAuthenticated(false); setView('shop'); sessionStorage.removeItem('admin_auth'); }} className="w-full bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white py-4 rounded-[1.8rem] flex items-center justify-center gap-3 transition-all border border-rose-500/20 font-black text-sm"><LogOut size={18} /> خروج</button>
           </div>
         )}
       </aside>
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden pb-20 md:pb-0">
         <header className={`px-6 md:px-10 py-6 md:py-8 flex items-center justify-between z-40 ${bgCard} border-b ${borderLight} shadow-sm`}>
-           <h2 className="text-xl md:text-2xl font-black uppercase tracking-tighter">{view === 'admin' ? 'الإدارة' : 'Berrima Store'}</h2>
+           <h2 className="text-xl md:text-2xl font-black uppercase tracking-tighter">{view === 'admin' ? 'لوحة التحكم' : 'Berrima Store'}</h2>
            <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className={`hidden md:flex p-4 rounded-2xl border ${borderLight} items-center justify-center shadow-lg ${theme === 'dark' ? 'bg-emerald-600 text-black' : 'bg-white text-slate-400'}`}>
              {theme === 'dark' ? <Sun size={22} /> : <Moon size={22} />}
            </button>
@@ -319,7 +343,7 @@ const App: React.FC = () => {
                     </div>
                     <div className="p-4 md:p-8 flex items-center justify-between mt-auto">
                       <span className="text-sm md:text-2xl font-black text-emerald-600">{product.price} DH</span>
-                      <button onClick={() => setSelectedProduct(product)} className="bg-emerald-600 text-black p-2 md:p-4 rounded-xl md:rounded-2xl shadow-xl hover:bg-emerald-500 transition-all"><ShoppingCart size={16} md:size={20} /></button>
+                      <button onClick={() => setSelectedProduct(product)} className="bg-emerald-600 text-black p-2 md:p-4 rounded-xl md:rounded-2xl shadow-xl hover:bg-emerald-500 transition-all"><ShoppingCart size={16} /></button>
                     </div>
                   </div>
                 ))}
@@ -327,42 +351,111 @@ const App: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-6 md:space-y-10 pb-32 max-w-7xl mx-auto">
-              <div className={`${bgCard} p-4 md:p-8 rounded-2xl md:rounded-[3rem] border ${borderLight} flex flex-wrap gap-2 md:gap-4 items-center justify-between`}>
+              <div className={`${bgCard} p-4 md:p-8 rounded-2xl md:rounded-[3rem] border ${borderLight} flex flex-wrap gap-2 md:gap-4 items-center justify-between shadow-xl`}>
                  <div className="flex flex-wrap gap-2 md:gap-3 w-full md:w-auto">
                     <button onClick={() => setAdminTab('orders')} className={`flex-1 md:flex-none px-4 md:px-6 py-3 md:py-4 rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs transition-all ${adminTab === 'orders' ? 'bg-emerald-600 text-black' : `${textSecondary} hover:text-emerald-500`}`}>الطلبيات ({orders.length})</button>
                     <button onClick={() => setAdminTab('products')} className={`flex-1 md:flex-none px-4 md:px-6 py-3 md:py-4 rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs transition-all ${adminTab === 'products' ? 'bg-emerald-600 text-black' : `${textSecondary} hover:text-emerald-500`}`}>المنتجات ({products.length})</button>
                     <button onClick={() => setAdminTab('settings')} className={`flex-1 md:flex-none px-4 md:px-6 py-3 md:py-4 rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs transition-all ${adminTab === 'settings' ? 'bg-emerald-600 text-black' : `${textSecondary} hover:text-emerald-500`}`}>الإعدادات</button>
+                    <button onClick={() => setAdminTab('export')} className={`flex-1 md:flex-none px-4 md:px-6 py-3 md:py-4 rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs transition-all bg-amber-500/10 text-amber-500 border border-amber-500/20`}><FileCode size={14} /></button>
                  </div>
-                 <button onClick={() => setAdminTab('export')} className={`w-full md:w-auto mt-2 md:mt-0 px-6 py-4 rounded-2xl font-black text-xs transition-all bg-amber-500/10 text-amber-500 border border-amber-500/20 hover:bg-amber-500 hover:text-black flex items-center justify-center gap-2`}><FileCode size={16} /> تحديث المتجر</button>
+                 {adminTab === 'products' && (
+                    <button onClick={() => { setEditingProduct({ id: 'prod-' + Date.now(), title: '', price: 0, category: 'أدوات منزلية', description: '', thumbnail: '', stockStatus: 'available', rating: 5, reviewsCount: 0, shippingTime: '24-48 ساعة' }); setIsAddingProduct(true); }} className="bg-emerald-600 text-black px-6 py-4 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg"><PlusCircle size={18} /> إضافة منتج</button>
+                 )}
               </div>
 
-              {adminTab === 'settings' && (
-                <div className="max-w-6xl mx-auto space-y-6 md:space-y-10">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-                    <div className={`${bgCard} p-6 md:p-10 rounded-2xl md:rounded-[3.5rem] border-2 border-[#1877F2]/20 shadow-xl`}>
-                      <div className="flex items-center gap-4 mb-6 md:mb-8">
-                        <div className="w-12 h-12 md:w-14 md:h-14 bg-[#1877F2] rounded-xl md:rounded-2xl flex items-center justify-center text-white"><Facebook size={24} md:size={28} /></div>
-                        <h3 className="text-lg md:text-2xl font-black">إعدادات فيسبوك</h3>
+              {adminTab === 'orders' && (
+                <div className="grid gap-4 md:gap-6">
+                  {orders.length === 0 ? (
+                    <div className="p-20 text-center opacity-30 font-black">لا توجد طلبيات</div>
+                  ) : orders.map(order => (
+                    <div key={order.orderId} className={`${bgCard} border ${borderLight} p-5 md:p-8 rounded-2xl md:rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between gap-6 group shadow-lg transition-all hover:border-emerald-500/20`}>
+                      <div className="flex items-center gap-4 w-full md:w-auto">
+                        <div className={`w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center ${
+                          order.status === 'delivered' ? 'bg-emerald-500/20 text-emerald-500' : 
+                          order.status === 'shipped' ? 'bg-blue-500/20 text-blue-500' : 
+                          'bg-amber-500/20 text-amber-500'
+                        }`}>
+                          {order.status === 'delivered' ? <CheckCircle2 size={24} /> : order.status === 'shipped' ? <Truck size={24} /> : <Clock size={24} />}
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-sm md:text-lg font-black">{order.customer.fullName}</h4>
+                          <p className={`text-[10px] md:text-xs ${textSecondary} font-bold`}>{order.productTitle} • {order.orderId}</p>
+                        </div>
                       </div>
-                      <div className="space-y-4 md:space-y-6">
-                        <input type="text" placeholder="Pixel ID" className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-4 md:p-5 rounded-xl md:rounded-2xl font-bold`} value={pixelId} onChange={(e) => setPixelId(e.target.value)} />
-                        <input type="text" placeholder="Test Event Code" className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-4 md:p-5 rounded-xl md:rounded-2xl font-bold`} value={testEventCode} onChange={(e) => setTestEventCode(e.target.value)} />
+                      
+                      <div className="grid grid-cols-3 md:grid-cols-3 gap-4 md:gap-10 w-full md:w-auto">
+                        <div className="text-center md:text-right"><p className={`text-[10px] ${textSecondary} font-black uppercase mb-1`}>المدينة</p><p className="text-xs md:text-sm font-bold">{order.customer.city}</p></div>
+                        <div className="text-center md:text-right"><p className={`text-[10px] ${textSecondary} font-black uppercase mb-1`}>الهاتف</p><p className="text-xs md:text-sm font-bold text-emerald-500 font-mono">{order.customer.phoneNumber}</p></div>
+                        <div className="flex gap-2 justify-end">
+                          <button onClick={() => setViewingOrder(order)} className="p-3 bg-white/5 rounded-xl text-slate-400 hover:text-emerald-500 transition-colors"><Eye size={18} /></button>
+                          <button onClick={() => setEditingOrder(order)} className="p-3 bg-white/5 rounded-xl text-slate-400 hover:text-blue-500 transition-colors"><Edit3 size={18} /></button>
+                          <button onClick={() => deleteOrder(order.orderId)} className="p-3 bg-white/5 rounded-xl text-slate-400 hover:text-rose-500 transition-colors"><Trash2 size={18} /></button>
+                        </div>
                       </div>
                     </div>
+                  ))}
+                </div>
+              )}
 
-                    <div className={`${bgCard} p-6 md:p-10 rounded-2xl md:rounded-[3.5rem] border-2 border-emerald-500/20 shadow-xl`}>
-                      <div className="flex items-center gap-4 mb-6 md:mb-8">
-                        <div className="w-12 h-12 md:w-14 md:h-14 bg-emerald-600 rounded-xl md:rounded-2xl flex items-center justify-center text-black"><Table size={24} md:size={28} /></div>
-                        <h3 className="text-lg md:text-2xl font-black">غوغل شيت (Sheets)</h3>
+              {adminTab === 'products' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                   {products.map(product => (
+                      <div key={product.id} className={`${bgCard} border ${borderLight} rounded-[2rem] overflow-hidden flex flex-col shadow-lg group`}>
+                         <div className="aspect-square relative overflow-hidden">
+                            <img src={product.thumbnail} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                            <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                               <button onClick={() => { setEditingProduct(product); setIsAddingProduct(false); }} className="p-3 bg-blue-600 text-white rounded-xl shadow-xl"><Edit3 size={18} /></button>
+                               <button onClick={() => deleteProduct(product.id)} className="p-3 bg-rose-600 text-white rounded-xl shadow-xl"><Trash2 size={18} /></button>
+                            </div>
+                         </div>
+                         <div className="p-6 space-y-2">
+                            <h4 className="font-black text-sm line-clamp-1">{product.title}</h4>
+                            <p className="text-emerald-500 font-black">{product.price} DH</p>
+                            <span className="text-[10px] bg-white/5 px-3 py-1 rounded-full opacity-50">{product.category}</span>
+                         </div>
                       </div>
-                      <div className="space-y-4 md:space-y-6">
-                        <input type="text" placeholder="Spreadsheet ID" className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-4 md:p-5 rounded-xl md:rounded-2xl font-bold`} value={sheetId} onChange={(e) => setSheetId(e.target.value)} />
-                        <input type="text" placeholder="Sheet Name" className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-4 md:p-5 rounded-xl md:rounded-2xl font-bold`} value={sheetName} onChange={(e) => setSheetName(e.target.value)} />
-                        <input type="text" placeholder="Apps Script Web App URL" className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-4 md:p-5 rounded-xl md:rounded-2xl font-bold`} value={sheetScriptUrl} onChange={(e) => setSheetScriptUrl(e.target.value)} />
+                   ))}
+                </div>
+              )}
+
+              {adminTab === 'settings' && (
+                <div className="max-w-6xl mx-auto space-y-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div className={`${bgCard} p-8 rounded-[3rem] border-2 border-emerald-500/10 shadow-xl`}>
+                      <h3 className="text-xl font-black mb-8 flex items-center gap-3"><Facebook className="text-[#1877F2]" /> Facebook Pixel</h3>
+                      <div className="space-y-6">
+                        <div className="space-y-1"><label className="text-[10px] font-black opacity-50 px-4">Pixel ID</label><input type="text" className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl font-bold`} value={pixelId} onChange={(e) => setPixelId(e.target.value)} /></div>
+                        <div className="space-y-1"><label className="text-[10px] font-black opacity-50 px-4">Test Event Code</label><input type="text" className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl font-bold`} value={testEventCode} onChange={(e) => setTestEventCode(e.target.value)} /></div>
+                      </div>
+                    </div>
+                    <div className={`${bgCard} p-8 rounded-[3rem] border-2 border-emerald-500/10 shadow-xl`}>
+                      <h3 className="text-xl font-black mb-8 flex items-center gap-3"><Table className="text-emerald-500" /> Google Sheets</h3>
+                      <div className="space-y-4">
+                        <input type="text" placeholder="Script Web App URL" className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl font-bold`} value={sheetScriptUrl} onChange={(e) => setSheetScriptUrl(e.target.value)} />
+                        <p className="text-[10px] opacity-40 px-4 leading-relaxed">رابط Apps Script Web App لإرسال الطلبيات تلقائياً للجدول.</p>
                       </div>
                     </div>
                   </div>
-                  <button onClick={saveConfigSettings} className="w-full bg-emerald-600 text-black py-6 md:py-8 rounded-2xl md:rounded-[2.5rem] font-black text-lg md:text-xl shadow-xl transition-all flex items-center justify-center gap-4"><Save size={24} /> حفظ الإعدادات</button>
+                  <button onClick={() => { localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify({ pixelId, testEventCode, sheetScriptUrl })); alert('تم الحفظ بنجاح!'); }} className="w-full bg-emerald-600 text-black py-6 rounded-3xl font-black text-xl shadow-xl flex items-center justify-center gap-3"><Save size={24} /> حفظ الإعدادات</button>
+                </div>
+              )}
+
+              {adminTab === 'export' && (
+                <div className="max-w-4xl mx-auto space-y-8">
+                   <div className={`${bgCard} p-10 rounded-[3.5rem] border-2 border-amber-500/20 shadow-2xl`}>
+                      <h3 className="text-3xl font-black mb-6 flex items-center gap-4 text-amber-500"><Code size={40} /> تحديث المتجر للكل</h3>
+                      <p className={`text-sm ${textSecondary} font-bold mb-8 leading-relaxed`}>
+                        لكي تظهر المنتجات والتغييرات الجديدة لجميع الزوار، قم بنسخ هذا الكود واستبدل محتوى ملف <code className="text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded">constants.tsx</code> في مشروعك.
+                      </p>
+                      <div className="relative group">
+                         <pre className="bg-black/50 p-8 rounded-3xl font-mono text-[10px] text-ltr overflow-x-auto h-80 no-scrollbar opacity-70">
+                           {generateConstantsCode()}
+                         </pre>
+                         <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px] rounded-3xl">
+                            <button onClick={() => { navigator.clipboard.writeText(generateConstantsCode()); alert('تم نسخ الكود بنجاح!'); }} className="bg-amber-500 text-black px-12 py-5 rounded-full font-black flex items-center gap-3 shadow-2xl scale-110"><Copy size={24} /> نسخ الكود بالكامل</button>
+                         </div>
+                      </div>
+                   </div>
                 </div>
               )}
             </div>
@@ -370,55 +463,129 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Product Details Modal - Optimized for Mobile */}
+      {/* Viewing Order Details Modal */}
+      {viewingOrder && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-xl" onClick={() => setViewingOrder(null)} />
+          <div className={`${bgCard} w-full max-w-2xl rounded-[3rem] p-8 md:p-12 relative border ${borderLight} shadow-2xl overflow-y-auto max-h-[90vh]`}>
+            <button onClick={() => setViewingOrder(null)} className="absolute top-8 left-8 text-slate-500 hover:text-white"><X size={24} /></button>
+            <h3 className="text-2xl font-black mb-10 flex items-center gap-3"><Package className="text-emerald-500" /> تفاصيل الطلبية</h3>
+            
+            <div className="space-y-6">
+               <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white/5 p-6 rounded-3xl border ${borderLight}"><p className="text-[10px] font-black uppercase opacity-50 mb-1">رقم الطلب</p><p className="font-mono font-bold text-emerald-500">{viewingOrder.orderId}</p></div>
+                  <div className="bg-white/5 p-6 rounded-3xl border ${borderLight}"><p className="text-[10px] font-black uppercase opacity-50 mb-1">الحالة</p><span className={`text-[10px] font-black px-3 py-1 rounded-full ${viewingOrder.status === 'delivered' ? 'bg-emerald-500 text-black' : 'bg-amber-500 text-black'}`}>{viewingOrder.status}</span></div>
+               </div>
+               <div className="bg-white/5 p-8 rounded-3xl border ${borderLight} space-y-4">
+                  <h4 className="font-black flex items-center gap-2"><User size={18} className="text-emerald-500" /> الزبون</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm font-bold">
+                     <div><p className="opacity-40 text-[10px] mb-1">الاسم الكامل</p><p>{viewingOrder.customer.fullName}</p></div>
+                     <div><p className="opacity-40 text-[10px] mb-1">رقم الهاتف</p><p className="text-emerald-500 font-mono">{viewingOrder.customer.phoneNumber}</p></div>
+                     <div className="col-span-2"><p className="opacity-40 text-[10px] mb-1">العنوان</p><p>{viewingOrder.customer.city} - {viewingOrder.customer.address || 'لا يوجد عنوان مفصل'}</p></div>
+                  </div>
+               </div>
+               <div className="bg-white/5 p-8 rounded-3xl border ${borderLight} space-y-4">
+                  <h4 className="font-black flex items-center gap-2"><ShoppingCart size={18} className="text-emerald-500" /> المنتج</h4>
+                  <div className="flex items-center justify-between"><p className="font-bold">{viewingOrder.productTitle}</p><p className="text-2xl font-black text-emerald-500">{viewingOrder.productPrice} DH</p></div>
+               </div>
+               <button onClick={() => { setEditingOrder(viewingOrder); setViewingOrder(null); }} className="w-full bg-white/5 hover:bg-white/10 py-6 rounded-3xl font-black text-lg transition-colors border border-white/10">تعديل بيانات الطلبية</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Order Editing Modal */}
+      {editingOrder && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-xl" onClick={() => setEditingOrder(null)} />
+          <div className={`${bgCard} w-full max-w-xl rounded-[3rem] p-10 relative border ${borderLight} shadow-2xl`}>
+            <h3 className="text-2xl font-black mb-8">تعديل الطلبية</h3>
+            <div className="space-y-6">
+               <input type="text" placeholder="الاسم الكامل" className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={editingOrder.customer.fullName} onChange={(e) => setEditingOrder({...editingOrder, customer: {...editingOrder.customer, fullName: e.target.value}})} />
+               <input type="text" placeholder="رقم الهاتف" className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={editingOrder.customer.phoneNumber} onChange={(e) => setEditingOrder({...editingOrder, customer: {...editingOrder.customer, phoneNumber: e.target.value}})} />
+               <select className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={editingOrder.status} onChange={(e) => setEditingOrder({...editingOrder, status: e.target.value as any})}>
+                  <option value="pending" className="text-black">في الانتظار (Pending)</option>
+                  <option value="shipped" className="text-black">مشحون (Shipped)</option>
+                  <option value="delivered" className="text-black">تم التوصيل (Delivered)</option>
+               </select>
+               <div className="flex gap-4 pt-4">
+                 <button onClick={() => setEditingOrder(null)} className="flex-1 py-5 rounded-2xl font-black opacity-50 hover:opacity-100">إلغاء</button>
+                 <button onClick={saveOrderEdit} className="flex-[2] bg-emerald-600 text-black py-5 rounded-2xl font-black shadow-xl">حفظ</button>
+               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Product Adding/Editing Modal */}
+      {editingProduct && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setEditingProduct(null)} />
+          <div className={`${bgCard} w-full max-w-4xl rounded-[3.5rem] p-8 md:p-12 relative border ${borderLight} shadow-2xl overflow-y-auto max-h-[90vh] no-scrollbar`}>
+            <h3 className="text-3xl font-black mb-10">{isAddingProduct ? 'إضافة منتج جديد' : 'تعديل المنتج'}</h3>
+            <form onSubmit={saveProduct} className="grid grid-cols-1 md:grid-cols-2 gap-10">
+               <div className="space-y-6">
+                  <div className="space-y-1"><label className="text-[10px] font-black opacity-50 px-4">اسم المنتج</label><input type="text" required className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={editingProduct.title} onChange={(e) => setEditingProduct({...editingProduct, title: e.target.value})} /></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1"><label className="text-[10px] font-black opacity-50 px-4">السعر (DH)</label><input type="number" required className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={editingProduct.price} onChange={(e) => setEditingProduct({...editingProduct, price: Number(e.target.value)})} /></div>
+                    <div className="space-y-1"><label className="text-[10px] font-black opacity-50 px-4">الفئة</label><select className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold text-xs`} value={editingProduct.category} onChange={(e) => setEditingProduct({...editingProduct, category: e.target.value as Category})}><option value="أدوات منزلية" className="text-black">أدوات منزلية</option><option value="إلكترونيات" className="text-black">إلكترونيات</option><option value="تجميل وعناية" className="text-black">تجميل وعناية</option><option value="نظارات" className="text-black">نظارات</option></select></div>
+                  </div>
+                  <div className="space-y-1"><label className="text-[10px] font-black opacity-50 px-4">الوصف</label><textarea rows={6} className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold text-sm`} value={editingProduct.description} onChange={(e) => setEditingProduct({...editingProduct, description: e.target.value})} /></div>
+               </div>
+               <div className="space-y-8">
+                  <div className="space-y-4">
+                    <label className="text-xs font-black opacity-50">الصورة الرئيسية</label>
+                    <div className="aspect-square bg-white/5 border-2 border-dashed border-emerald-500/20 rounded-[2.5rem] flex items-center justify-center relative overflow-hidden group">
+                       {editingProduct.thumbnail ? (
+                         <>
+                           <img src={editingProduct.thumbnail} className="w-full h-full object-cover" />
+                           <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer" onClick={() => document.getElementById('thumb-upload')?.click()}><Camera size={40} /></div>
+                         </>
+                       ) : (
+                         <button type="button" onClick={() => document.getElementById('thumb-upload')?.click()} className="flex flex-col items-center gap-4 text-emerald-500/40 font-black"><ImageIcon size={50} /> رفع الصورة</button>
+                       )}
+                       <input id="thumb-upload" type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'thumbnail')} />
+                    </div>
+                  </div>
+                  <button type="submit" className="w-full bg-emerald-600 text-black py-8 rounded-[2.5rem] font-black text-2xl shadow-2xl hover:bg-emerald-500 transition-all">حفظ المنتج</button>
+               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Customer Shop Modal */}
       {selectedProduct && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-0 md:p-4 overflow-hidden">
           <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => !isCheckingOut && setSelectedProduct(null)} />
           <div className={`${bgSidebar} w-full h-full md:h-auto md:max-w-7xl md:rounded-[4rem] relative overflow-hidden flex flex-col md:flex-row shadow-2xl border ${borderLight} md:max-h-[95vh] animate-in slide-in-from-bottom md:zoom-in-95 duration-300`}>
-            <button onClick={() => { setSelectedProduct(null); setIsCheckingOut(false); }} className="absolute top-4 md:top-8 right-4 md:right-8 z-[110] bg-black/40 md:bg-white/5 p-3 md:p-4 rounded-full text-white border border-white/10"><X size={20} md:size={24} /></button>
-            
-            <div className={`w-full md:w-1/2 h-[50vh] md:h-auto ${theme === 'dark' ? 'bg-black' : 'bg-slate-50'} flex flex-col items-center justify-center relative p-0 md:p-8`}>
-              <div className="relative w-full h-full md:aspect-[4/5] overflow-hidden md:rounded-[3rem] shadow-2xl">
-                <img src={activeGalleryImage || selectedProduct.thumbnail} className="w-full h-full object-cover transition-all duration-700" />
-              </div>
-              {selectedProduct.galleryImages && selectedProduct.galleryImages.length > 0 && (
-                <div className="absolute bottom-4 left-0 right-0 flex gap-2 overflow-x-auto no-scrollbar px-4">
-                  <div onClick={() => setActiveGalleryImage(selectedProduct.thumbnail)} className={`min-w-[60px] h-[60px] md:min-w-[80px] md:h-[80px] rounded-xl md:rounded-2xl overflow-hidden cursor-pointer border-2 transition-all ${activeGalleryImage === selectedProduct.thumbnail ? 'border-emerald-500' : 'border-transparent'}`}><img src={selectedProduct.thumbnail} className="w-full h-full object-cover" /></div>
-                  {selectedProduct.galleryImages.map((img, i) => (
-                    <div key={i} onClick={() => setActiveGalleryImage(img)} className={`min-w-[60px] h-[60px] md:min-w-[80px] md:h-[80px] rounded-xl md:rounded-2xl overflow-hidden cursor-pointer border-2 transition-all ${activeGalleryImage === img ? 'border-emerald-500' : 'border-transparent'}`}><img src={img} className="w-full h-full object-cover" /></div>
-                  ))}
-                </div>
-              )}
+            <button onClick={() => { setSelectedProduct(null); setIsCheckingOut(false); }} className="absolute top-4 md:top-8 right-4 md:right-8 z-[110] bg-black/40 md:bg-white/5 p-3 md:p-4 rounded-full text-white border border-white/10"><X size={20} /></button>
+            <div className={`w-full md:w-1/2 h-[45vh] md:h-auto ${theme === 'dark' ? 'bg-black' : 'bg-slate-50'} relative p-0 md:p-8`}>
+              <img src={activeGalleryImage || selectedProduct.thumbnail} className="w-full h-full object-cover md:rounded-[3rem]" />
             </div>
-
-            <div className="w-full md:w-1/2 flex-1 p-6 md:p-20 flex flex-col justify-between overflow-y-auto no-scrollbar">
+            <div className="w-full md:w-1/2 flex-1 p-8 md:p-20 overflow-y-auto no-scrollbar">
                {!isCheckingOut ? (
-                 <>
-                   <div className="space-y-4 md:space-y-8">
-                     <span className="bg-emerald-500/10 text-emerald-500 px-4 py-1 rounded-full text-[10px] font-black uppercase border border-emerald-500/20">{selectedProduct.category}</span>
-                     <h2 className="text-2xl md:text-6xl font-black leading-tight tracking-tighter">{selectedProduct.title}</h2>
-                     <p className={`${textSecondary} font-medium text-sm md:text-xl leading-relaxed whitespace-pre-wrap`}>{selectedProduct.description}</p>
+                 <div className="space-y-10">
+                   <div className="space-y-4">
+                     <span className="bg-emerald-500/10 text-emerald-500 px-5 py-1.5 rounded-full text-[10px] font-black border border-emerald-500/20">{selectedProduct.category}</span>
+                     <h2 className="text-3xl md:text-5xl font-black leading-tight">{selectedProduct.title}</h2>
+                     <p className={`${textSecondary} font-medium text-sm md:text-lg leading-relaxed whitespace-pre-wrap`}>{selectedProduct.description}</p>
                    </div>
-                   <div className="mt-8 md:mt-16 space-y-4 md:space-y-6">
-                     <div className="flex items-center justify-between p-6 md:p-10 bg-emerald-600 rounded-2xl md:rounded-[3rem] text-black shadow-xl">
-                       <div><p className="text-[10px] font-black uppercase opacity-60">السعر النهائي</p><p className="text-3xl md:text-6xl font-black">{selectedProduct.price} <small className="text-sm md:text-2xl">DH</small></p></div>
-                       <div className="text-right"><p className="font-black text-[10px] md:text-sm uppercase">دفع عند الاستلام</p></div>
-                     </div>
-                     <button onClick={() => setIsCheckingOut(true)} className="w-full bg-white text-black py-6 md:py-10 rounded-2xl md:rounded-[3rem] font-black text-xl md:text-3xl shadow-2xl animate-buy-pulse">اشترِ الآن</button>
+                   <div className="p-8 bg-emerald-600 rounded-[2.5rem] text-black shadow-xl flex items-center justify-between">
+                     <p className="text-4xl md:text-6xl font-black">{selectedProduct.price} DH</p>
+                     <div className="text-right"><p className="text-[10px] font-black uppercase opacity-60">توصيل مجاني</p><p className="font-bold">الدفع عند الاستلام</p></div>
                    </div>
-                 </>
+                   <button onClick={() => setIsCheckingOut(true)} className="w-full bg-white text-black py-8 md:py-10 rounded-[3rem] font-black text-2xl md:text-4xl shadow-2xl animate-buy-pulse">اشترِ الآن</button>
+                 </div>
                ) : (
-                 <div className="space-y-6 md:space-y-10 h-full flex flex-col">
-                    <div className="flex items-center gap-4 md:gap-6">
-                      <button onClick={() => setIsCheckingOut(false)} className="p-3 md:p-4 rounded-full text-emerald-500 border ${borderLight} shadow-md"><ChevronLeft size={20} md:size={24} /></button>
-                      <h3 className="text-2xl md:text-4xl font-black tracking-tighter">معلومات التوصيل</h3>
+                 <div className="space-y-10 h-full flex flex-col">
+                    <div className="flex items-center gap-6"><button onClick={() => setIsCheckingOut(false)} className="p-4 rounded-full text-emerald-500 border ${borderLight} shadow-md"><ChevronLeft size={24} /></button><h3 className="text-3xl font-black">معلومات التوصيل</h3></div>
+                    <div className="flex-1 space-y-6">
+                       <input type="text" placeholder="اسمك الكامل" className={`w-full bg-white/5 border ${borderLight} p-6 rounded-3xl font-bold text-lg`} value={customerInfo.fullName} onChange={(e) => setCustomerInfo({...customerInfo, fullName: e.target.value})} />
+                       <select className={`w-full bg-white/5 border ${borderLight} p-6 rounded-3xl font-bold text-lg appearance-none`} value={customerInfo.city} onChange={(e) => setCustomerInfo({...customerInfo, city: e.target.value})}><option value="">اختر مدينتك</option>{MOROCCAN_CITIES.map(c => <option key={c} value={c} className="text-black">{c}</option>)}</select>
+                       <input type="tel" placeholder="رقم الهاتف" className={`w-full bg-white/5 border ${borderLight} p-6 rounded-3xl font-bold text-lg text-ltr`} value={customerInfo.phoneNumber} onChange={(e) => setCustomerInfo({...customerInfo, phoneNumber: e.target.value})} />
                     </div>
-                    <div className="flex-1 space-y-4 md:space-y-8">
-                      <div className="space-y-1"><label className={`text-[10px] ${textSecondary} font-black px-4`}>الاسم الكامل</label><div className={`bg-white/5 border ${borderLight} p-4 md:p-7 rounded-xl md:rounded-[2rem] flex items-center gap-3 md:gap-4`}><User className={textSecondary} size={18} /><input type="text" placeholder="اسمك الكامل" className="bg-transparent border-none outline-none flex-1 font-bold text-sm md:text-xl" value={customerInfo.fullName} onChange={(e) => setCustomerInfo({...customerInfo, fullName: e.target.value})} /></div></div>
-                      <div className="space-y-1"><label className={`text-[10px] ${textSecondary} font-black px-4`}>المدينة</label><div className={`bg-white/5 border ${borderLight} p-4 md:p-7 rounded-xl md:rounded-[2rem] flex items-center gap-3 md:gap-4`}><MapPin className={textSecondary} size={18} /><select className="bg-transparent border-none outline-none flex-1 font-bold text-sm md:text-xl appearance-none" value={customerInfo.city} onChange={(e) => setCustomerInfo({...customerInfo, city: e.target.value})}><option value="">اختر مدينتك</option>{MOROCCAN_CITIES.map(city => <option key={city} value={city} className="text-black">{city}</option>)}</select></div></div>
-                      <div className="space-y-1"><label className={`text-[10px] ${textSecondary} font-black px-4`}>رقم الهاتف</label><div className={`bg-white/5 border ${borderLight} p-4 md:p-7 rounded-xl md:rounded-[2rem] flex items-center gap-3 md:gap-4`}><Phone className={textSecondary} size={18} /><input type="tel" placeholder="رقم الهاتف" className="bg-transparent border-none outline-none flex-1 font-bold text-ltr text-sm md:text-xl" value={customerInfo.phoneNumber} onChange={(e) => setCustomerInfo({...customerInfo, phoneNumber: e.target.value})} /></div></div>
-                    </div>
-                    <button onClick={confirmOrder} className="w-full bg-emerald-600 text-black py-6 md:py-10 rounded-2xl md:rounded-[3rem] font-black text-lg md:text-2xl shadow-2xl flex items-center justify-center gap-3">تأكيد الطلب <ArrowRight size={24} /></button>
+                    <button onClick={confirmOrder} className="w-full bg-emerald-600 text-black py-8 rounded-[3rem] font-black text-2xl flex items-center justify-center gap-4">تأكيد الطلب <ArrowRight size={28} /></button>
                  </div>
                )}
             </div>
@@ -430,11 +597,11 @@ const App: React.FC = () => {
       {activeOrder && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-2xl" onClick={() => setActiveOrder(null)} />
-          <div className={`${bgSidebar} w-full max-w-xl rounded-[2.5rem] md:rounded-[4rem] p-8 md:p-16 text-center relative border ${borderLight} shadow-2xl`}>
-             <div className="w-16 h-16 md:w-24 md:h-24 bg-emerald-600 rounded-full flex items-center justify-center text-black mx-auto mb-6 md:mb-10 shadow-xl"><Check size={32} md:size={50} strokeWidth={4} /></div>
-             <h3 className="text-2xl md:text-4xl font-black mb-4">تم استلام طلبك!</h3>
-             <p className={`${textSecondary} font-bold text-sm md:text-xl mb-8 md:mb-12`}>شكراً {activeOrder.customer.fullName}. سنتصل بك قريباً لتأكيد الشحن.</p>
-             <button onClick={() => setActiveOrder(null)} className="w-full bg-emerald-600 text-black py-4 md:py-6 rounded-2xl md:rounded-3xl font-black text-lg shadow-xl">العودة للتسوق</button>
+          <div className={`${bgSidebar} w-full max-w-xl rounded-[4rem] p-12 text-center relative border ${borderLight} shadow-2xl`}>
+             <div className="w-20 h-20 bg-emerald-600 rounded-full flex items-center justify-center text-black mx-auto mb-8 shadow-xl shadow-emerald-500/30"><Check size={40} strokeWidth={4} /></div>
+             <h3 className="text-3xl font-black mb-4">تم استلام طلبك!</h3>
+             <p className={`${textSecondary} font-bold text-lg mb-10`}>سنتصل بك قريباً يا {activeOrder.customer.fullName} لتأكيد الطلبية.</p>
+             <button onClick={() => setActiveOrder(null)} className="w-full bg-emerald-600 text-black py-6 rounded-3xl font-black text-xl shadow-xl">العودة للمتجر</button>
           </div>
         </div>
       )}
@@ -443,11 +610,11 @@ const App: React.FC = () => {
       {showLoginModal && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/90 backdrop-blur-xl" onClick={() => setShowLoginModal(false)} />
-          <form onSubmit={(e) => { e.preventDefault(); if(passwordInput === adminPassword) { setIsAdminAuthenticated(true); sessionStorage.setItem('admin_auth', 'true'); setShowLoginModal(false); setView('admin'); setPasswordInput(''); } else setLoginError(true); }} className={`${bgCard} w-full max-w-md rounded-[2.5rem] p-8 md:p-12 relative border ${borderLight} shadow-2xl`}>
-             <h3 className="text-2xl md:text-3xl font-black text-center mb-8">دخول المسؤول</h3>
-             <div className="space-y-4 md:space-y-6">
-                <div className="relative"><input type={showPassword ? "text" : "password"} placeholder="كلمة المرور" className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${loginError ? 'border-rose-500' : borderLight} p-5 md:p-6 rounded-2xl ${textPrimary} font-bold outline-none pr-14`} value={passwordInput} onChange={(e) => { setPasswordInput(e.target.value); setLoginError(false); }} autoFocus /><button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-emerald-500">{showPassword ? <EyeOff size={20} /> : <Eye size={20} />}</button></div>
-                <button type="submit" className="w-full bg-emerald-600 text-black py-4 md:py-6 rounded-2xl font-black text-lg md:text-xl hover:bg-emerald-500 shadow-xl transition-all">دخول</button>
+          <form onSubmit={(e) => { e.preventDefault(); if(passwordInput === adminPassword) { setIsAdminAuthenticated(true); sessionStorage.setItem('admin_auth', 'true'); setShowLoginModal(false); setView('admin'); setPasswordInput(''); } else setLoginError(true); }} className={`${bgCard} w-full max-w-md rounded-[3rem] p-10 relative border ${borderLight} shadow-2xl`}>
+             <h3 className="text-2xl font-black text-center mb-8">دخول المسؤول</h3>
+             <div className="space-y-4">
+                <input type={showPassword ? "text" : "password"} placeholder="كلمة المرور" className={`w-full bg-white/5 border ${loginError ? 'border-rose-500' : borderLight} p-5 rounded-2xl ${textPrimary} font-bold outline-none`} value={passwordInput} onChange={(e) => { setPasswordInput(e.target.value); setLoginError(false); }} autoFocus />
+                <button type="submit" className="w-full bg-emerald-600 text-black py-5 rounded-2xl font-black text-lg hover:bg-emerald-500 transition-all">دخول</button>
              </div>
           </form>
         </div>
