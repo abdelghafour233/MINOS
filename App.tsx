@@ -8,7 +8,7 @@ import {
   Upload, Plus as PlusIcon, RefreshCw, Link as LinkIcon, Share2, Copy, 
   Target, Facebook, Code, FileCode, KeyRound, Images, Camera, 
   Activity, Info, Table, Database, ExternalLink, Filter, MoreVertical,
-  Calendar, CreditCard, Clock, CheckCircle2, AlertTriangle
+  Calendar, CreditCard, Clock, CheckCircle2, AlertTriangle, Plus
 } from 'lucide-react';
 import { StoreProduct, StoreOrder, CustomerInfo, Category } from './types';
 import { MOCK_PRODUCTS, CATEGORIES, MOROCCAN_CITIES, STORE_CONFIG } from './constants';
@@ -188,11 +188,27 @@ const App: React.FC = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
-        if (type === 'thumbnail') setEditingProduct({ ...editingProduct, thumbnail: base64 });
-        else setEditingProduct({ ...editingProduct, galleryImages: [...(editingProduct.galleryImages || []), base64] });
+        if (type === 'thumbnail') {
+          setEditingProduct({ ...editingProduct, thumbnail: base64 });
+        } else {
+          setEditingProduct(prev => {
+            if (!prev) return null;
+            const currentGallery = prev.galleryImages || [];
+            return { ...prev, galleryImages: [...currentGallery, base64] };
+          });
+        }
       };
       reader.readAsDataURL(file);
     });
+    // Reset input value so same file can be uploaded again if deleted
+    e.target.value = '';
+  };
+
+  const removeGalleryImage = (index: number) => {
+    if (!editingProduct) return;
+    const currentGallery = [...(editingProduct.galleryImages || [])];
+    currentGallery.splice(index, 1);
+    setEditingProduct({ ...editingProduct, galleryImages: currentGallery });
   };
 
   const handleChangePassword = (e: React.FormEvent) => {
@@ -378,7 +394,7 @@ export const CATEGORIES = ${JSON.stringify(CATEGORIES, null, 2)};`;
                     <button onClick={() => setAdminTab('export')} className={`flex-1 md:flex-none px-4 md:px-6 py-3 md:py-4 rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs transition-all bg-amber-500/10 text-amber-500 border border-amber-500/20`}><FileCode size={14} /></button>
                  </div>
                  {adminTab === 'products' && (
-                    <button onClick={() => { setEditingProduct({ id: 'prod-' + Date.now(), title: '', price: 0, category: 'أدوات منزلية', description: '', thumbnail: '', stockStatus: 'available', rating: 5, reviewsCount: 0, shippingTime: '24-48 ساعة' }); setIsAddingProduct(true); }} className="bg-emerald-600 text-black px-6 py-4 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg"><PlusCircle size={18} /> إضافة منتج</button>
+                    <button onClick={() => { setEditingProduct({ id: 'prod-' + Date.now(), title: '', price: 0, category: 'أدوات منزلية', description: '', thumbnail: '', stockStatus: 'available', rating: 5, reviewsCount: 0, shippingTime: '24-48 ساعة', galleryImages: [] }); setIsAddingProduct(true); }} className="bg-emerald-600 text-black px-6 py-4 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg"><PlusCircle size={18} /> إضافة منتج</button>
                  )}
               </div>
 
@@ -532,27 +548,72 @@ export const CATEGORIES = ${JSON.stringify(CATEGORIES, null, 2)};`;
       {editingProduct && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setEditingProduct(null)} />
-          <div className={`${bgCard} w-full max-w-4xl rounded-[3.5rem] p-12 relative border ${borderLight} shadow-2xl overflow-y-auto max-h-[90vh] no-scrollbar`}>
-            <h3 className="text-3xl font-black mb-10">{isAddingProduct ? 'إضافة منتج' : 'تعديل منتج'}</h3>
-            <form onSubmit={saveProduct} className="grid grid-cols-1 md:grid-cols-2 gap-10">
+          <div className={`${bgCard} w-full max-w-4xl rounded-[3.5rem] p-8 md:p-12 relative border ${borderLight} shadow-2xl overflow-y-auto max-h-[95vh] no-scrollbar`}>
+            <div className="flex justify-between items-center mb-10">
+              <h3 className="text-3xl font-black">{isAddingProduct ? 'إضافة منتج جديد' : 'تعديل تفاصيل المنتج'}</h3>
+              <button onClick={() => setEditingProduct(null)} className="p-2 hover:bg-white/5 rounded-full transition-colors"><X size={32} /></button>
+            </div>
+            
+            <form onSubmit={saveProduct} className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                <div className="space-y-6">
-                  <input type="text" placeholder="اسم المنتج" required className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={editingProduct.title} onChange={(e) => setEditingProduct({...editingProduct, title: e.target.value})} />
-                  <input type="number" placeholder="السعر" required className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={editingProduct.price} onChange={(e) => setEditingProduct({...editingProduct, price: Number(e.target.value)})} />
-                  <textarea rows={5} placeholder="الوصف" className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold text-sm`} value={editingProduct.description} onChange={(e) => setEditingProduct({...editingProduct, description: e.target.value})} />
-               </div>
-               <div className="space-y-8">
-                  <div className="aspect-square bg-white/5 border-2 border-dashed border-emerald-500/20 rounded-[2.5rem] flex items-center justify-center relative overflow-hidden group">
-                     {editingProduct.thumbnail ? (
-                        <>
-                          <img src={editingProduct.thumbnail} className="w-full h-full object-cover" />
-                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer" onClick={() => document.getElementById('thumb-upload')?.click()}><Camera size={40} /></div>
-                        </>
-                     ) : (
-                        <button type="button" onClick={() => document.getElementById('thumb-upload')?.click()} className="flex flex-col items-center gap-4 text-emerald-500/40 font-black"><ImageIcon size={50} /> رفع الصورة</button>
-                     )}
-                     <input id="thumb-upload" type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'thumbnail')} />
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black opacity-50 px-4">اسم المنتج</label>
+                    <input type="text" placeholder="مثلاً: نظارة شمسية عصرية" required className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold text-lg`} value={editingProduct.title} onChange={(e) => setEditingProduct({...editingProduct, title: e.target.value})} />
                   </div>
-                  <button type="submit" className="w-full bg-emerald-600 text-black py-8 rounded-[2.5rem] font-black text-2xl shadow-2xl">حفظ المنتج</button>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black opacity-50 px-4">السعر (DH)</label>
+                      <input type="number" placeholder="0.00" required className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={editingProduct.price} onChange={(e) => setEditingProduct({...editingProduct, price: Number(e.target.value)})} />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black opacity-50 px-4">التصنيف</label>
+                      <select className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold appearance-none`} value={editingProduct.category} onChange={(e) => setEditingProduct({...editingProduct, category: e.target.value as any})}>
+                        {CATEGORIES.filter(c => c !== 'الكل').map(cat => <option key={cat} value={cat} className="text-black">{cat}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black opacity-50 px-4">وصف المنتج (مميزاته وفوائده)</label>
+                    <textarea rows={8} placeholder="اكتب وصفاً جذاباً للمنتج..." className={`w-full bg-white/5 border ${borderLight} p-6 rounded-3xl font-bold text-sm leading-relaxed`} value={editingProduct.description} onChange={(e) => setEditingProduct({...editingProduct, description: e.target.value})} />
+                  </div>
+               </div>
+
+               <div className="space-y-8">
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-black opacity-50 px-4 uppercase tracking-widest">الصورة الرئيسية (Thumbnail)</label>
+                    <div className="aspect-[4/3] bg-white/5 border-2 border-dashed border-emerald-500/20 rounded-[2.5rem] flex items-center justify-center relative overflow-hidden group shadow-inner">
+                       {editingProduct.thumbnail ? (
+                          <>
+                            <img src={editingProduct.thumbnail} className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer" onClick={() => document.getElementById('thumb-upload')?.click()}><Camera size={40} className="text-emerald-500" /></div>
+                          </>
+                       ) : (
+                          <button type="button" onClick={() => document.getElementById('thumb-upload')?.click()} className="flex flex-col items-center gap-4 text-emerald-500/40 font-black hover:text-emerald-500 transition-colors"><ImageIcon size={60} /> رفع الصورة الرئيسية</button>
+                       )}
+                       <input id="thumb-upload" type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'thumbnail')} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-black opacity-50 px-4 uppercase tracking-widest">معرض الصور الإضافية (Gallery)</label>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
+                       {editingProduct.galleryImages?.map((img, idx) => (
+                         <div key={idx} className="aspect-square bg-white/5 rounded-2xl border border-emerald-500/10 relative group overflow-hidden shadow-md">
+                           <img src={img} className="w-full h-full object-cover" />
+                           <button type="button" onClick={() => removeGalleryImage(idx)} className="absolute top-1 left-1 p-1 bg-rose-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"><X size={14} /></button>
+                         </div>
+                       ))}
+                       <button type="button" onClick={() => document.getElementById('gallery-upload')?.click()} className="aspect-square border-2 border-dashed border-emerald-500/20 rounded-2xl flex flex-col items-center justify-center gap-1 text-emerald-500/30 hover:text-emerald-500 hover:border-emerald-500 transition-all bg-white/5">
+                         <Plus size={24} />
+                         <span className="text-[8px] font-black">إضافة</span>
+                       </button>
+                       <input id="gallery-upload" type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleImageUpload(e, 'gallery')} />
+                    </div>
+                  </div>
+
+                  <button type="submit" className="w-full bg-emerald-600 text-black py-8 rounded-[2.5rem] font-black text-2xl shadow-2xl hover:scale-[1.02] transition-transform active:scale-95 shimmer-btn flex items-center justify-center gap-3"><Save size={28} /> حفظ المنتج بالكامل</button>
                </div>
             </form>
           </div>
@@ -565,8 +626,23 @@ export const CATEGORIES = ${JSON.stringify(CATEGORIES, null, 2)};`;
           <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => !isCheckingOut && setSelectedProduct(null)} />
           <div className={`${bgSidebar} w-full h-full md:h-auto md:max-w-7xl md:rounded-[4rem] relative overflow-hidden flex flex-col md:flex-row shadow-2xl border ${borderLight} md:max-h-[95vh] animate-in slide-in-from-bottom md:zoom-in-95 duration-300`}>
             <button onClick={() => { setSelectedProduct(null); setIsCheckingOut(false); }} className="absolute top-4 md:top-8 right-4 md:right-8 z-[110] bg-black/40 md:bg-white/5 p-3 md:p-4 rounded-full text-white border border-white/10"><X size={20} /></button>
-            <div className={`w-full md:w-1/2 h-[45vh] md:h-auto ${theme === 'dark' ? 'bg-black' : 'bg-slate-50'} relative p-0 md:p-8`}>
-              <img src={activeGalleryImage || selectedProduct.thumbnail} className="w-full h-full object-cover md:rounded-[3rem]" />
+            <div className={`w-full md:w-1/2 h-[45vh] md:h-auto ${theme === 'dark' ? 'bg-black' : 'bg-slate-50'} relative p-0 md:p-8 flex flex-col`}>
+              <div className="flex-1 overflow-hidden relative">
+                <img src={activeGalleryImage || selectedProduct.thumbnail} className="w-full h-full object-cover md:rounded-[3rem] transition-all duration-500" />
+              </div>
+              {/* Product Gallery in Preview */}
+              {(selectedProduct.galleryImages && selectedProduct.galleryImages.length > 0) && (
+                <div className="p-4 flex gap-3 overflow-x-auto no-scrollbar">
+                  <button onClick={() => setActiveGalleryImage(selectedProduct.thumbnail)} className={`w-16 h-16 rounded-xl border-2 flex-shrink-0 transition-all ${activeGalleryImage === selectedProduct.thumbnail ? 'border-emerald-500' : 'border-transparent opacity-50'}`}>
+                    <img src={selectedProduct.thumbnail} className="w-full h-full object-cover rounded-lg" />
+                  </button>
+                  {selectedProduct.galleryImages.map((img, i) => (
+                    <button key={i} onClick={() => setActiveGalleryImage(img)} className={`w-16 h-16 rounded-xl border-2 flex-shrink-0 transition-all ${activeGalleryImage === img ? 'border-emerald-500' : 'border-transparent opacity-50'}`}>
+                      <img src={img} className="w-full h-full object-cover rounded-lg" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="w-full md:w-1/2 flex-1 p-8 md:p-20 overflow-y-auto no-scrollbar">
                {!isCheckingOut ? (
