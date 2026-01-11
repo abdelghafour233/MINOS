@@ -10,7 +10,7 @@ import {
   Eye, EyeOff, Sun, Moon, Image as ImageIcon, Upload, Plus as PlusIcon, RefreshCw
 } from 'lucide-react';
 import { StoreProduct, StoreOrder, CustomerInfo, Category } from './types';
-import { MOCK_PRODUCTS, CATEGORIES } from './constants';
+import { MOCK_PRODUCTS, CATEGORIES, MOROCCAN_CITIES } from './constants';
 
 const ADMIN_PASSWORD = 'admin'; 
 const PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1560393464-5c69a73c5770?q=80&w=500&auto=format&fit=crop';
@@ -440,7 +440,7 @@ const App: React.FC = () => {
       {showLoginModal && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-6">
           <div className={`absolute inset-0 ${theme === 'dark' ? 'bg-black/95' : 'bg-slate-900/60'} backdrop-blur-3xl animate-in fade-in duration-300`} onClick={() => { setShowLoginModal(false); setShowPassword(false); }} />
-          <form onSubmit={handleLogin} className={`${bgCard} w-full max-w-md rounded-[3.5rem] p-12 relative border ${borderLight} ${shadowCard} animate-in zoom-in-95 duration-300`}>
+          <form onSubmit={handleLogin} className={`${bgCard} w-full max-md rounded-[3.5rem] p-12 relative border ${borderLight} ${shadowCard} animate-in zoom-in-95 duration-300`}>
              <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-500 mx-auto mb-8 shadow-inner"><Lock size={40} /></div>
              <h3 className={`text-3xl font-black ${textPrimary} text-center mb-10`}>دخول المسؤول</h3>
              <div className="space-y-6">
@@ -624,9 +624,34 @@ const App: React.FC = () => {
                  <div className="space-y-10 animate-in slide-in-from-right-10 duration-500 h-full flex flex-col py-4">
                     <div className="flex items-center gap-6"><button onClick={() => setIsCheckingOut(false)} className={`p-4 rounded-full text-emerald-500 hover:bg-emerald-600 hover:text-white transition-all border ${borderLight} shadow-md`}><ChevronLeft size={24} /></button><h3 className={`text-4xl font-black ${textPrimary} tracking-tighter`}>معلومات التوصيل</h3></div>
                     <div className="flex-1 space-y-8 mt-6">
-                      <div className="space-y-3"><label className={`text-[10px] ${textSecondary} uppercase font-black px-6`}>الاسم الكامل</label><div className={`${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-7 rounded-[2.2rem] flex items-center gap-4 focus-within:border-emerald-500 transition-all`}><User size={24} className={textSecondary} /><input type="text" placeholder="اسمك الكامل" className={`bg-transparent border-none outline-none flex-1 ${textPrimary} font-bold text-xl`} value={customerInfo.fullName} onChange={(e) => setCustomerInfo({...customerInfo, fullName: e.target.value})} /></div></div>
-                      <div className="space-y-3"><label className={`text-[10px] ${textSecondary} uppercase font-black px-6`}>المدينة</label><div className={`${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-7 rounded-[2.2rem] flex items-center gap-4 focus-within:border-emerald-500 transition-all`}><MapPin size={24} className={textSecondary} /><input type="text" placeholder="اسم المدينة" className={`bg-transparent border-none outline-none flex-1 ${textPrimary} font-bold text-xl`} value={customerInfo.city} onChange={(e) => setCustomerInfo({...customerInfo, city: e.target.value})} /></div></div>
-                      <div className="space-y-3"><label className={`text-[10px] ${textSecondary} uppercase font-black px-6`}>رقم الهاتف</label><div className={`${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-7 rounded-[2.2rem] flex items-center gap-4 focus-within:border-emerald-500 transition-all`}><Phone size={24} className={textSecondary} /><input type="tel" placeholder="06XXXXXXXX" className={`bg-transparent border-none outline-none flex-1 ${textPrimary} font-bold text-ltr text-xl`} value={customerInfo.phoneNumber} onChange={(e) => setCustomerInfo({...customerInfo, phoneNumber: e.target.value})} /></div></div>
+                      <div className="space-y-3">
+                        <label className={`text-[10px] ${textSecondary} uppercase font-black px-6`}>الاسم الكامل</label>
+                        <div className={`${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-7 rounded-[2.2rem] flex items-center gap-4 focus-within:border-emerald-500 transition-all`}>
+                          <User size={24} className={textSecondary} />
+                          <input type="text" placeholder="اسمك الكامل" className={`bg-transparent border-none outline-none flex-1 ${textPrimary} font-bold text-xl`} value={customerInfo.fullName} onChange={(e) => setCustomerInfo({...customerInfo, fullName: e.target.value})} />
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <label className={`text-[10px] ${textSecondary} uppercase font-black px-6`}>المدينة</label>
+                        <div className={`${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-7 rounded-[2.2rem] flex items-center gap-4 focus-within:border-emerald-500 transition-all`}>
+                          <MapPin size={24} className={textSecondary} />
+                          <select 
+                            className={`bg-transparent border-none outline-none flex-1 ${textPrimary} font-bold text-xl appearance-none`} 
+                            value={customerInfo.city} 
+                            onChange={(e) => setCustomerInfo({...customerInfo, city: e.target.value})}
+                          >
+                            <option value="">اختر مدينتك</option>
+                            {MOROCCAN_CITIES.map(city => <option key={city} value={city} style={{color: '#000'}}>{city}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <label className={`text-[10px] ${textSecondary} uppercase font-black px-6`}>رقم الهاتف</label>
+                        <div className={`${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-7 rounded-[2.2rem] flex items-center gap-4 focus-within:border-emerald-500 transition-all`}>
+                          <Phone size={24} className={textSecondary} />
+                          <input type="tel" placeholder="06XXXXXXXX" className={`bg-transparent border-none outline-none flex-1 ${textPrimary} font-bold text-ltr text-xl`} value={customerInfo.phoneNumber} onChange={(e) => setCustomerInfo({...customerInfo, phoneNumber: e.target.value})} />
+                        </div>
+                      </div>
                     </div>
                     <div className="pt-10">
                       <button onClick={confirmOrder} className="w-full bg-emerald-600 text-black py-10 rounded-[3rem] font-black text-2xl hover:bg-emerald-500 shadow-2xl flex items-center justify-center gap-4 transition-all active:scale-95 green-glow">اشترِ الآن <ArrowRight size={28} /></button>
