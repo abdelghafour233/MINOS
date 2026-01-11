@@ -29,6 +29,7 @@ const App: React.FC = () => {
   const [activeGalleryImage, setActiveGalleryImage] = useState<string>('');
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [activeTab, setActiveTab] = useState('الكل');
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | ''}>({message: '', type: ''});
   
   // Admin Management states
   const [editingOrder, setEditingOrder] = useState<StoreOrder | null>(null);
@@ -55,7 +56,6 @@ const App: React.FC = () => {
   const [currentPassChange, setCurrentPassChange] = useState('');
   const [newPassChange, setNewPassChange] = useState('');
   const [confirmPassChange, setConfirmPassChange] = useState('');
-  const [passChangeMessage, setPassChangeMessage] = useState<{ text: string, type: 'success' | 'error' | '' }>({ text: '', type: '' });
 
   // Storage keys
   const STORAGE_KEY_PRODUCTS = 'ecom_products_v6';
@@ -63,11 +63,23 @@ const App: React.FC = () => {
   const STORAGE_KEY_CONFIG = 'ecom_config_v6';
   const STORAGE_KEY_PASS = 'ecom_admin_pass_v6';
 
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast({ message: '', type: '' }), 3000);
+  };
+
   const trackPixelEvent = (eventName: string, data?: any) => {
     if (typeof window !== 'undefined' && (window as any).fbq && pixelId) {
       const payload = testEventCode ? { ...data, test_event_code: testEventCode } : data;
       (window as any).fbq('track', eventName, payload);
     }
+  };
+
+  const copyProductLink = (productId: string) => {
+    const url = `${window.location.origin}${window.location.pathname}?product=${productId}`;
+    navigator.clipboard.writeText(url).then(() => {
+      showToast('تم نسخ رابط المنتج بنجاح!');
+    });
   };
 
   useEffect(() => {
@@ -96,11 +108,19 @@ const App: React.FC = () => {
     if (savedPass) setAdminPassword(savedPass);
 
     const savedProducts = localStorage.getItem(STORAGE_KEY_PRODUCTS);
-    let initialProducts = MOCK_PRODUCTS;
+    let currentProducts = MOCK_PRODUCTS;
     if (savedProducts) {
-      try { initialProducts = JSON.parse(savedProducts) as StoreProduct[]; } catch (_e) { initialProducts = MOCK_PRODUCTS; }
+      try { currentProducts = JSON.parse(savedProducts) as StoreProduct[]; } catch (_e) { currentProducts = MOCK_PRODUCTS; }
     }
-    setProducts(initialProducts);
+    setProducts(currentProducts);
+
+    // Deep Linking: Check for product ID in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const productIdFromUrl = urlParams.get('product');
+    if (productIdFromUrl) {
+      const product = currentProducts.find(p => p.id === productIdFromUrl);
+      if (product) setSelectedProduct(product);
+    }
 
     const savedOrders = localStorage.getItem(STORAGE_KEY_ORDERS);
     if (savedOrders) {
@@ -179,6 +199,7 @@ const App: React.FC = () => {
     localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(updatedProducts));
     setEditingProduct(null);
     setIsAddingProduct(false);
+    showToast('تم حفظ المنتج بنجاح');
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'thumbnail' | 'gallery') => {
@@ -200,7 +221,6 @@ const App: React.FC = () => {
       };
       reader.readAsDataURL(file);
     });
-    // Reset input value so same file can be uploaded again if deleted
     e.target.value = '';
   };
 
@@ -214,26 +234,24 @@ const App: React.FC = () => {
   const handleChangePassword = (e: React.FormEvent) => {
     e.preventDefault();
     if (currentPassChange !== adminPassword) {
-      setPassChangeMessage({ text: '❌ كلمة السر الحالية غير صحيحة', type: 'error' });
+      showToast('❌ كلمة السر الحالية غير صحيحة', 'error');
       return;
     }
     if (newPassChange !== confirmPassChange) {
-      setPassChangeMessage({ text: '❌ كلمات السر الجديدة غير متطابقة', type: 'error' });
+      showToast('❌ كلمات السر الجديدة غير متطابقة', 'error');
       return;
     }
     if (newPassChange.length < 4) {
-      setPassChangeMessage({ text: '❌ كلمة السر يجب أن تكون 4 أحرف على الأقل', type: 'error' });
+      showToast('❌ كلمة السر يجب أن تكون 4 أحرف على الأقل', 'error');
       return;
     }
     
     setAdminPassword(newPassChange);
     localStorage.setItem(STORAGE_KEY_PASS, newPassChange);
-    setPassChangeMessage({ text: '✅ تم تغيير كلمة السر بنجاح', type: 'success' });
+    showToast('✅ تم تغيير كلمة السر بنجاح');
     setCurrentPassChange('');
     setNewPassChange('');
     setConfirmPassChange('');
-    
-    setTimeout(() => setPassChangeMessage({ text: '', type: '' }), 5000);
   };
 
   // Customer Checkout Logic
@@ -325,6 +343,14 @@ export const CATEGORIES = ${JSON.stringify(CATEGORIES, null, 2)};`;
 
   return (
     <div className={`min-h-screen ${bgMain} ${textPrimary} flex flex-col md:flex-row font-['Tajawal'] overflow-hidden relative`}>
+      {/* Toast Notification */}
+      {toast.message && (
+        <div className={`fixed top-8 left-1/2 -translate-x-1/2 z-[500] px-8 py-4 rounded-2xl shadow-2xl font-black text-sm animate-in slide-in-from-top flex items-center gap-3 ${toast.type === 'error' ? 'bg-rose-600 text-white' : 'bg-emerald-600 text-black'}`}>
+          {toast.type === 'error' ? <AlertTriangle size={20}/> : <CheckCircle2 size={20}/>}
+          {toast.message}
+        </div>
+      )}
+
       {/* Sidebar/Navigation */}
       <aside className={`fixed md:relative bottom-0 left-0 right-0 md:top-0 w-full md:w-80 h-20 md:h-screen ${bgSidebar} border-t md:border-t-0 md:border-l ${borderLight} flex md:flex-col z-[100] transition-all shadow-2xl items-center justify-around md:justify-start`}>
         <div className="hidden md:flex p-8 items-center gap-4">
@@ -377,7 +403,12 @@ export const CATEGORIES = ${JSON.stringify(CATEGORIES, null, 2)};`;
                       <div className="absolute bottom-4 md:bottom-8 right-4 md:left-8 left-4"><h4 className="text-sm md:text-xl font-black text-white leading-tight">{product.title}</h4></div>
                     </div>
                     <div className="p-4 md:p-8 flex items-center justify-between mt-auto">
-                      <span className="text-sm md:text-2xl font-black text-emerald-600">{product.price} DH</span>
+                      <div className="flex flex-col">
+                        <span className="text-sm md:text-2xl font-black text-emerald-600">{product.price} DH</span>
+                        <button onClick={() => copyProductLink(product.id)} className="text-[10px] text-slate-500 flex items-center gap-1 hover:text-emerald-500 transition-colors mt-1 font-bold">
+                          <LinkIcon size={12} /> نسخ الرابط
+                        </button>
+                      </div>
                       <button onClick={() => setSelectedProduct(product)} className="bg-emerald-600 text-black p-2 md:p-4 rounded-xl md:rounded-2xl shadow-xl hover:bg-emerald-500 transition-all"><ShoppingCart size={16} /></button>
                     </div>
                   </div>
@@ -434,6 +465,7 @@ export const CATEGORIES = ${JSON.stringify(CATEGORIES, null, 2)};`;
                          <div className="aspect-square relative overflow-hidden">
                             <img src={product.thumbnail} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                             <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                               <button onClick={() => copyProductLink(product.id)} className="p-3 bg-emerald-600 text-black rounded-xl shadow-xl"><LinkIcon size={18} /></button>
                                <button onClick={() => { setEditingProduct(product); setIsAddingProduct(false); }} className="p-3 bg-blue-600 text-white rounded-xl shadow-xl"><Edit3 size={18} /></button>
                                <button onClick={() => deleteProduct(product.id)} className="p-3 bg-rose-600 text-white rounded-xl shadow-xl"><Trash2 size={18} /></button>
                             </div>
@@ -463,11 +495,6 @@ export const CATEGORIES = ${JSON.stringify(CATEGORIES, null, 2)};`;
                     <form onSubmit={handleChangePassword} className={`${bgCard} p-8 rounded-[3rem] border-2 border-amber-500/10 shadow-xl space-y-8`}>
                        <h3 className="text-xl font-black flex items-center gap-3"><KeyRound className="text-amber-500" /> تغيير كلمة المرور</h3>
                        <div className="space-y-4">
-                         {passChangeMessage.text && (
-                           <div className={`p-4 rounded-2xl text-xs font-bold text-center ${passChangeMessage.type === 'success' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                             {passChangeMessage.text}
-                           </div>
-                         )}
                          <div className="space-y-1"><label className="text-[10px] font-black opacity-50 px-4">كلمة السر الحالية</label><input type="password" required className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={currentPassChange} onChange={(e) => setCurrentPassChange(e.target.value)} /></div>
                          <div className="space-y-1"><label className="text-[10px] font-black opacity-50 px-4">كلمة السر الجديدة</label><input type="password" required className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={newPassChange} onChange={(e) => setNewPassChange(e.target.value)} /></div>
                          <div className="space-y-1"><label className="text-[10px] font-black opacity-50 px-4">تأكيد كلمة السر الجديدة</label><input type="password" required className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={confirmPassChange} onChange={(e) => setConfirmPassChange(e.target.value)} /></div>
@@ -475,7 +502,7 @@ export const CATEGORIES = ${JSON.stringify(CATEGORIES, null, 2)};`;
                        </div>
                     </form>
                   </div>
-                  <button onClick={() => { localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify({ pixelId, sheetScriptUrl })); alert('تم الحفظ بنجاح!'); }} className="w-full bg-emerald-600 text-black py-6 rounded-3xl font-black text-xl shadow-xl flex items-center justify-center gap-3"><Save size={24} /> حفظ كافة الإعدادات</button>
+                  <button onClick={() => { localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify({ pixelId, sheetScriptUrl })); showToast('تم الحفظ بنجاح!'); }} className="w-full bg-emerald-600 text-black py-6 rounded-3xl font-black text-xl shadow-xl flex items-center justify-center gap-3"><Save size={24} /> حفظ كافة الإعدادات</button>
                 </div>
               )}
 
@@ -487,7 +514,7 @@ export const CATEGORIES = ${JSON.stringify(CATEGORIES, null, 2)};`;
                       <div className="relative group">
                          <pre className="bg-black/50 p-8 rounded-3xl font-mono text-[10px] text-ltr overflow-x-auto h-80 no-scrollbar opacity-70">{generateConstantsCode()}</pre>
                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px] rounded-3xl">
-                            <button onClick={() => { navigator.clipboard.writeText(generateConstantsCode()); alert('تم نسخ الكود!'); }} className="bg-amber-500 text-black px-12 py-5 rounded-full font-black flex items-center gap-3 shadow-2xl scale-110"><Copy size={24} /> نسخ الكود بالكامل</button>
+                            <button onClick={() => { navigator.clipboard.writeText(generateConstantsCode()); showToast('تم نسخ الكود!'); }} className="bg-amber-500 text-black px-12 py-5 rounded-full font-black flex items-center gap-3 shadow-2xl scale-110"><Copy size={24} /> نسخ الكود بالكامل</button>
                          </div>
                       </div>
                    </div>
@@ -649,7 +676,12 @@ export const CATEGORIES = ${JSON.stringify(CATEGORIES, null, 2)};`;
                  <div className="space-y-10">
                    <div className="space-y-4">
                      <span className="bg-emerald-500/10 text-emerald-500 px-5 py-1.5 rounded-full text-[10px] font-black border border-emerald-500/20">{selectedProduct.category}</span>
-                     <h2 className="text-3xl md:text-5xl font-black leading-tight">{selectedProduct.title}</h2>
+                     <div className="flex justify-between items-start gap-4">
+                        <h2 className="text-3xl md:text-5xl font-black leading-tight">{selectedProduct.title}</h2>
+                        <button onClick={() => copyProductLink(selectedProduct.id)} className="p-4 bg-emerald-500/10 text-emerald-500 rounded-2xl hover:bg-emerald-500 hover:text-black transition-all border border-emerald-500/20 shadow-lg" title="نسخ رابط المنتج">
+                          <Share2 size={24} />
+                        </button>
+                     </div>
                      <p className={`${textSecondary} font-medium text-sm md:text-lg leading-relaxed whitespace-pre-wrap`}>{selectedProduct.description}</p>
                    </div>
                    <div className="p-8 bg-emerald-600 rounded-[2.5rem] text-black shadow-xl flex items-center justify-between">
