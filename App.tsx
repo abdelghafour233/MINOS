@@ -6,10 +6,12 @@ import {
   ArrowRight, Package, Sparkles,
   Zap, ShieldCheck, ChevronLeft, Bell, ArrowUpRight,
   Settings, Edit3, Trash2, LayoutDashboard, Save, Plus,
-  DollarSign, PackageCheck
+  Lock, LogOut, KeyRound
 } from 'lucide-react';
 import { StoreProduct, StoreOrder, CustomerInfo, Category } from './types';
 import { MOCK_PRODUCTS, CATEGORIES } from './constants';
+
+const ADMIN_PASSWORD = 'admin'; // كلمة السر الافتراضية
 
 const App: React.FC = () => {
   const [view, setView] = useState<'shop' | 'admin'>('shop');
@@ -20,6 +22,12 @@ const App: React.FC = () => {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [activeTab, setActiveTab] = useState('الكل');
   
+  // Admin Auth States
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [loginError, setLoginError] = useState(false);
+
   // States for Admin Editing
   const [editingProduct, setEditingProduct] = useState<StoreProduct | null>(null);
 
@@ -32,7 +40,13 @@ const App: React.FC = () => {
   const [activeOrder, setActiveOrder] = useState<StoreOrder | null>(null);
 
   useEffect(() => {
-    // تحميل المنتجات من LocalStorage أو استخدام الافتراضية
+    // تحميل حالة المصادقة من sessionStorage
+    const authStatus = sessionStorage.getItem('admin_auth');
+    if (authStatus === 'true') {
+      setIsAdminAuthenticated(true);
+    }
+
+    // تحميل المنتجات
     const savedProducts = localStorage.getItem('ecom_products_v3');
     if (savedProducts) {
       setProducts(JSON.parse(savedProducts));
@@ -46,6 +60,34 @@ const App: React.FC = () => {
       try { setOrders(JSON.parse(savedOrders)); } catch(e) { setOrders([]); }
     }
   }, []);
+
+  const handleAdminClick = () => {
+    if (isAdminAuthenticated) {
+      setView('admin');
+    } else {
+      setShowLoginModal(true);
+    }
+  };
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordInput === ADMIN_PASSWORD) {
+      setIsAdminAuthenticated(true);
+      sessionStorage.setItem('admin_auth', 'true');
+      setShowLoginModal(false);
+      setView('admin');
+      setLoginError(false);
+      setPasswordInput('');
+    } else {
+      setLoginError(true);
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAdminAuthenticated(false);
+    sessionStorage.removeItem('admin_auth');
+    setView('shop');
+  };
 
   const updateStorage = (newProducts: StoreProduct[], newOrders: StoreOrder[]) => {
     setProducts(newProducts);
@@ -117,7 +159,7 @@ const App: React.FC = () => {
           </div>
           <div className="hidden md:block">
             <h1 className="text-2xl font-black tracking-tighter text-white uppercase">فخامة</h1>
-            <p className="text-[10px] font-bold text-violet-400 uppercase tracking-widest">Store Dashboard</p>
+            <p className="text-[10px] font-bold text-violet-400 uppercase tracking-widest">Premium Store</p>
           </div>
         </div>
 
@@ -134,25 +176,34 @@ const App: React.FC = () => {
           </button>
           
           <button 
-            onClick={() => setView('admin')} 
+            onClick={handleAdminClick} 
             className={`w-full relative flex items-center justify-center md:justify-start gap-5 px-5 py-5 rounded-[2rem] transition-all duration-300 ${
               view === 'admin' ? 'bg-violet-600/10 text-violet-400' : 'text-slate-500 hover:text-slate-200'
             }`}
           >
-            <LayoutDashboard size={24} />
+            {isAdminAuthenticated ? <LayoutDashboard size={24} /> : <Lock size={24} />}
             <span className="hidden md:block text-lg font-bold">لوحة التحكم</span>
             {view === 'admin' && <div className="absolute left-0 w-1.5 h-8 bg-violet-600 rounded-r-full shadow-lg"></div>}
           </button>
         </nav>
 
         <div className="p-8 hidden md:block">
-           <div className="bg-gradient-to-br from-slate-900 to-black p-6 rounded-[2.5rem] border border-white/5">
-              <p className="text-[10px] text-slate-500 font-black uppercase mb-1">حالة النظام</p>
-              <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold">
-                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                 متصل ومحمي
-              </div>
-           </div>
+           {isAdminAuthenticated ? (
+             <button 
+              onClick={handleLogout}
+              className="w-full bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white py-4 rounded-[1.8rem] flex items-center justify-center gap-3 transition-all border border-rose-500/20 font-black text-sm"
+             >
+               <LogOut size={18} /> تسجيل الخروج
+             </button>
+           ) : (
+             <div className="bg-gradient-to-br from-slate-900 to-black p-6 rounded-[2.5rem] border border-white/5">
+                <p className="text-[10px] text-slate-500 font-black uppercase mb-1">حالة النظام</p>
+                <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold">
+                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                   متصل وآمن
+                </div>
+             </div>
+           )}
         </div>
       </aside>
 
@@ -204,7 +255,7 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {view === 'admin' && (
+          {view === 'admin' && isAdminAuthenticated && (
             <div className="space-y-10 pb-32 max-w-7xl mx-auto">
                <div className="flex flex-col md:flex-row gap-6 items-center justify-between bg-[#111] p-8 rounded-[3rem] border border-white/5">
                   <div className="flex items-center gap-4">
@@ -290,6 +341,55 @@ const App: React.FC = () => {
         </div>
       </main>
 
+      {/* Admin Login Modal */}
+      {showLoginModal && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/98 backdrop-blur-3xl" onClick={() => setShowLoginModal(false)} />
+          <form 
+            onSubmit={handleLogin}
+            className="bg-[#0d0d0d] w-full max-w-md rounded-[3.5rem] p-12 relative border border-violet-500/20 animate-in zoom-in-95 shadow-2xl"
+          >
+             <div className="w-20 h-20 bg-violet-600/10 rounded-full flex items-center justify-center text-violet-400 mx-auto mb-8">
+                <Lock size={40} />
+             </div>
+             <h3 className="text-3xl font-black text-white text-center mb-4">دخول المسؤول</h3>
+             <p className="text-slate-500 text-center mb-10 font-bold">يرجى إدخال كلمة المرور للوصول إلى لوحة التحكم.</p>
+             
+             <div className="space-y-6">
+                <div className="space-y-3">
+                   <label className="text-[10px] text-slate-500 uppercase font-black px-6 tracking-widest">كلمة المرور</label>
+                   <div className={`bg-[#111] border ${loginError ? 'border-rose-500' : 'border-white/5'} p-6 rounded-[2rem] flex items-center gap-4 focus-within:border-violet-500 transition-all`}>
+                      <KeyRound size={20} className="text-slate-600" />
+                      <input 
+                        type="password" 
+                        placeholder="••••••••" 
+                        className="bg-transparent border-none outline-none flex-1 text-white font-bold text-lg"
+                        autoFocus
+                        value={passwordInput}
+                        onChange={(e) => { setPasswordInput(e.target.value); setLoginError(false); }}
+                      />
+                   </div>
+                   {loginError && <p className="text-rose-500 text-xs font-bold text-center mt-2 animate-bounce">كلمة المرور غير صحيحة!</p>}
+                </div>
+
+                <button 
+                  type="submit"
+                  className="w-full bg-violet-600 text-white py-6 rounded-[2rem] font-black text-xl hover:bg-violet-500 shadow-xl shadow-violet-600/20 flex items-center justify-center gap-3 transition-all"
+                >
+                  دخول <ArrowRight size={20} />
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setShowLoginModal(false)}
+                  className="w-full bg-transparent text-slate-500 py-4 rounded-2xl font-bold hover:text-white transition-all"
+                >
+                  إلغاء
+                </button>
+             </div>
+          </form>
+        </div>
+      )}
+
       {/* Product Edit Modal (Admin) */}
       {editingProduct && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-6">
@@ -345,7 +445,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Customer Detail Modal & Checkout (المتجر) */}
+      {/* Customer Detail Modal & Checkout */}
       {selectedProduct && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-3xl" onClick={() => { if(!isCheckingOut) setSelectedProduct(null); }} />
