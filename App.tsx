@@ -274,8 +274,8 @@ const App: React.FC = () => {
             <Sparkles size={24} />
           </div>
           <div className="hidden md:block">
-            <h1 className={`text-2xl font-black tracking-tighter ${textPrimary} uppercase`}>فخامة</h1>
-            <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Premium Store</p>
+            <h1 className={`text-2xl font-black tracking-tighter ${textPrimary} uppercase`}>Berrima</h1>
+            <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">berrima.store</p>
           </div>
         </div>
 
@@ -311,7 +311,7 @@ const App: React.FC = () => {
         <header className={`px-10 py-8 flex items-center justify-between z-40 ${theme === 'dark' ? 'bg-[#070b1d]/80' : 'bg-white/80'} backdrop-blur-md border-b ${borderLight}`}>
            <div className="flex items-center gap-4">
               <h2 className={`text-2xl font-black ${textPrimary} uppercase tracking-tighter`}>
-                {view === 'shop' ? 'المتجر المباشر' : 'إدارة المتجر'}
+                {view === 'admin' ? 'إدارة المتجر' : ''}
               </h2>
            </div>
 
