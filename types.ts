@@ -1,25 +1,33 @@
 
-export type Platform = 'windows' | 'gaming' | 'software' | 'streaming' | 'vpn' | 'design';
+export type Category = 'أدوات منزلية' | 'إلكترونيات' | 'تجميل وعناية' | 'إكسسوارات' | 'موضة' | 'ألعاب وأطفال';
 
-export interface DigitalKeyProduct {
+export interface StoreProduct {
   id: string;
   title: string;
   thumbnail: string;
   price: number;
+  originalPrice?: number;
   description: string;
-  platform: Platform;
-  category: string;
-  isAvailable: boolean;
-  keyFormat: string; // e.g. XXXX-XXXX-XXXX
+  category: Category;
+  stockStatus: 'available' | 'low_stock' | 'out_of_stock';
   rating: number;
-  salesCount: number;
-  deliveryTime: 'instant' | '1-24h';
+  reviewsCount: number;
+  shippingTime: string;
 }
 
-export interface UserOrder {
+export interface CustomerInfo {
+  fullName: string;
+  phoneNumber: string;
+  city: string;
+  address: string;
+}
+
+export interface StoreOrder {
   orderId: string;
   productId: string;
   productTitle: string;
-  generatedKey: string;
-  purchaseDate: string;
+  productPrice: number;
+  customer: CustomerInfo;
+  orderDate: string;
+  status: 'pending' | 'shipped' | 'delivered';
 }

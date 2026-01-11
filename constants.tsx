@@ -1,59 +1,53 @@
 
-import { DigitalKeyProduct } from './types';
+import { StoreProduct } from './types';
 
-export const CATEGORIES = [
+export const CATEGORIES: string[] = [
   'الكل',
-  'أنظمة تشغيل',
-  'ألعاب فيديو',
-  'برامج تصميم',
-  'اشتراكات بث',
-  'أدوات حماية وVPN'
+  'أدوات منزلية',
+  'إلكترونيات',
+  'تجميل وعناية',
+  'إكسسوارات',
+  'موضة'
 ];
 
-export const MOCK_PRODUCTS: DigitalKeyProduct[] = [
+export const MOCK_PRODUCTS: StoreProduct[] = [
   {
-    id: 'k1',
-    title: 'Windows 11 Pro - Original License Key',
-    thumbnail: 'https://images.unsplash.com/photo-1633419461186-7d40a38105ec?q=80&w=600',
-    price: 99,
-    description: 'مفتاح تفعيل أصلي لنسخة ويندوز 11 برو. يدعم التحديثات الرسمية ومدى الحياة.',
-    platform: 'windows',
-    category: 'أنظمة تشغيل',
-    isAvailable: true,
-    keyFormat: 'XXXXX-XXXXX-XXXXX-XXXXX-XXXXX',
-    rating: 4.9,
-    salesCount: 1250,
-    // Fix: deliveryType does not exist in DigitalKeyProduct, use deliveryTime
-    deliveryTime: 'instant'
-  },
-  {
-    id: 'k2',
-    title: 'Adobe Creative Cloud 1 Year',
-    thumbnail: 'https://images.unsplash.com/photo-1626785774573-4b799315345d?q=80&w=600',
-    price: 450,
-    description: 'اشتراك كامل في حزمة أدوبي لمدة سنة على حسابك الشخصي.',
-    platform: 'design',
-    category: 'برامج تصميم',
-    isAvailable: true,
-    keyFormat: 'Redeem Code / Link',
+    id: 'p1',
+    title: 'المطحنة الكهربائية العجيبة 2 في 1',
+    thumbnail: 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?q=80&w=600',
+    price: 249,
+    originalPrice: 399,
+    description: 'مطحنة قوية ومتعددة الاستخدامات للقهوة والتوابل. جودة عالية وتصميم عصري يناسب مطبخك المغربي.',
+    category: 'أدوات منزلية',
+    stockStatus: 'available',
     rating: 4.8,
-    salesCount: 840,
-    // Fix: deliveryType does not exist in DigitalKeyProduct, use deliveryTime
-    deliveryTime: 'instant'
+    reviewsCount: 156,
+    shippingTime: '24-48 ساعة'
   },
   {
-    id: 'k3',
-    title: 'NordVPN 2-Year Plan Key',
-    thumbnail: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?q=80&w=600',
+    id: 'p2',
+    title: 'ساعة ذكية SmartWatch Ultra S8',
+    thumbnail: 'https://images.unsplash.com/photo-1544117518-33230596230f?q=80&w=600',
+    price: 350,
+    originalPrice: 599,
+    description: 'أحدث الساعات الذكية مع شاشة AMOLED ودعم المكالمات والاشعارات بالعربية. مقاومة للماء.',
+    category: 'إلكترونيات',
+    stockStatus: 'low_stock',
+    rating: 4.9,
+    reviewsCount: 342,
+    shippingTime: '24-72 ساعة'
+  },
+  {
+    id: 'p3',
+    title: 'جهاز مساج الرقبة والكتفين الاحترافي',
+    thumbnail: 'https://images.unsplash.com/photo-1544117518-33230596230f?q=80&w=600', // Placeholder
     price: 199,
-    description: 'تصفح آمن وبدون حدود مع أفضل خدمة VPN في العالم.',
-    platform: 'vpn',
-    category: 'أدوات حماية وVPN',
-    isAvailable: true,
-    keyFormat: 'XXXX-XXXX-XXXX',
+    originalPrice: 299,
+    description: 'تخلص من آلام الرقبة والظهر مع هذا الجهاز المتطور. مثالي للاسترخاء بعد يوم عمل طويل.',
+    category: 'تجميل وعناية',
+    stockStatus: 'available',
     rating: 4.7,
-    salesCount: 2100,
-    // Fix: deliveryType does not exist in DigitalKeyProduct, use deliveryTime
-    deliveryTime: 'instant'
+    reviewsCount: 89,
+    shippingTime: '24-48 ساعة'
   }
 ];
