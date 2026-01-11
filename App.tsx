@@ -250,18 +250,6 @@ const App: React.FC = () => {
                 {theme === 'dark' ? <Sun size={22} /> : <Moon size={22} />}
               </button>
 
-              <button 
-                onClick={handleAdminClick}
-                className={`p-4 rounded-2xl transition-all border ${borderLight} flex items-center justify-center shadow-lg ${
-                    isAdminAuthenticated && view === 'admin' 
-                    ? 'bg-emerald-600 text-black shadow-emerald-500/30' 
-                    : `${bgCard} ${textSecondary} hover:text-emerald-500`
-                }`}
-                title="دخول لوحة التحكم"
-              >
-                {isAdminAuthenticated && view === 'admin' ? <EyeOff size={22} /> : <Eye size={22} />}
-              </button>
-
               <button className={`p-4 ${bgCard} rounded-2xl ${textSecondary} border ${borderLight} hover:text-emerald-500 transition-all`}>
                 <Bell size={20} />
               </button>
