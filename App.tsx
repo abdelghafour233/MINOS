@@ -26,7 +26,7 @@ const App: React.FC = () => {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
-  const [showPassword, setShowPassword] = useState(false); // حالة إظهار كلمة المرور
+  const [showPassword, setShowPassword] = useState(false); 
   const [loginError, setLoginError] = useState(false);
 
   const [editingProduct, setEditingProduct] = useState<StoreProduct | null>(null);
@@ -39,21 +39,29 @@ const App: React.FC = () => {
   });
   const [activeOrder, setActiveOrder] = useState<StoreOrder | null>(null);
 
+  // استخدام إصدار جديد v4 لتجاوز البيانات القديمة في المتصفح
+  const STORAGE_KEY_PRODUCTS = 'ecom_products_v4';
+  const STORAGE_KEY_ORDERS = 'ecom_orders_v4';
+
   useEffect(() => {
     const authStatus = sessionStorage.getItem('admin_auth');
     if (authStatus === 'true') setIsAdminAuthenticated(true);
 
-    const savedProducts = localStorage.getItem('ecom_products_v3');
+    const savedProducts = localStorage.getItem(STORAGE_KEY_PRODUCTS);
     if (savedProducts) {
       setProducts(JSON.parse(savedProducts));
     } else {
+      // إذا لم توجد بيانات، نبدأ بمصفوفة فارغة تماماً
       setProducts([]); 
-      localStorage.setItem('ecom_products_v3', JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify([]));
     }
 
-    const savedOrders = localStorage.getItem('ecom_orders_v3');
+    const savedOrders = localStorage.getItem(STORAGE_KEY_ORDERS);
     if (savedOrders) {
       try { setOrders(JSON.parse(savedOrders)); } catch(e) { setOrders([]); }
+    } else {
+      setOrders([]);
+      localStorage.setItem(STORAGE_KEY_ORDERS, JSON.stringify([]));
     }
   }, []);
 
@@ -90,8 +98,8 @@ const App: React.FC = () => {
   const updateStorage = (newProducts: StoreProduct[], newOrders: StoreOrder[]) => {
     setProducts(newProducts);
     setOrders(newOrders);
-    localStorage.setItem('ecom_products_v3', JSON.stringify(newProducts));
-    localStorage.setItem('ecom_orders_v3', JSON.stringify(newOrders));
+    localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(newProducts));
+    localStorage.setItem(STORAGE_KEY_ORDERS, JSON.stringify(newOrders));
   };
 
   const createNewProduct = () => {
@@ -354,7 +362,6 @@ const App: React.FC = () => {
                     onChange={(e) => { setPasswordInput(e.target.value); setLoginError(false); }} 
                     autoFocus 
                   />
-                  {/* أيقونة العين التفاعلية داخل حقل كلمة المرور */}
                   <button 
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
