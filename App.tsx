@@ -3,9 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   Search, X, ShoppingBag, ShoppingCart, Star, 
   Truck, MapPin, Phone, User, History, Check, 
-  ArrowRight, CreditCard, Package, Info, ChevronLeft, 
-  Menu, Bell, Heart, Filter, ArrowUpRight, Sparkles,
-  Zap, ShieldCheck, Clock
+  ArrowRight, Package, Sparkles,
+  Zap, ShieldCheck, ChevronLeft, Bell, ArrowUpRight
 } from 'lucide-react';
 import { StoreProduct, StoreOrder, CustomerInfo } from './types';
 import { MOCK_PRODUCTS, CATEGORIES } from './constants';
@@ -21,7 +20,7 @@ const App: React.FC = () => {
     fullName: '',
     phoneNumber: '',
     city: '',
-    address: ''
+    address: '' // سنبقي عليه في الحالة التقنية لكن لن نظهره في الواجهة
   });
   const [activeOrder, setActiveOrder] = useState<StoreOrder | null>(null);
 
@@ -33,8 +32,9 @@ const App: React.FC = () => {
   }, []);
 
   const confirmOrder = () => {
-    if (!customerInfo.fullName || !customerInfo.phoneNumber || !customerInfo.city || !customerInfo.address) {
-      alert("يرجى إكمال بيانات الشحن لضمان وصول طلبك.");
+    // التحقق فقط من الاسم والهاتف والمدينة بناءً على طلب المستخدم
+    if (!customerInfo.fullName || !customerInfo.phoneNumber || !customerInfo.city) {
+      alert("يرجى إكمال البيانات (الاسم، المدينة، الهاتف) لضمان وصول طلبك.");
       return;
     }
 
@@ -56,6 +56,7 @@ const App: React.FC = () => {
     setActiveOrder(newOrder);
     setIsCheckingOut(false);
     setSelectedProduct(null);
+    setCustomerInfo({ fullName: '', phoneNumber: '', city: '', address: '' });
   };
 
   const filteredProducts = activeTab === 'الكل' 
@@ -276,7 +277,7 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Product Detail Modal - High End Design */}
+      {/* Product Detail Modal */}
       {selectedProduct && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-3xl" onClick={() => { if(!isCheckingOut) setSelectedProduct(null); }} />
@@ -298,7 +299,7 @@ const App: React.FC = () => {
                />
             </div>
 
-            {/* Info Section */}
+            {/* Info & Checkout Section */}
             <div className="w-full md:w-1/2 p-12 md:p-20 flex flex-col justify-between overflow-y-auto no-scrollbar bg-[#0d0d0d]">
                {!isCheckingOut ? (
                  <>
@@ -352,77 +353,71 @@ const App: React.FC = () => {
                    </div>
                  </>
                ) : (
-                 <div className="space-y-10 animate-in slide-in-from-right-10 duration-500 h-full flex flex-col">
+                 <div className="space-y-10 animate-in slide-in-from-right-10 duration-500 h-full flex flex-col py-4">
                     <div className="flex items-center gap-6">
                        <button onClick={() => setIsCheckingOut(false)} className="bg-white/5 p-4 rounded-full text-violet-400 hover:bg-white/10 transition-all">
                          <ChevronLeft size={24} />
                        </button>
-                       <h3 className="text-4xl font-black text-white tracking-tighter">إتمام الطلب</h3>
+                       <h3 className="text-4xl font-black text-white tracking-tighter">معلومات الشحن</h3>
                     </div>
                     
-                    <div className="flex-1 space-y-6 mt-6">
+                    <div className="flex-1 space-y-8 mt-6">
+                      {/* الاسم الكامل */}
                       <div className="space-y-3">
-                        <label className="text-[10px] text-slate-500 uppercase font-black px-6 tracking-widest">الاسم الكامل للزبون</label>
-                        <div className="bg-[#111] border border-white/5 p-6 rounded-[2rem] flex items-center gap-4 focus-within:border-violet-500 transition-all">
-                           <User size={20} className="text-slate-600" />
+                        <label className="text-[10px] text-slate-500 uppercase font-black px-6 tracking-widest">الاسم الكامل</label>
+                        <div className="bg-[#111] border border-white/5 p-7 rounded-[2.2rem] flex items-center gap-4 focus-within:border-violet-500 transition-all">
+                           <User size={24} className="text-slate-600" />
                            <input 
                             type="text" 
-                            placeholder="مثال: يونس الإدريسي" 
-                            className="bg-transparent border-none outline-none flex-1 text-white font-bold text-lg"
+                            placeholder="أدخل اسمك الكامل هنا" 
+                            className="bg-transparent border-none outline-none flex-1 text-white font-bold text-xl"
                             value={customerInfo.fullName}
                             onChange={(e) => setCustomerInfo({...customerInfo, fullName: e.target.value})}
                            />
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        <div className="space-y-3">
-                          <label className="text-[10px] text-slate-500 uppercase font-black px-6 tracking-widest">رقم الهاتف</label>
-                          <div className="bg-[#111] border border-white/5 p-6 rounded-[2rem] flex items-center gap-4">
-                             <Phone size={20} className="text-slate-600" />
-                             <input 
-                              type="tel" 
-                              placeholder="06XXXXXXXX" 
-                              className="bg-transparent border-none outline-none flex-1 text-white font-bold text-ltr text-lg"
-                              value={customerInfo.phoneNumber}
-                              onChange={(e) => setCustomerInfo({...customerInfo, phoneNumber: e.target.value})}
-                             />
-                          </div>
-                        </div>
-                        <div className="space-y-3">
-                          <label className="text-[10px] text-slate-500 uppercase font-black px-6 tracking-widest">المدينة</label>
-                          <div className="bg-[#111] border border-white/5 p-6 rounded-[2rem] flex items-center gap-4">
-                             <MapPin size={20} className="text-slate-600" />
-                             <input 
-                              type="text" 
-                              placeholder="الرباط، مراكش..." 
-                              className="bg-transparent border-none outline-none flex-1 text-white font-bold text-lg"
-                              value={customerInfo.city}
-                              onChange={(e) => setCustomerInfo({...customerInfo, city: e.target.value})}
-                             />
-                          </div>
+                      {/* المدينة */}
+                      <div className="space-y-3">
+                        <label className="text-[10px] text-slate-500 uppercase font-black px-6 tracking-widest">المدينة</label>
+                        <div className="bg-[#111] border border-white/5 p-7 rounded-[2.2rem] flex items-center gap-4 focus-within:border-violet-500 transition-all">
+                           <MapPin size={24} className="text-slate-600" />
+                           <input 
+                            type="text" 
+                            placeholder="اسم المدينة (مثال: الدار البيضاء)" 
+                            className="bg-transparent border-none outline-none flex-1 text-white font-bold text-xl"
+                            value={customerInfo.city}
+                            onChange={(e) => setCustomerInfo({...customerInfo, city: e.target.value})}
+                           />
                         </div>
                       </div>
 
+                      {/* رقم الهاتف */}
                       <div className="space-y-3">
-                        <label className="text-[10px] text-slate-500 uppercase font-black px-6 tracking-widest">العنوان بالتفصيل</label>
-                        <textarea 
-                          placeholder="الحي، رقم الشقة أو المنزل، مراجع قريبة..." 
-                          className="w-full bg-[#111] border border-white/5 p-8 rounded-[2.5rem] text-white font-bold min-h-[140px] outline-none focus:border-violet-500 transition-all text-lg"
-                          value={customerInfo.address}
-                          onChange={(e) => setCustomerInfo({...customerInfo, address: e.target.value})}
-                        />
+                        <label className="text-[10px] text-slate-500 uppercase font-black px-6 tracking-widest">رقم الهاتف</label>
+                        <div className="bg-[#111] border border-white/5 p-7 rounded-[2.2rem] flex items-center gap-4 focus-within:border-violet-500 transition-all">
+                           <Phone size={24} className="text-slate-600" />
+                           <input 
+                            type="tel" 
+                            placeholder="06XXXXXXXX" 
+                            className="bg-transparent border-none outline-none flex-1 text-white font-bold text-ltr text-xl"
+                            value={customerInfo.phoneNumber}
+                            onChange={(e) => setCustomerInfo({...customerInfo, phoneNumber: e.target.value})}
+                           />
+                        </div>
                       </div>
                     </div>
 
                     <div className="pt-10">
                       <button 
                         onClick={confirmOrder}
-                        className="w-full bg-violet-600 text-white py-9 rounded-[3rem] font-black text-2xl hover:bg-violet-500 shadow-2xl shadow-violet-600/20 flex items-center justify-center gap-4 transition-all"
+                        className="w-full bg-violet-600 text-white py-10 rounded-[3rem] font-black text-2xl hover:bg-violet-500 shadow-2xl shadow-violet-600/20 flex items-center justify-center gap-4 transition-all"
                       >
-                        تأكيد وإرسال الطلب <ArrowRight size={28} />
+                        إرسال الطلب الآن <ArrowRight size={28} />
                       </button>
-                      <p className="text-center text-[10px] text-slate-600 font-black uppercase tracking-[0.2em] mt-6">الدفع نقداً عند استلام منتجك</p>
+                      <p className="text-center text-[10px] text-slate-600 font-black uppercase tracking-[0.2em] mt-8 flex items-center justify-center gap-2">
+                         <ShieldCheck size={14} className="text-emerald-500" /> دفع آمن نقداً عند الاستلام
+                      </p>
                     </div>
                  </div>
                )}
@@ -431,24 +426,20 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Success Modal - Premium Experience */}
+      {/* Success Modal */}
       {activeOrder && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-black/98 backdrop-blur-3xl" onClick={() => setActiveOrder(null)} />
-          <div className="bg-[#0d0d0d] w-full max-w-2xl rounded-[4rem] p-16 text-center relative border border-violet-500/20 animate-in bounce-in duration-700 shadow-[0_0_80px_rgba(139,92,246,0.15)]">
-             <div className="w-28 h-28 bg-gradient-to-tr from-violet-600 to-indigo-600 rounded-full flex items-center justify-center text-white mx-auto mb-10 shadow-2xl shadow-violet-500/30">
+          <div className="bg-[#0d0d0d] w-full max-w-2xl rounded-[4rem] p-16 text-center relative border border-violet-500/20 animate-in bounce-in duration-700 shadow-2xl">
+             <div className="w-28 h-28 bg-gradient-to-tr from-violet-600 to-indigo-600 rounded-full flex items-center justify-center text-white mx-auto mb-10">
                <Check size={60} strokeWidth={4} />
              </div>
-             <h3 className="text-5xl font-black text-white mb-6 tracking-tighter">شكراً لثقتك!</h3>
-             <p className="text-slate-400 font-bold text-xl mb-12">سيد {activeOrder.customer.fullName}، تم تسجيل طلبك تحت رقم <span className="text-violet-400">#{activeOrder.orderId}</span>. سنتصل بك قريباً لتأكيد الشحن.</p>
+             <h3 className="text-5xl font-black text-white mb-6 tracking-tighter">تم استلام طلبك!</h3>
+             <p className="text-slate-400 font-bold text-xl mb-12">سيد {activeOrder.customer.fullName}، شكراً لاختيارك متجرنا. سنتواصل معك قريباً في مدينة {activeOrder.customer.city} لتأكيد عملية الشحن.</p>
              
-             <div className="bg-white/5 p-10 rounded-[3rem] border border-white/5 mb-12 text-right space-y-4">
-                <div className="flex justify-between items-center text-slate-500 text-sm font-bold">
-                   <span>المنتج المختار</span>
-                   <span className="text-white font-black">{activeOrder.productTitle}</span>
-                </div>
-                <div className="flex justify-between items-center pt-4 border-t border-white/5">
-                   <span className="text-slate-500 text-sm font-bold">المجموع عند الاستلام</span>
+             <div className="bg-white/5 p-10 rounded-[3rem] border border-white/5 mb-12 text-right">
+                <div className="flex justify-between items-center pt-2">
+                   <span className="text-slate-500 font-bold">المجموع الكلي</span>
                    <span className="text-violet-400 font-black text-4xl">{activeOrder.productPrice} DH</span>
                 </div>
              </div>
