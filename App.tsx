@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, X, ShoppingBag, ShoppingCart, Star, 
   Truck, MapPin, Phone, User, History, Check, 
@@ -7,7 +7,7 @@ import {
   Zap, ShieldCheck, ChevronLeft, Bell, ArrowUpRight,
   Settings, Edit3, Trash2, LayoutDashboard, Save, Plus,
   Lock, LogOut, KeyRound, PlusCircle, PackagePlus,
-  Eye, EyeOff, Sun, Moon, Image as ImageIcon
+  Eye, EyeOff, Sun, Moon, Image as ImageIcon, Upload, Plus as PlusIcon
 } from 'lucide-react';
 import { StoreProduct, StoreOrder, CustomerInfo, Category } from './types';
 import { MOCK_PRODUCTS, CATEGORIES } from './constants';
@@ -32,7 +32,8 @@ const App: React.FC = () => {
   const [loginError, setLoginError] = useState(false);
 
   const [editingProduct, setEditingProduct] = useState<StoreProduct | null>(null);
-  const [galleryInput, setGalleryInput] = useState<string>('');
+  const mainImageInputRef = useRef<HTMLInputElement>(null);
+  const galleryImageInputRef = useRef<HTMLInputElement>(null);
 
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     fullName: '',
@@ -128,36 +129,68 @@ const App: React.FC = () => {
       shippingTime: '24-48 ساعة'
     };
     setEditingProduct(newProd);
-    setGalleryInput('');
   };
 
   const startEditProduct = (p: StoreProduct) => {
-    setEditingProduct(p);
-    setGalleryInput(p.galleryImages?.join(', ') || '');
+    setEditingProduct({ ...p, galleryImages: p.galleryImages || [] });
+  };
+
+  const convertToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  const handleMainImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && editingProduct) {
+      const base64 = await convertToBase64(file);
+      setEditingProduct({ ...editingProduct, thumbnail: base64 });
+    }
+  };
+
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && editingProduct) {
+      const newImages = [...(editingProduct.galleryImages || [])];
+      for (let i = 0; i < files.length; i++) {
+        const base64 = await convertToBase64(files[i]);
+        newImages.push(base64);
+      }
+      setEditingProduct({ ...editingProduct, galleryImages: newImages });
+    }
+  };
+
+  const removeGalleryImage = (index: number) => {
+    if (editingProduct) {
+      const updatedGallery = [...(editingProduct.galleryImages || [])];
+      updatedGallery.splice(index, 1);
+      setEditingProduct({ ...editingProduct, galleryImages: updatedGallery });
+    }
   };
 
   const saveProductChanges = () => {
     if (!editingProduct) return;
     if (!editingProduct.title || !editingProduct.price || !editingProduct.thumbnail) {
-      alert("يرجى ملء الاسم والسعر ورابط الصورة على الأقل.");
+      alert("يرجى ملء الاسم والسعر ورفع صورة للمنتج.");
       return;
     }
     
-    const galleryArr = galleryInput.split(',').map(s => s.trim()).filter(s => s !== '');
-    const updatedProduct = { ...editingProduct, galleryImages: galleryArr };
-    
-    const exists = products.find(p => p.id === updatedProduct.id);
+    const exists = products.find(p => p.id === editingProduct.id);
     let updated;
     if (exists) {
-      updated = products.map(p => p.id === updatedProduct.id ? updatedProduct : p);
+      updated = products.map(p => p.id === editingProduct.id ? editingProduct : p);
     } else {
-      updated = [...products, updatedProduct];
+      updated = [...products, editingProduct];
     }
     
     updateStorage(updated, orders);
     setEditingProduct(null);
-    if (selectedProduct?.id === updatedProduct.id) {
-        setSelectedProduct(updatedProduct);
+    if (selectedProduct?.id === editingProduct.id) {
+        setSelectedProduct(editingProduct);
     }
     alert("تم حفظ المنتج بنجاح!");
   };
@@ -410,19 +443,73 @@ const App: React.FC = () => {
       {editingProduct && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-6">
           <div className={`absolute inset-0 ${theme === 'dark' ? 'bg-black/98' : 'bg-slate-900/70'} backdrop-blur-3xl animate-in fade-in duration-300`} onClick={() => setEditingProduct(null)} />
-          <div className={`${bgCard} w-full max-w-3xl rounded-[3.5rem] p-12 relative border ${borderLight} overflow-y-auto max-h-[90vh] no-scrollbar animate-in zoom-in-95 duration-300 ${shadowCard}`}>
+          <div className={`${bgCard} w-full max-w-4xl rounded-[3.5rem] p-12 relative border ${borderLight} overflow-y-auto max-h-[90vh] no-scrollbar animate-in zoom-in-95 duration-300 ${shadowCard}`}>
              <h3 className={`text-3xl font-black ${textPrimary} mb-8 flex items-center gap-4`}>
                {products.find(p => p.id === editingProduct.id) ? <Edit3 className="text-emerald-500" /> : <PlusCircle className="text-emerald-500" />} 
                {products.find(p => p.id === editingProduct.id) ? 'تعديل المنتج' : 'إضافة منتج جديد'}
              </h3>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2"><label className={`text-xs font-black ${textSecondary} px-4`}>اسم المنتج</label><input type="text" value={editingProduct.title} onChange={(e) => setEditingProduct({...editingProduct, title: e.target.value})} className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl ${textPrimary} font-bold outline-none focus:border-emerald-500 transition-all`} /></div>
-                <div className="space-y-2"><label className={`text-xs font-black ${textSecondary} px-4`}>السعر (DH)</label><input type="number" value={editingProduct.price} onChange={(e) => setEditingProduct({...editingProduct, price: Number(e.target.value)})} className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl ${textPrimary} font-bold outline-none focus:border-emerald-500 transition-all`} /></div>
-                <div className="space-y-2 md:col-span-2"><label className={`text-xs font-black ${textSecondary} px-4`}>رابط الصورة الرئيسية (URL)</label><input type="text" value={editingProduct.thumbnail} onChange={(e) => setEditingProduct({...editingProduct, thumbnail: e.target.value})} className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl ${textPrimary} font-bold outline-none focus:border-emerald-500 transition-all`} /></div>
-                <div className="space-y-2 md:col-span-2"><label className={`text-xs font-black ${textSecondary} px-4`}>روابط الصور الإضافية (تفصل بينها فاصلة ,)</label><input type="text" value={galleryInput} onChange={(e) => setGalleryInput(e.target.value)} placeholder="image1.jpg, image2.jpg..." className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl ${textPrimary} font-bold outline-none focus:border-emerald-500 transition-all`} /></div>
-                <div className="space-y-2 md:col-span-2"><label className={`text-xs font-black ${textSecondary} px-4`}>الوصف</label><textarea value={editingProduct.description} onChange={(e) => setEditingProduct({...editingProduct, description: e.target.value})} className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-6 rounded-3xl ${textPrimary} font-bold min-h-[120px] outline-none focus:border-emerald-500 transition-all`} /></div>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Product Fields */}
+                <div className="space-y-6">
+                   <div className="space-y-2"><label className={`text-xs font-black ${textSecondary} px-4`}>اسم المنتج</label><input type="text" value={editingProduct.title} onChange={(e) => setEditingProduct({...editingProduct, title: e.target.value})} className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl ${textPrimary} font-bold outline-none focus:border-emerald-500 transition-all`} /></div>
+                   <div className="space-y-2"><label className={`text-xs font-black ${textSecondary} px-4`}>السعر (DH)</label><input type="number" value={editingProduct.price} onChange={(e) => setEditingProduct({...editingProduct, price: Number(e.target.value)})} className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl ${textPrimary} font-bold outline-none focus:border-emerald-500 transition-all`} /></div>
+                   <div className="space-y-2"><label className={`text-xs font-black ${textSecondary} px-4`}>الوصف</label><textarea value={editingProduct.description} onChange={(e) => setEditingProduct({...editingProduct, description: e.target.value})} className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-6 rounded-3xl ${textPrimary} font-bold min-h-[150px] outline-none focus:border-emerald-500 transition-all`} /></div>
+                </div>
+
+                {/* Images Section */}
+                <div className="space-y-8">
+                   {/* Main Image Upload */}
+                   <div className="space-y-4">
+                      <label className={`text-xs font-black ${textSecondary} px-4`}>الصورة الرئيسية</label>
+                      <div 
+                        onClick={() => mainImageInputRef.current?.click()}
+                        className={`aspect-[4/3] rounded-[2.5rem] border-2 border-dashed ${borderLight} flex flex-col items-center justify-center cursor-pointer overflow-hidden group hover:border-emerald-500 transition-all relative`}
+                      >
+                         {editingProduct.thumbnail ? (
+                            <>
+                              <img src={editingProduct.thumbnail} className="w-full h-full object-cover" />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all">
+                                 <Upload size={32} className="text-white" />
+                              </div>
+                            </>
+                         ) : (
+                            <>
+                               <ImageIcon size={48} className={textSecondary} />
+                               <p className={`mt-4 font-black text-sm ${textSecondary}`}>انقر لرفع صورة</p>
+                            </>
+                         )}
+                         <input type="file" ref={mainImageInputRef} className="hidden" accept="image/*" onChange={handleMainImageUpload} />
+                      </div>
+                   </div>
+
+                   {/* Gallery Images Upload */}
+                   <div className="space-y-4">
+                      <label className={`text-xs font-black ${textSecondary} px-4`}>صور إضافية (المعرض)</label>
+                      <div className="grid grid-cols-3 gap-4">
+                         {(editingProduct.galleryImages || []).map((img, idx) => (
+                            <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden group border border-emerald-500/10">
+                               <img src={img} className="w-full h-full object-cover" />
+                               <button 
+                                 onClick={() => removeGalleryImage(idx)}
+                                 className="absolute top-2 right-2 bg-rose-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
+                               >
+                                 <X size={14} />
+                               </button>
+                            </div>
+                         ))}
+                         <button 
+                           onClick={() => galleryImageInputRef.current?.click()}
+                           className={`aspect-square rounded-2xl border-2 border-dashed ${borderLight} flex flex-col items-center justify-center hover:border-emerald-500 transition-all ${theme === 'dark' ? 'bg-white/5' : 'bg-slate-50'}`}
+                         >
+                            <PlusIcon size={24} className={textSecondary} />
+                         </button>
+                         <input type="file" ref={galleryImageInputRef} className="hidden" accept="image/*" multiple onChange={handleGalleryUpload} />
+                      </div>
+                   </div>
+                </div>
              </div>
-             <div className="flex gap-4 mt-10">
+             
+             <div className="flex gap-4 mt-12">
                 <button onClick={() => setEditingProduct(null)} className={`flex-1 ${theme === 'dark' ? 'bg-white/5' : 'bg-slate-100'} ${textPrimary} py-6 rounded-3xl font-black hover:bg-rose-500 hover:text-white transition-all border ${borderLight}`}>إلغاء</button>
                 <button onClick={saveProductChanges} className="flex-[2] bg-emerald-600 text-black py-6 rounded-3xl font-black hover:bg-emerald-500 shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all"><Save size={20} /> حفظ المنتج</button>
              </div>
@@ -481,7 +568,7 @@ const App: React.FC = () => {
                         {[...Array(5)].map((_, i) => <Star key={i} size={18} fill={i < selectedProduct.rating ? "currentColor" : "none"} />)}
                         <span className={`text-sm font-bold ${textSecondary}`}>({selectedProduct.reviewsCount} مراجعة)</span>
                      </div>
-                     <p className={`${textSecondary} font-medium text-xl leading-relaxed`}>{selectedProduct.description}</p>
+                     <p className={`${textSecondary} font-medium text-xl leading-relaxed whitespace-pre-wrap`}>{selectedProduct.description}</p>
                      
                      <div className="grid grid-cols-2 gap-4">
                         <div className={`p-6 rounded-3xl border ${borderLight} ${theme === 'dark' ? 'bg-white/5' : 'bg-slate-50'}`}>
