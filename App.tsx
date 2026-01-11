@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, ShoppingBag, ShoppingCart, Star, Truck, MapPin, Phone, User, Check, 
@@ -6,7 +5,7 @@ import {
   Settings, Edit3, Trash2, LayoutDashboard, Save, Lock, LogOut, 
   PlusCircle, PackagePlus, Eye, EyeOff, Sun, Moon, Image as ImageIcon, 
   Upload, Plus as PlusIcon, RefreshCw, Link as LinkIcon, Share2, Copy, 
-  Target, Facebook, Code, FileCode, KeyRound
+  Target, Facebook, Code, FileCode, KeyRound, Images, Camera
 } from 'lucide-react';
 import { StoreProduct, StoreOrder, CustomerInfo, Category } from './types';
 import { MOCK_PRODUCTS, CATEGORIES, MOROCCAN_CITIES, STORE_CONFIG } from './constants';
@@ -34,7 +33,6 @@ const App: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false); 
   const [loginError, setLoginError] = useState(false);
 
-  // Password Management States
   const [adminPassword, setAdminPassword] = useState(DEFAULT_ADMIN_PASSWORD);
   const [currentPassChange, setCurrentPassChange] = useState('');
   const [newPassChange, setNewPassChange] = useState('');
@@ -96,7 +94,11 @@ const App: React.FC = () => {
     const savedProducts = localStorage.getItem(STORAGE_KEY_PRODUCTS);
     let initialProducts = MOCK_PRODUCTS;
     if (savedProducts) {
-      initialProducts = JSON.parse(savedProducts);
+      try {
+        initialProducts = JSON.parse(savedProducts);
+      } catch (e) {
+        initialProducts = MOCK_PRODUCTS;
+      }
       setProducts(initialProducts);
     } else {
       setProducts(MOCK_PRODUCTS);
@@ -109,7 +111,8 @@ const App: React.FC = () => {
 
     const savedPixel = localStorage.getItem(STORAGE_KEY_PIXEL);
     if (savedPixel) {
-      const p = JSON.parse(savedPixel);
+      // Fix: cast result of JSON.parse to allow safe property access on line 180
+      const p = JSON.parse(savedPixel) as { id?: string; testCode?: string };
       setPixelId(p.id || STORE_CONFIG.pixelId);
       setTestEventCode(p.testCode || STORE_CONFIG.testCode);
     }
@@ -153,10 +156,43 @@ const App: React.FC = () => {
     alert(message);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, isGallery = false) => {
+    const files = e.target.files;
+    if (!files || !editingProduct) return;
+
+    // Fix: Cast to File[] to ensure each 'file' is recognized as a Blob for readAsDataURL
+    (Array.from(files) as File[]).forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        if (isGallery) {
+          setEditingProduct(prev => {
+            if (!prev) return null;
+            const currentGallery = prev.galleryImages || [];
+            return { ...prev, galleryImages: [...currentGallery, base64String] };
+          });
+        } else {
+          setEditingProduct(prev => {
+            if (!prev) return null;
+            return { ...prev, thumbnail: base64String };
+          });
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = ''; // Reset input to allow re-uploading the same file
+  };
+
+  const removeGalleryImage = (index: number) => {
+    if (!editingProduct || !editingProduct.galleryImages) return;
+    const updatedGallery = editingProduct.galleryImages.filter((_, i) => i !== index);
+    setEditingProduct({ ...editingProduct, galleryImages: updatedGallery });
+  };
+
   const saveProductChanges = () => {
     if (!editingProduct) return;
     if (!editingProduct.title || !editingProduct.price || !editingProduct.thumbnail) {
-      alert("يرجى ملء البيانات الأساسية.");
+      alert("يرجى ملء البيانات الأساسية (الاسم، السعر، والصورة الرئيسية).");
       return;
     }
     const updated = products.find(p => p.id === editingProduct.id)
@@ -295,12 +331,14 @@ const App: React.FC = () => {
                     <button onClick={() => setAdminTab('settings')} className={`px-6 py-4 rounded-2xl font-black text-xs transition-all ${adminTab === 'settings' ? 'bg-emerald-600 text-black' : `${textSecondary} hover:text-emerald-500`}`}>الإعدادات</button>
                     <button onClick={() => setAdminTab('export')} className={`px-6 py-4 rounded-[2rem] font-black text-xs transition-all bg-amber-500/10 text-amber-500 border border-amber-500/20 hover:bg-amber-500 hover:text-black flex items-center gap-2 ${adminTab === 'export' ? 'ring-2 ring-amber-500' : ''}`}><FileCode size={16} /> تحديث المتجر للكل</button>
                  </div>
-                 {adminTab === 'products' && <button onClick={() => setEditingProduct({ id: 'p' + Date.now(), title: '', thumbnail: '', price: 0, description: '', category: 'نظارات', stockStatus: 'available', rating: 5, reviewsCount: 0, shippingTime: '24-48 ساعة' })} className="bg-emerald-500 text-black px-6 py-4 rounded-2xl font-black text-xs flex items-center gap-2"><PlusIcon size={16} /> إضافة منتج</button>}
+                 {adminTab === 'products' && <button onClick={() => setEditingProduct({ id: 'p' + Date.now(), title: '', thumbnail: '', price: 0, description: '', category: 'نظارات', stockStatus: 'available', rating: 5, reviewsCount: 0, shippingTime: '24-48 ساعة', galleryImages: [] })} className="bg-emerald-500 text-black px-6 py-4 rounded-2xl font-black text-xs flex items-center gap-2"><PlusIcon size={16} /> إضافة منتج</button>}
               </div>
 
               {adminTab === 'orders' && (
                 <div className="grid gap-6">
-                  {orders.map(order => (
+                  {orders.length === 0 ? (
+                    <div className="p-20 text-center opacity-30">لا توجد طلبيات بعد.</div>
+                  ) : orders.map(order => (
                     <div key={order.orderId} className={`${bgCard} border ${borderLight} p-8 rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between gap-8 group shadow-lg`}>
                       <div className="flex items-center gap-6"><div className="w-14 h-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-500"><User size={24} /></div><div><h4 className="text-lg font-black">{order.customer.fullName}</h4><p className={`text-xs ${textSecondary} font-bold`}>{order.productTitle}</p></div></div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
@@ -374,9 +412,6 @@ const App: React.FC = () => {
                             <button onClick={() => copyToClipboard(generateConstantsCode(), "تم نسخ كود الملف بنجاح! ضعه الآن في ملف constants.tsx")} className="bg-amber-500 text-black px-10 py-5 rounded-[2rem] font-black shadow-2xl flex items-center gap-3 transform hover:scale-105 transition-all"><Copy size={24} /> نسخ الكود بالكامل</button>
                          </div>
                       </div>
-                      <div className="mt-8 p-6 bg-amber-500/5 rounded-2xl border border-amber-500/10">
-                         <p className="text-xs text-amber-500 font-bold flex items-center gap-2"><Check size={16} /> هذه الطريقة تضمن بقاء المنتجات دائمة لكل من يفتح الرابط.</p>
-                      </div>
                    </div>
                 </div>
               )}
@@ -401,22 +436,68 @@ const App: React.FC = () => {
       {editingProduct && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-2xl" onClick={() => setEditingProduct(null)} />
-          <div className={`${bgCard} w-full max-w-4xl rounded-[3.5rem] p-10 relative border ${borderLight} overflow-y-auto max-h-[90vh] no-scrollbar shadow-2xl`}>
+          <div className={`${bgCard} w-full max-w-5xl rounded-[3.5rem] p-10 relative border ${borderLight} overflow-y-auto max-h-[90vh] no-scrollbar shadow-2xl`}>
              <h3 className="text-2xl font-black mb-8 flex items-center gap-3"><Edit3 className="text-emerald-500" /> إضافة/تعديل منتج</h3>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                 <div className="space-y-6">
                    <div className="space-y-1"><label className={`text-[10px] font-black ${textSecondary} px-4`}>اسم المنتج</label><input type="text" value={editingProduct.title} onChange={(e) => setEditingProduct({...editingProduct, title: e.target.value})} className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl ${textPrimary} font-bold`} /></div>
-                   <div className="space-y-1"><label className={`text-[10px] font-black ${textSecondary} px-4`}>السعر (DH)</label><input type="number" value={editingProduct.price} onChange={(e) => setEditingProduct({...editingProduct, price: Number(e.target.value)})} className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl ${textPrimary} font-bold`} /></div>
-                   <div className="space-y-1"><label className={`text-[10px] font-black ${textSecondary} px-4`}>التصنيف</label><select value={editingProduct.category} onChange={(e) => setEditingProduct({...editingProduct, category: e.target.value as Category})} className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl ${textPrimary} font-bold`}>{CATEGORIES.filter(c => c !== 'الكل').map(cat => <option key={cat} value={cat}>{cat}</option>)}</select></div>
-                   <div className="space-y-1"><label className={`text-[10px] font-black ${textSecondary} px-4`}>الوصف</label><textarea value={editingProduct.description} onChange={(e) => setEditingProduct({...editingProduct, description: e.target.value})} className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-6 rounded-3xl ${textPrimary} font-bold min-h-[150px]`} /></div>
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1"><label className={`text-[10px] font-black ${textSecondary} px-4`}>السعر (DH)</label><input type="number" value={editingProduct.price} onChange={(e) => setEditingProduct({...editingProduct, price: Number(e.target.value)})} className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl ${textPrimary} font-bold`} /></div>
+                      <div className="space-y-1"><label className={`text-[10px] font-black ${textSecondary} px-4`}>التصنيف</label><select value={editingProduct.category} onChange={(e) => setEditingProduct({...editingProduct, category: e.target.value as Category})} className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl ${textPrimary} font-bold`}>{CATEGORIES.filter(c => c !== 'الكل').map(cat => <option key={cat} value={cat}>{cat}</option>)}</select></div>
+                   </div>
+                   <div className="space-y-1"><label className={`text-[10px] font-black ${textSecondary} px-4`}>الوصف</label><textarea value={editingProduct.description} onChange={(e) => setEditingProduct({...editingProduct, description: e.target.value})} className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-6 rounded-3xl ${textPrimary} font-bold min-h-[120px]`} /></div>
                 </div>
-                <div className="space-y-6">
-                   <label className={`text-[10px] font-black ${textSecondary} px-4`}>رابط الصورة</label>
-                   <input type="text" value={editingProduct.thumbnail} onChange={(e) => setEditingProduct({...editingProduct, thumbnail: e.target.value})} placeholder="أدخل رابط الصورة (URL)" className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl ${textPrimary} font-bold mb-4`} />
-                   <div className="aspect-square rounded-[3rem] overflow-hidden border ${borderLight} shadow-inner"><img src={editingProduct.thumbnail || PLACEHOLDER_IMAGE} className="w-full h-full object-cover" /></div>
+                
+                <div className="space-y-8">
+                   <div className="space-y-4">
+                      <label className={`text-[10px] font-black ${textSecondary} uppercase px-4`}>الصورة الرئيسية</label>
+                      <div 
+                        onClick={() => mainImageInputRef.current?.click()}
+                        className={`aspect-video rounded-[2.5rem] border-2 border-dashed ${borderLight} flex flex-col items-center justify-center cursor-pointer transition-all hover:border-emerald-500/50 relative overflow-hidden group ${editingProduct.thumbnail ? 'bg-black/40' : 'bg-black/10'}`}
+                      >
+                         {editingProduct.thumbnail ? (
+                           <>
+                             <img src={editingProduct.thumbnail} className="w-full h-full object-cover opacity-80 group-hover:opacity-40 transition-opacity" />
+                             <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Upload size={32} className="text-emerald-500 mb-2" />
+                                <span className="text-xs font-black">تغيير الصورة</span>
+                             </div>
+                           </>
+                         ) : (
+                           <div className="flex flex-col items-center">
+                              <Camera size={48} className="text-slate-600 mb-4" />
+                              <span className="text-xs font-black text-slate-500">انقر لتحميل الصورة الرئيسية</span>
+                           </div>
+                         )}
+                         <input type="file" ref={mainImageInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, false)} />
+                      </div>
+                   </div>
+
+                   <div className="space-y-4">
+                      <label className={`text-[10px] font-black ${textSecondary} uppercase px-4`}>صور المعرض الإضافية</label>
+                      <div className="grid grid-cols-4 gap-4">
+                         {(editingProduct.galleryImages || []).map((img, idx) => (
+                           <div key={idx} className="aspect-square rounded-2xl border ${borderLight} relative group overflow-hidden shadow-lg">
+                              <img src={img} className="w-full h-full object-cover" />
+                              <button onClick={() => removeGalleryImage(idx)} className="absolute top-2 right-2 bg-rose-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-xl hover:scale-110"><X size={14} strokeWidth={3} /></button>
+                           </div>
+                         ))}
+                         <button 
+                           onClick={() => galleryImageInputRef.current?.click()}
+                           className={`aspect-square rounded-2xl border-2 border-dashed ${borderLight} flex flex-col items-center justify-center text-slate-500 hover:text-emerald-500 hover:border-emerald-500/50 transition-all bg-black/5`}
+                         >
+                            <PlusIcon size={24} />
+                            <span className="text-[10px] mt-2 font-black">إضافة</span>
+                         </button>
+                         <input type="file" ref={galleryImageInputRef} className="hidden" accept="image/*" multiple onChange={(e) => handleFileChange(e, true)} />
+                      </div>
+                   </div>
                 </div>
              </div>
-             <div className="flex gap-4 mt-12"><button onClick={() => setEditingProduct(null)} className="flex-1 bg-white/5 py-6 rounded-3xl font-black">إلغاء</button><button onClick={saveProductChanges} className="flex-[2] bg-emerald-600 text-black py-6 rounded-3xl font-black shadow-xl"><Save size={20} className="inline ml-2" /> حفظ المنتج</button></div>
+             <div className="flex gap-4 mt-12">
+               <button onClick={() => setEditingProduct(null)} className="flex-1 bg-white/5 py-6 rounded-[2rem] font-black text-lg hover:bg-white/10 transition-colors">إلغاء</button>
+               <button onClick={saveProductChanges} className="flex-[2] bg-emerald-600 text-black py-6 rounded-[2rem] font-black text-lg shadow-xl hover:bg-emerald-500 transition-all flex items-center justify-center gap-3"><Save size={24} /> حفظ المنتج</button>
+             </div>
           </div>
         </div>
       )}
@@ -426,8 +507,29 @@ const App: React.FC = () => {
           <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => !isCheckingOut && setSelectedProduct(null)} />
           <div className={`${bgSidebar} w-full max-w-7xl rounded-[4rem] relative overflow-hidden flex flex-col md:flex-row shadow-2xl border ${borderLight} max-h-[95vh] animate-in zoom-in-95 duration-300`}>
             <button onClick={() => { setSelectedProduct(null); setIsCheckingOut(false); }} className="absolute top-8 right-8 z-[110] bg-white/5 p-4 rounded-full text-white/50 hover:text-white border border-white/10"><X size={24} /></button>
-            <div className={`w-full md:w-1/2 ${theme === 'dark' ? 'bg-black' : 'bg-slate-50'} flex flex-col items-center justify-center p-8 border-l ${borderLight}`}>
-              <div className="relative w-full aspect-square md:aspect-[4/5] overflow-hidden rounded-[3rem] shadow-2xl"><img src={selectedProduct.thumbnail} className="w-full h-full object-cover" /></div>
+            <div className={`w-full md:w-1/2 ${theme === 'dark' ? 'bg-black' : 'bg-slate-50'} flex flex-col items-center justify-center p-8 border-l ${borderLight} relative`}>
+              <div className="relative w-full aspect-square md:aspect-[4/5] overflow-hidden rounded-[3rem] shadow-2xl">
+                <img src={activeGalleryImage || selectedProduct.thumbnail} className="w-full h-full object-cover transition-all duration-700" />
+              </div>
+              {selectedProduct.galleryImages && selectedProduct.galleryImages.length > 0 && (
+                <div className="flex gap-3 mt-8 overflow-x-auto no-scrollbar w-full px-4 py-2">
+                  <div 
+                    onClick={() => setActiveGalleryImage(selectedProduct.thumbnail)}
+                    className={`min-w-[80px] h-[80px] rounded-2xl overflow-hidden cursor-pointer border-2 transition-all ${activeGalleryImage === selectedProduct.thumbnail ? 'border-emerald-500 scale-105' : 'border-transparent opacity-50'}`}
+                  >
+                    <img src={selectedProduct.thumbnail} className="w-full h-full object-cover" />
+                  </div>
+                  {selectedProduct.galleryImages.map((img, i) => (
+                    <div 
+                      key={i}
+                      onClick={() => setActiveGalleryImage(img)}
+                      className={`min-w-[80px] h-[80px] rounded-2xl overflow-hidden cursor-pointer border-2 transition-all ${activeGalleryImage === img ? 'border-emerald-500 scale-105' : 'border-transparent opacity-50'}`}
+                    >
+                      <img src={img} className="w-full h-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="w-full md:w-1/2 p-12 md:p-20 flex flex-col justify-between overflow-y-auto no-scrollbar">
                {!isCheckingOut ? (
