@@ -649,7 +649,7 @@ const App: React.FC = () => {
                         <label className={`text-[10px] ${textSecondary} uppercase font-black px-6`}>رقم الهاتف</label>
                         <div className={`${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-7 rounded-[2.2rem] flex items-center gap-4 focus-within:border-emerald-500 transition-all`}>
                           <Phone size={24} className={textSecondary} />
-                          <input type="tel" placeholder="06XXXXXXXX" className={`bg-transparent border-none outline-none flex-1 ${textPrimary} font-bold text-ltr text-xl`} value={customerInfo.phoneNumber} onChange={(e) => setCustomerInfo({...customerInfo, phoneNumber: e.target.value})} />
+                          <input type="tel" placeholder="" className={`bg-transparent border-none outline-none flex-1 ${textPrimary} font-bold text-ltr text-xl`} value={customerInfo.phoneNumber} onChange={(e) => setCustomerInfo({...customerInfo, phoneNumber: e.target.value})} />
                         </div>
                       </div>
                     </div>
