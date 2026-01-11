@@ -8,7 +8,7 @@ import {
   Settings, Edit3, Trash2, LayoutDashboard, Save, Plus,
   Lock, LogOut, KeyRound, PlusCircle, PackagePlus,
   Eye, EyeOff, Sun, Moon, Image as ImageIcon, Upload, Plus as PlusIcon, RefreshCw,
-  Link as LinkIcon, Share2, Copy
+  Link as LinkIcon, Share2, Copy, Target, Facebook
 } from 'lucide-react';
 import { StoreProduct, StoreOrder, CustomerInfo, Category } from './types';
 import { MOCK_PRODUCTS, CATEGORIES, MOROCCAN_CITIES } from './constants';
@@ -19,13 +19,16 @@ const PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1560393464-5c69a73c
 const App: React.FC = () => {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [view, setView] = useState<'shop' | 'admin'>('shop');
-  const [adminTab, setAdminTab] = useState<'orders' | 'products'>('orders');
+  const [adminTab, setAdminTab] = useState<'orders' | 'products' | 'settings'>('orders');
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [orders, setOrders] = useState<StoreOrder[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<StoreProduct | null>(null);
   const [activeGalleryImage, setActiveGalleryImage] = useState<string>('');
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [activeTab, setActiveTab] = useState('الكل');
+  
+  const [pixelId, setPixelId] = useState<string>('');
+  const [testEventCode, setTestEventCode] = useState<string>('');
   
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -47,15 +50,50 @@ const App: React.FC = () => {
 
   const STORAGE_KEY_PRODUCTS = 'ecom_products_v4_final';
   const STORAGE_KEY_ORDERS = 'ecom_orders_v4_final';
+  const STORAGE_KEY_PIXEL = 'ecom_pixel_settings';
 
-  // التحقق من وجود منتج في الرابط عند التحميل
+  // تتبع أحداث الفيسبوك
+  const trackPixelEvent = (eventName: string, data?: any) => {
+    if (typeof window !== 'undefined' && (window as any).fbq && pixelId) {
+      if (testEventCode) {
+        (window as any).fbq('track', eventName, data, { eventID: testEventCode });
+      } else {
+        (window as any).fbq('track', eventName, data);
+      }
+      console.log(`[Facebook Pixel] Tracked: ${eventName}`, data);
+    }
+  };
+
+  // تهيئة بيكسل فيسبوك
+  useEffect(() => {
+    if (pixelId && typeof window !== 'undefined') {
+      const f = window as any;
+      if (f.fbq) return;
+      // Fix: cast 'n' to 'any' to allow custom properties used by Facebook Pixel (callMethod, push, queue, version, loaded)
+      const n: any = (f.fbq = function () {
+        n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
+      });
+      if (!f._fbq) f._fbq = n;
+      n.push = n;
+      n.loaded = !0;
+      n.version = '2.0';
+      n.queue = [];
+      const t = document.createElement('script');
+      t.async = !0;
+      t.src = 'https://connect.facebook.net/en_US/fbevents.js';
+      const s = document.getElementsByTagName('script')[0];
+      s.parentNode?.insertBefore(t, s);
+      f.fbq('init', pixelId);
+      f.fbq('track', 'PageView');
+    }
+  }, [pixelId]);
+
   useEffect(() => {
     const authStatus = sessionStorage.getItem('admin_auth');
     if (authStatus === 'true') setIsAdminAuthenticated(true);
 
     const savedProducts = localStorage.getItem(STORAGE_KEY_PRODUCTS);
     let currentProducts = MOCK_PRODUCTS;
-    
     if (savedProducts) {
       currentProducts = JSON.parse(savedProducts);
       setProducts(currentProducts);
@@ -69,31 +107,60 @@ const App: React.FC = () => {
       try { setOrders(JSON.parse(savedOrders)); } catch(e) { setOrders([]); }
     }
 
-    // التعامل مع روابط المنتجات (مثلاً: ?p=prod-id)
+    const savedPixel = localStorage.getItem(STORAGE_KEY_PIXEL);
+    if (savedPixel) {
+      const { id, testCode } = JSON.parse(savedPixel);
+      setPixelId(id || '');
+      setTestEventCode(testCode || '');
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const productId = urlParams.get('p');
     if (productId) {
       const product = currentProducts.find(p => p.id === productId);
-      if (product) {
-        setSelectedProduct(product);
-      }
+      if (product) setSelectedProduct(product);
     }
   }, []);
 
-  // تحديث الرابط عند اختيار منتج أو إغلاقه
   useEffect(() => {
     const url = new URL(window.location.href);
     if (selectedProduct) {
       url.searchParams.set('p', selectedProduct.id);
       setActiveGalleryImage(selectedProduct.thumbnail);
+      // تتبع مشاهدة المنتج
+      trackPixelEvent('ViewContent', {
+        content_name: selectedProduct.title,
+        content_category: selectedProduct.category,
+        content_ids: [selectedProduct.id],
+        content_type: 'product',
+        value: selectedProduct.price,
+        currency: 'MAD'
+      });
     } else {
       url.searchParams.delete('p');
     }
     window.history.pushState({}, '', url.toString());
   }, [selectedProduct]);
 
+  useEffect(() => {
+    if (isCheckingOut && selectedProduct) {
+      trackPixelEvent('InitiateCheckout', {
+        content_name: selectedProduct.title,
+        content_ids: [selectedProduct.id],
+        value: selectedProduct.price,
+        currency: 'MAD'
+      });
+    }
+  }, [isCheckingOut]);
+
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
+
+  const savePixelSettings = () => {
+    localStorage.setItem(STORAGE_KEY_PIXEL, JSON.stringify({ id: pixelId, testCode: testEventCode }));
+    alert("تم حفظ إعدادات البيكسل بنجاح! سيتم تفعيل التتبع عند إعادة تحميل الصفحة.");
+    window.location.reload();
   };
 
   const copyToClipboard = (text: string, message: string = "تم النسخ بنجاح!") => {
@@ -221,7 +288,6 @@ const App: React.FC = () => {
       alert("يرجى ملء الاسم والسعر ورفع صورة للمنتج.");
       return;
     }
-    
     const exists = products.find(p => p.id === editingProduct.id);
     let updated;
     if (exists) {
@@ -229,7 +295,6 @@ const App: React.FC = () => {
     } else {
       updated = [...products, editingProduct];
     }
-    
     updateStorage(updated, orders);
     setEditingProduct(null);
     if (selectedProduct?.id === editingProduct.id) {
@@ -257,6 +322,15 @@ const App: React.FC = () => {
 
     const updatedOrders = [newOrder, ...orders];
     updateStorage(products, updatedOrders);
+    
+    // تتبع عملية الشراء
+    trackPixelEvent('Purchase', {
+      content_name: selectedProduct.title,
+      content_ids: [selectedProduct.id],
+      value: selectedProduct.price,
+      currency: 'MAD'
+    });
+
     setActiveOrder(newOrder);
     setIsCheckingOut(false);
     setSelectedProduct(null);
@@ -405,9 +479,10 @@ const App: React.FC = () => {
           {view === 'admin' && isAdminAuthenticated && (
             <div className="space-y-10 pb-32 max-w-7xl mx-auto animate-in fade-in duration-500">
                <div className={`flex flex-col md:flex-row gap-6 items-center justify-between ${bgCard} p-8 rounded-[3rem] border ${borderLight} shadow-xl`}>
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-4">
                      <button onClick={() => setAdminTab('orders')} className={`px-8 py-4 rounded-2xl font-black text-sm transition-all ${adminTab === 'orders' ? 'bg-emerald-600 text-black shadow-lg shadow-emerald-600/20' : `${textSecondary} hover:text-emerald-500`}`}>الطلبيات ({orders.length})</button>
                      <button onClick={() => setAdminTab('products')} className={`px-8 py-4 rounded-2xl font-black text-sm transition-all ${adminTab === 'products' ? 'bg-emerald-600 text-black shadow-lg shadow-emerald-600/20' : `${textSecondary} hover:text-emerald-500`}`}>المنتجات ({products.length})</button>
+                     <button onClick={() => setAdminTab('settings')} className={`px-8 py-4 rounded-2xl font-black text-sm transition-all ${adminTab === 'settings' ? 'bg-emerald-600 text-black shadow-lg shadow-emerald-600/20' : `${textSecondary} hover:text-emerald-500`}`}>الإعدادات <Settings size={14} className="inline ml-1" /></button>
                   </div>
                   {adminTab === 'products' && (
                     <button onClick={createNewProduct} className="bg-emerald-500 hover:bg-emerald-600 text-black px-8 py-4 rounded-2xl font-black text-sm flex items-center gap-2 transition-all shadow-lg green-glow active:scale-95">
@@ -420,7 +495,7 @@ const App: React.FC = () => {
                   </div>
                </div>
 
-               {adminTab === 'orders' ? (
+               {adminTab === 'orders' && (
                  <div className="grid gap-6 animate-in slide-in-from-bottom-5">
                     {orders.length === 0 ? (
                       <div className="text-center py-40 opacity-20"><Package size={80} className="mx-auto" /><p className="text-xl mt-4">لا توجد طلبيات</p></div>
@@ -440,7 +515,9 @@ const App: React.FC = () => {
                       ))
                     )}
                  </div>
-               ) : (
+               )}
+
+               {adminTab === 'products' && (
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in slide-in-from-bottom-5">
                     {products.length === 0 ? (
                       <div className="col-span-full text-center py-40 opacity-20"><PackagePlus size={80} className="mx-auto text-emerald-500" /><p className="text-xl mt-4">قم بإضافة منتجك الأول الآن</p></div>
@@ -463,6 +540,58 @@ const App: React.FC = () => {
                         </div>
                       ))
                     )}
+                 </div>
+               )}
+
+               {adminTab === 'settings' && (
+                 <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in duration-500">
+                    <div className={`${bgCard} p-10 rounded-[3rem] border ${borderLight} shadow-2xl`}>
+                       <div className="flex items-center gap-4 mb-8">
+                          <div className="p-4 bg-[#1877F2]/10 text-[#1877F2] rounded-2xl"><Facebook size={32} /></div>
+                          <div>
+                             <h3 className={`text-2xl font-black ${textPrimary}`}>إعدادات Facebook Pixel</h3>
+                             <p className={`text-xs ${textSecondary} font-bold`}>تتبع زوار متجرك وحسن أداء إعلاناتك</p>
+                          </div>
+                       </div>
+                       
+                       <div className="space-y-6">
+                          <div className="space-y-2">
+                             <label className={`text-xs font-black ${textSecondary} px-4`}>Pixel ID</label>
+                             <div className={`relative ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} rounded-2xl overflow-hidden focus-within:border-[#1877F2] transition-all`}>
+                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><Target size={20} /></div>
+                                <input 
+                                  type="text" 
+                                  placeholder="مثال: 123456789012345" 
+                                  className={`w-full bg-transparent p-5 pl-12 ${textPrimary} font-bold outline-none`} 
+                                  value={pixelId}
+                                  onChange={(e) => setPixelId(e.target.value)}
+                                />
+                             </div>
+                          </div>
+
+                          <div className="space-y-2">
+                             <label className={`text-xs font-black ${textSecondary} px-4`}>Test Event Code (اختياري)</label>
+                             <div className={`relative ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} rounded-2xl overflow-hidden focus-within:border-[#1877F2] transition-all`}>
+                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><Zap size={20} /></div>
+                                <input 
+                                  type="text" 
+                                  placeholder="مثال: TEST12345" 
+                                  className={`w-full bg-transparent p-5 pl-12 ${textPrimary} font-bold outline-none`} 
+                                  value={testEventCode}
+                                  onChange={(e) => setTestEventCode(e.target.value)}
+                                />
+                             </div>
+                             <p className="text-[10px] text-slate-500 px-4">استخدم هذا الكود لاختبار الأحداث في قسم "Test Events" داخل Facebook Events Manager.</p>
+                          </div>
+
+                          <button 
+                            onClick={savePixelSettings}
+                            className="w-full bg-[#1877F2] text-white py-6 rounded-2xl font-black text-lg hover:bg-[#166fe5] shadow-xl shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-3"
+                          >
+                             <Save size={20} /> حفظ الإعدادات
+                          </button>
+                       </div>
+                    </div>
                  </div>
                )}
             </div>
