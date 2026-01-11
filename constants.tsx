@@ -7,10 +7,14 @@ import { StoreProduct } from './types';
  */
 
 export const STORE_CONFIG = {
-  pixelId: '', // معرف فيسبوك بيكسل (مثال: '123456789')
-  testCode: '', // كود اختبار الأحداث (اختياري)
+  pixelId: '', // معرف فيسبوك بيكسل
+  testCode: '', // كود اختبار الأحداث
   storeName: 'Berrima Store',
-  currency: 'DH'
+  currency: 'DH',
+  // إعدادات غوغل شيت
+  sheetId: '',
+  sheetName: 'Orders',
+  sheetScriptUrl: '' // رابط Web App من Google Apps Script
 };
 
 export const MOROCCAN_CITIES: string[] = [
