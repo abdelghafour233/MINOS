@@ -43,8 +43,8 @@ const App: React.FC = () => {
   });
   const [activeOrder, setActiveOrder] = useState<StoreOrder | null>(null);
 
-  const STORAGE_KEY_PRODUCTS = 'ecom_products_v4';
-  const STORAGE_KEY_ORDERS = 'ecom_orders_v4';
+  const STORAGE_KEY_PRODUCTS = 'ecom_products_v4_final';
+  const STORAGE_KEY_ORDERS = 'ecom_orders_v4_final';
 
   useEffect(() => {
     const authStatus = sessionStorage.getItem('admin_auth');
@@ -54,8 +54,8 @@ const App: React.FC = () => {
     if (savedProducts) {
       setProducts(JSON.parse(savedProducts));
     } else {
-      setProducts([]); 
-      localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify([]));
+      setProducts(MOCK_PRODUCTS); 
+      localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(MOCK_PRODUCTS));
     }
 
     const savedOrders = localStorage.getItem(STORAGE_KEY_ORDERS);
@@ -122,7 +122,7 @@ const App: React.FC = () => {
       galleryImages: [],
       price: 0,
       description: '',
-      category: 'أدوات منزلية',
+      category: 'نظارات',
       stockStatus: 'available',
       rating: 5,
       reviewsCount: 0,
@@ -250,7 +250,6 @@ const App: React.FC = () => {
   return (
     <div className={`min-h-screen ${bgMain} ${textPrimary} flex font-['Tajawal'] overflow-hidden transition-colors duration-500`}>
       
-      {/* Sidebar */}
       <aside className={`w-24 md:w-80 ${bgSidebar} border-l ${borderLight} flex flex-col h-screen z-50 transition-all duration-500 shadow-2xl`}>
         <div className="p-8 flex items-center justify-center md:justify-start gap-4">
           <div className="w-12 h-12 bg-gradient-to-tr from-emerald-600 to-emerald-400 rounded-2xl flex items-center justify-center text-black shadow-lg shadow-emerald-500/20">
@@ -285,7 +284,6 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      {/* Main Area */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
         <header className={`px-10 py-8 flex items-center justify-between z-40 ${theme === 'dark' ? 'bg-[#070b1d]/80' : 'bg-white/80'} backdrop-blur-md border-b ${borderLight}`}>
            <div className="flex items-center gap-4">
@@ -407,7 +405,6 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Login Modal */}
       {showLoginModal && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-6">
           <div className={`absolute inset-0 ${theme === 'dark' ? 'bg-black/95' : 'bg-slate-900/60'} backdrop-blur-3xl animate-in fade-in duration-300`} onClick={() => { setShowLoginModal(false); setShowPassword(false); }} />
@@ -439,7 +436,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Product Edit/Add Modal */}
       {editingProduct && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-6">
           <div className={`absolute inset-0 ${theme === 'dark' ? 'bg-black/98' : 'bg-slate-900/70'} backdrop-blur-3xl animate-in fade-in duration-300`} onClick={() => setEditingProduct(null)} />
@@ -449,16 +445,22 @@ const App: React.FC = () => {
                {products.find(p => p.id === editingProduct.id) ? 'تعديل المنتج' : 'إضافة منتج جديد'}
              </h3>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Product Fields */}
                 <div className="space-y-6">
                    <div className="space-y-2"><label className={`text-xs font-black ${textSecondary} px-4`}>اسم المنتج</label><input type="text" value={editingProduct.title} onChange={(e) => setEditingProduct({...editingProduct, title: e.target.value})} className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl ${textPrimary} font-bold outline-none focus:border-emerald-500 transition-all`} /></div>
                    <div className="space-y-2"><label className={`text-xs font-black ${textSecondary} px-4`}>السعر (DH)</label><input type="number" value={editingProduct.price} onChange={(e) => setEditingProduct({...editingProduct, price: Number(e.target.value)})} className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl ${textPrimary} font-bold outline-none focus:border-emerald-500 transition-all`} /></div>
+                   <div className="space-y-2"><label className={`text-xs font-black ${textSecondary} px-4`}>التصنيف</label>
+                      <select 
+                        value={editingProduct.category} 
+                        onChange={(e) => setEditingProduct({...editingProduct, category: e.target.value as Category})}
+                        className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl ${textPrimary} font-bold outline-none focus:border-emerald-500 transition-all`}
+                      >
+                        {CATEGORIES.filter(c => c !== 'الكل').map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                      </select>
+                   </div>
                    <div className="space-y-2"><label className={`text-xs font-black ${textSecondary} px-4`}>الوصف</label><textarea value={editingProduct.description} onChange={(e) => setEditingProduct({...editingProduct, description: e.target.value})} className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-6 rounded-3xl ${textPrimary} font-bold min-h-[150px] outline-none focus:border-emerald-500 transition-all`} /></div>
                 </div>
 
-                {/* Images Section */}
                 <div className="space-y-8">
-                   {/* Main Image Upload */}
                    <div className="space-y-4">
                       <label className={`text-xs font-black ${textSecondary} px-4`}>الصورة الرئيسية</label>
                       <div 
@@ -482,7 +484,6 @@ const App: React.FC = () => {
                       </div>
                    </div>
 
-                   {/* Gallery Images Upload */}
                    <div className="space-y-4">
                       <label className={`text-xs font-black ${textSecondary} px-4`}>صور إضافية (المعرض)</label>
                       <div className="grid grid-cols-3 gap-4">
@@ -517,13 +518,11 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Product Detail Modal */}
       {selectedProduct && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
           <div className={`absolute inset-0 ${theme === 'dark' ? 'bg-black/95' : 'bg-slate-900/70'} backdrop-blur-md animate-in fade-in duration-500`} onClick={() => { if(!isCheckingOut) setSelectedProduct(null); }} />
           <div className={`${bgSidebar} w-full max-w-7xl rounded-[4rem] relative overflow-hidden flex flex-col md:flex-row shadow-2xl border ${borderLight} max-h-[95vh] animate-in zoom-in-95 duration-500`}>
             
-            {/* Action Buttons */}
             <div className="absolute top-8 right-8 z-[110] flex items-center gap-4">
               {isAdminAuthenticated && (
                 <>
@@ -534,13 +533,11 @@ const App: React.FC = () => {
               <button onClick={() => { setSelectedProduct(null); setIsCheckingOut(false); }} className={`bg-white/5 hover:bg-white/10 ${textSecondary} p-4 rounded-full transition-all active:scale-90 border ${borderLight} shadow-lg`}><X size={24} /></button>
             </div>
 
-            {/* Gallery Section */}
             <div className={`w-full md:w-1/2 ${theme === 'dark' ? 'bg-[#020617]' : 'bg-slate-50'} flex flex-col items-center justify-center p-8 md:p-12 overflow-hidden border-l ${borderLight}`}>
               <div className="relative w-full aspect-square md:aspect-[4/5] overflow-hidden rounded-[3.5rem] shadow-2xl border border-emerald-500/10 mb-8 group">
                 <img src={activeGalleryImage} className="w-full h-full object-cover animate-in fade-in zoom-in duration-500" />
               </div>
               
-              {/* Thumbnails */}
               <div className="flex items-center gap-4 overflow-x-auto no-scrollbar w-full py-2 px-4 justify-center">
                 {[selectedProduct.thumbnail, ...(selectedProduct.galleryImages || [])].map((img, idx) => (
                   <button 
@@ -554,7 +551,6 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Details Section */}
             <div className={`w-full md:w-1/2 p-12 md:p-20 flex flex-col justify-between overflow-y-auto no-scrollbar ${bgSidebar}`}>
                {!isCheckingOut ? (
                  <>
@@ -617,7 +613,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Order Success Modal */}
       {activeOrder && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
           <div className={`absolute inset-0 ${theme === 'dark' ? 'bg-black/98' : 'bg-white/95'} backdrop-blur-3xl animate-in fade-in duration-700`} onClick={() => setActiveOrder(null)} />
