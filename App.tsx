@@ -618,7 +618,23 @@ export const CATEGORIES = ${JSON.stringify(CATEGORIES, null, 2)};`;
           <form onSubmit={(e) => { e.preventDefault(); if(passwordInput === adminPassword) { setIsAdminAuthenticated(true); sessionStorage.setItem('admin_auth', 'true'); setShowLoginModal(false); setView('admin'); setPasswordInput(''); } else setLoginError(true); }} className={`${bgCard} w-full max-w-md rounded-[3rem] p-10 relative border ${borderLight} shadow-2xl`}>
              <h3 className="text-2xl font-black text-center mb-8">دخول المسؤول</h3>
              <div className="space-y-4">
-                <input type={showPassword ? "text" : "password"} placeholder="كلمة المرور" className={`w-full bg-white/5 border ${loginError ? 'border-rose-500' : borderLight} p-5 rounded-2xl ${textPrimary} font-bold outline-none`} value={passwordInput} onChange={(e) => { setPasswordInput(e.target.value); setLoginError(false); }} autoFocus />
+                <div className="relative">
+                  <input 
+                    type={showPassword ? "text" : "password"} 
+                    placeholder="كلمة المرور" 
+                    className={`w-full bg-white/5 border ${loginError ? 'border-rose-500' : borderLight} p-5 rounded-2xl ${textPrimary} font-bold outline-none pl-14`} 
+                    value={passwordInput} 
+                    onChange={(e) => { setPasswordInput(e.target.value); setLoginError(false); }} 
+                    autoFocus 
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowPassword(!showPassword)} 
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-emerald-500 transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
                 <button type="submit" className="w-full bg-emerald-600 text-black py-5 rounded-2xl font-black text-lg hover:bg-emerald-500 transition-all">دخول</button>
              </div>
           </form>
