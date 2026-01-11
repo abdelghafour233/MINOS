@@ -5,6 +5,7 @@ export interface StoreProduct {
   id: string;
   title: string;
   thumbnail: string;
+  galleryImages?: string[]; // صور إضافية
   price: number;
   originalPrice?: number;
   description: string;

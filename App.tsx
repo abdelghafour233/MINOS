@@ -7,7 +7,7 @@ import {
   Zap, ShieldCheck, ChevronLeft, Bell, ArrowUpRight,
   Settings, Edit3, Trash2, LayoutDashboard, Save, Plus,
   Lock, LogOut, KeyRound, PlusCircle, PackagePlus,
-  Eye, EyeOff, Sun, Moon
+  Eye, EyeOff, Sun, Moon, Image as ImageIcon
 } from 'lucide-react';
 import { StoreProduct, StoreOrder, CustomerInfo, Category } from './types';
 import { MOCK_PRODUCTS, CATEGORIES } from './constants';
@@ -21,6 +21,7 @@ const App: React.FC = () => {
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [orders, setOrders] = useState<StoreOrder[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<StoreProduct | null>(null);
+  const [activeGalleryImage, setActiveGalleryImage] = useState<string>('');
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [activeTab, setActiveTab] = useState('الكل');
   
@@ -31,6 +32,7 @@ const App: React.FC = () => {
   const [loginError, setLoginError] = useState(false);
 
   const [editingProduct, setEditingProduct] = useState<StoreProduct | null>(null);
+  const [galleryInput, setGalleryInput] = useState<string>('');
 
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     fullName: '',
@@ -63,6 +65,12 @@ const App: React.FC = () => {
       localStorage.setItem(STORAGE_KEY_ORDERS, JSON.stringify([]));
     }
   }, []);
+
+  useEffect(() => {
+    if (selectedProduct) {
+      setActiveGalleryImage(selectedProduct.thumbnail);
+    }
+  }, [selectedProduct]);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
@@ -110,6 +118,7 @@ const App: React.FC = () => {
       id: 'p' + Date.now(),
       title: '',
       thumbnail: '',
+      galleryImages: [],
       price: 0,
       description: '',
       category: 'أدوات منزلية',
@@ -119,6 +128,12 @@ const App: React.FC = () => {
       shippingTime: '24-48 ساعة'
     };
     setEditingProduct(newProd);
+    setGalleryInput('');
+  };
+
+  const startEditProduct = (p: StoreProduct) => {
+    setEditingProduct(p);
+    setGalleryInput(p.galleryImages?.join(', ') || '');
   };
 
   const saveProductChanges = () => {
@@ -128,16 +143,22 @@ const App: React.FC = () => {
       return;
     }
     
-    const exists = products.find(p => p.id === editingProduct.id);
+    const galleryArr = galleryInput.split(',').map(s => s.trim()).filter(s => s !== '');
+    const updatedProduct = { ...editingProduct, galleryImages: galleryArr };
+    
+    const exists = products.find(p => p.id === updatedProduct.id);
     let updated;
     if (exists) {
-      updated = products.map(p => p.id === editingProduct.id ? editingProduct : p);
+      updated = products.map(p => p.id === updatedProduct.id ? updatedProduct : p);
     } else {
-      updated = [...products, editingProduct];
+      updated = [...products, updatedProduct];
     }
     
     updateStorage(updated, orders);
     setEditingProduct(null);
+    if (selectedProduct?.id === updatedProduct.id) {
+        setSelectedProduct(updatedProduct);
+    }
     alert("تم حفظ المنتج بنجاح!");
   };
 
@@ -177,6 +198,7 @@ const App: React.FC = () => {
     if(window.confirm("حذف المنتج سيؤدي لإزالته من المتجر نهائياً. متابعة؟")) {
       const updated = products.filter(p => p.id !== id);
       updateStorage(updated, orders);
+      if (selectedProduct?.id === id) setSelectedProduct(null);
     }
   };
 
@@ -184,7 +206,6 @@ const App: React.FC = () => {
     ? products 
     : products.filter(p => p.category === activeTab);
 
-  // Dynamic Theme Classes
   const bgMain = theme === 'dark' ? 'bg-[#020617]' : 'bg-slate-50';
   const bgSidebar = theme === 'dark' ? 'bg-[#070b1d]' : 'bg-white';
   const bgCard = theme === 'dark' ? 'bg-[#0f172a]' : 'bg-white';
@@ -241,7 +262,6 @@ const App: React.FC = () => {
            </div>
 
            <div className="flex items-center gap-4 mr-auto">
-              {/* Theme Toggle Button */}
               <button 
                 onClick={toggleTheme}
                 className={`p-4 rounded-2xl transition-all border ${borderLight} flex items-center justify-center shadow-lg ${theme === 'dark' ? 'bg-emerald-600 text-black shadow-emerald-500/20' : 'bg-white text-slate-400 hover:text-emerald-600'}`}
@@ -340,7 +360,7 @@ const App: React.FC = () => {
                            <div className="flex-1 space-y-4">
                               <div><h4 className={`text-xl font-black ${textPrimary}`}>{p.title}</h4><p className="text-sm font-bold text-emerald-500">{p.price} DH</p></div>
                               <div className="flex gap-3">
-                                 <button onClick={() => setEditingProduct(p)} className={`flex-1 ${theme === 'dark' ? 'bg-white/5' : 'bg-slate-50'} py-3 rounded-xl font-black text-xs hover:bg-emerald-600 hover:text-black transition-all flex items-center justify-center gap-2 border ${borderLight}`}><Edit3 size={14} /> تعديل</button>
+                                 <button onClick={() => startEditProduct(p)} className={`flex-1 ${theme === 'dark' ? 'bg-white/5' : 'bg-slate-50'} py-3 rounded-xl font-black text-xs hover:bg-emerald-600 hover:text-black transition-all flex items-center justify-center gap-2 border ${borderLight}`}><Edit3 size={14} /> تعديل</button>
                                  <button onClick={() => deleteProduct(p.id)} className="p-3 bg-rose-500/10 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={16} /></button>
                               </div>
                            </div>
@@ -398,7 +418,8 @@ const App: React.FC = () => {
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2"><label className={`text-xs font-black ${textSecondary} px-4`}>اسم المنتج</label><input type="text" value={editingProduct.title} onChange={(e) => setEditingProduct({...editingProduct, title: e.target.value})} className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl ${textPrimary} font-bold outline-none focus:border-emerald-500 transition-all`} /></div>
                 <div className="space-y-2"><label className={`text-xs font-black ${textSecondary} px-4`}>السعر (DH)</label><input type="number" value={editingProduct.price} onChange={(e) => setEditingProduct({...editingProduct, price: Number(e.target.value)})} className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl ${textPrimary} font-bold outline-none focus:border-emerald-500 transition-all`} /></div>
-                <div className="space-y-2 md:col-span-2"><label className={`text-xs font-black ${textSecondary} px-4`}>رابط الصورة (URL)</label><input type="text" value={editingProduct.thumbnail} onChange={(e) => setEditingProduct({...editingProduct, thumbnail: e.target.value})} className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl ${textPrimary} font-bold outline-none focus:border-emerald-500 transition-all`} /></div>
+                <div className="space-y-2 md:col-span-2"><label className={`text-xs font-black ${textSecondary} px-4`}>رابط الصورة الرئيسية (URL)</label><input type="text" value={editingProduct.thumbnail} onChange={(e) => setEditingProduct({...editingProduct, thumbnail: e.target.value})} className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl ${textPrimary} font-bold outline-none focus:border-emerald-500 transition-all`} /></div>
+                <div className="space-y-2 md:col-span-2"><label className={`text-xs font-black ${textSecondary} px-4`}>روابط الصور الإضافية (تفصل بينها فاصلة ,)</label><input type="text" value={galleryInput} onChange={(e) => setGalleryInput(e.target.value)} placeholder="image1.jpg, image2.jpg..." className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl ${textPrimary} font-bold outline-none focus:border-emerald-500 transition-all`} /></div>
                 <div className="space-y-2 md:col-span-2"><label className={`text-xs font-black ${textSecondary} px-4`}>الوصف</label><textarea value={editingProduct.description} onChange={(e) => setEditingProduct({...editingProduct, description: e.target.value})} className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-6 rounded-3xl ${textPrimary} font-bold min-h-[120px] outline-none focus:border-emerald-500 transition-all`} /></div>
              </div>
              <div className="flex gap-4 mt-10">
@@ -414,20 +435,78 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
           <div className={`absolute inset-0 ${theme === 'dark' ? 'bg-black/95' : 'bg-slate-900/70'} backdrop-blur-md animate-in fade-in duration-500`} onClick={() => { if(!isCheckingOut) setSelectedProduct(null); }} />
           <div className={`${bgSidebar} w-full max-w-7xl rounded-[4rem] relative overflow-hidden flex flex-col md:flex-row shadow-2xl border ${borderLight} max-h-[95vh] animate-in zoom-in-95 duration-500`}>
-            <button onClick={() => { setSelectedProduct(null); setIsCheckingOut(false); }} className={`absolute top-8 right-8 z-[110] ${theme === 'dark' ? 'bg-white/5' : 'bg-white'} hover:bg-rose-500 hover:text-white ${textSecondary} p-4 rounded-full transition-all active:scale-90 border ${borderLight} shadow-lg`}><X size={24} /></button>
-            <div className={`w-full md:w-1/2 ${theme === 'dark' ? 'bg-[#020617]' : 'bg-slate-50'} flex items-center justify-center p-12 overflow-hidden border-l ${borderLight}`}><img src={selectedProduct.thumbnail} className={`w-full h-full max-h-[600px] object-cover rounded-[3.5rem] shadow-2xl animate-float border ${borderLight}`} /></div>
+            
+            {/* Action Buttons */}
+            <div className="absolute top-8 right-8 z-[110] flex items-center gap-4">
+              {isAdminAuthenticated && (
+                <>
+                  <button onClick={() => startEditProduct(selectedProduct)} className="bg-emerald-500/10 hover:bg-emerald-600 text-emerald-500 hover:text-black p-4 rounded-full transition-all border border-emerald-500/20 shadow-lg" title="تعديل المنتج"><Edit3 size={24} /></button>
+                  <button onClick={() => deleteProduct(selectedProduct.id)} className="bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white p-4 rounded-full transition-all border border-rose-500/20 shadow-lg" title="حذف المنتج"><Trash2 size={24} /></button>
+                </>
+              )}
+              <button onClick={() => { setSelectedProduct(null); setIsCheckingOut(false); }} className={`bg-white/5 hover:bg-white/10 ${textSecondary} p-4 rounded-full transition-all active:scale-90 border ${borderLight} shadow-lg`}><X size={24} /></button>
+            </div>
+
+            {/* Gallery Section */}
+            <div className={`w-full md:w-1/2 ${theme === 'dark' ? 'bg-[#020617]' : 'bg-slate-50'} flex flex-col items-center justify-center p-8 md:p-12 overflow-hidden border-l ${borderLight}`}>
+              <div className="relative w-full aspect-square md:aspect-[4/5] overflow-hidden rounded-[3.5rem] shadow-2xl border border-emerald-500/10 mb-8 group">
+                <img src={activeGalleryImage} className="w-full h-full object-cover animate-in fade-in zoom-in duration-500" />
+              </div>
+              
+              {/* Thumbnails */}
+              <div className="flex items-center gap-4 overflow-x-auto no-scrollbar w-full py-2 px-4 justify-center">
+                {[selectedProduct.thumbnail, ...(selectedProduct.galleryImages || [])].map((img, idx) => (
+                  <button 
+                    key={idx} 
+                    onClick={() => setActiveGalleryImage(img)}
+                    className={`relative w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 border-2 transition-all ${activeGalleryImage === img ? 'border-emerald-500 scale-110 shadow-lg shadow-emerald-500/20' : 'border-transparent opacity-50 hover:opacity-100'}`}
+                  >
+                    <img src={img} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Details Section */}
             <div className={`w-full md:w-1/2 p-12 md:p-20 flex flex-col justify-between overflow-y-auto no-scrollbar ${bgSidebar}`}>
                {!isCheckingOut ? (
                  <>
                    <div className="space-y-8">
-                     <div className="flex items-center gap-4"><span className="bg-emerald-500/10 text-emerald-500 px-5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-500/20">{selectedProduct.category}</span><div className="flex items-center gap-2 text-emerald-400 text-[10px] font-black uppercase tracking-widest"><Check size={14} strokeWidth={3} /> متوفر في المخزون</div></div>
+                     <div className="flex items-center gap-4">
+                        <span className="bg-emerald-500/10 text-emerald-500 px-5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-500/20">{selectedProduct.category}</span>
+                        <div className="flex items-center gap-2 text-emerald-400 text-[10px] font-black uppercase tracking-widest"><Check size={14} strokeWidth={3} /> متوفر في المخزون</div>
+                     </div>
                      <h2 className={`text-4xl md:text-6xl font-black ${textPrimary} leading-tight tracking-tighter`}>{selectedProduct.title}</h2>
+                     <div className="flex items-center gap-2 text-amber-500">
+                        {[...Array(5)].map((_, i) => <Star key={i} size={18} fill={i < selectedProduct.rating ? "currentColor" : "none"} />)}
+                        <span className={`text-sm font-bold ${textSecondary}`}>({selectedProduct.reviewsCount} مراجعة)</span>
+                     </div>
                      <p className={`${textSecondary} font-medium text-xl leading-relaxed`}>{selectedProduct.description}</p>
+                     
+                     <div className="grid grid-cols-2 gap-4">
+                        <div className={`p-6 rounded-3xl border ${borderLight} ${theme === 'dark' ? 'bg-white/5' : 'bg-slate-50'}`}>
+                           <Truck className="text-emerald-500 mb-2" size={20} />
+                           <p className={`text-[10px] font-black uppercase ${textSecondary}`}>وقت التوصيل</p>
+                           <p className="font-bold text-sm">{selectedProduct.shippingTime}</p>
+                        </div>
+                        <div className={`p-6 rounded-3xl border ${borderLight} ${theme === 'dark' ? 'bg-white/5' : 'bg-slate-50'}`}>
+                           <ShieldCheck className="text-emerald-500 mb-2" size={20} />
+                           <p className={`text-[10px] font-black uppercase ${textSecondary}`}>الضمان</p>
+                           <p className="font-bold text-sm">ضمان الجودة 100%</p>
+                        </div>
+                     </div>
                    </div>
+
                    <div className="mt-16 space-y-6">
                      <div className="flex items-center justify-between p-10 bg-gradient-to-br from-emerald-600 to-emerald-700 rounded-[3rem] shadow-2xl shadow-emerald-600/20">
-                       <div><p className="text-[10px] text-emerald-100 font-black mb-1 uppercase tracking-widest">السعر النهائي</p><p className="text-6xl font-black text-black tracking-tighter">{selectedProduct.price} <small className="text-2xl opacity-80">DH</small></p></div>
-                       <div className="text-right hidden sm:block"><p className="text-black font-black text-sm uppercase">دفع عند الاستلام</p><p className="text-emerald-100 text-xs">توصيل سريع لكل المغرب</p></div>
+                       <div>
+                          <p className="text-[10px] text-emerald-100 font-black mb-1 uppercase tracking-widest">السعر النهائي</p>
+                          <p className="text-6xl font-black text-black tracking-tighter">{selectedProduct.price} <small className="text-2xl opacity-80">DH</small></p>
+                       </div>
+                       <div className="text-right hidden sm:block">
+                          <p className="text-black font-black text-sm uppercase">دفع عند الاستلام</p>
+                          <p className="text-emerald-100 text-xs">توصيل سريع لكل المغرب</p>
+                       </div>
                      </div>
                      <button onClick={() => setIsCheckingOut(true)} className={`w-full ${theme === 'dark' ? 'bg-white text-black' : 'bg-slate-900 text-white'} py-10 rounded-[3rem] font-black text-3xl shadow-2xl transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-4`}><ShoppingBag size={32} /> تأكيد الطلب</button>
                    </div>
