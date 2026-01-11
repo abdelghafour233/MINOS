@@ -26,6 +26,7 @@ const App: React.FC = () => {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // حالة إظهار كلمة المرور
   const [loginError, setLoginError] = useState(false);
 
   const [editingProduct, setEditingProduct] = useState<StoreProduct | null>(null);
@@ -74,6 +75,7 @@ const App: React.FC = () => {
       setView('admin');
       setLoginError(false);
       setPasswordInput('');
+      setShowPassword(false);
     } else {
       setLoginError(true);
     }
@@ -219,7 +221,6 @@ const App: React.FC = () => {
            </div>
 
            <div className="flex items-center gap-4 mr-auto">
-              {/* أيقونة العين للدخول السريع */}
               <button 
                 onClick={handleAdminClick}
                 className={`p-4 rounded-2xl transition-all border border-white/5 flex items-center justify-center shadow-xl ${
@@ -339,15 +340,32 @@ const App: React.FC = () => {
       {/* Login Modal */}
       {showLoginModal && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-black/98 backdrop-blur-3xl animate-in fade-in duration-300" onClick={() => setShowLoginModal(false)} />
+          <div className="absolute inset-0 bg-black/98 backdrop-blur-3xl animate-in fade-in duration-300" onClick={() => { setShowLoginModal(false); setShowPassword(false); }} />
           <form onSubmit={handleLogin} className="bg-[#0d0d0d] w-full max-w-md rounded-[3.5rem] p-12 relative border border-violet-500/20 shadow-2xl animate-in zoom-in-95 duration-300">
              <div className="w-20 h-20 bg-violet-600/10 rounded-full flex items-center justify-center text-violet-400 mx-auto mb-8"><Lock size={40} /></div>
              <h3 className="text-3xl font-black text-white text-center mb-10">دخول المسؤول</h3>
              <div className="space-y-6">
-                <input type="password" placeholder="كلمة المرور" className={`w-full bg-[#111] border ${loginError ? 'border-rose-500' : 'border-white/5'} p-6 rounded-[2rem] text-white font-bold outline-none focus:border-violet-500 transition-all`} value={passwordInput} onChange={(e) => { setPasswordInput(e.target.value); setLoginError(false); }} autoFocus />
+                <div className="relative group">
+                  <input 
+                    type={showPassword ? "text" : "password"} 
+                    placeholder="كلمة المرور" 
+                    className={`w-full bg-[#111] border ${loginError ? 'border-rose-500' : 'border-white/5'} p-6 rounded-[2rem] text-white font-bold outline-none focus:border-violet-500 transition-all pr-6 pl-16`} 
+                    value={passwordInput} 
+                    onChange={(e) => { setPasswordInput(e.target.value); setLoginError(false); }} 
+                    autoFocus 
+                  />
+                  {/* أيقونة العين التفاعلية داخل حقل كلمة المرور */}
+                  <button 
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 hover:text-violet-400 p-2 rounded-xl transition-all"
+                  >
+                    {showPassword ? <EyeOff size={22} /> : <Eye size={22} />}
+                  </button>
+                </div>
                 <button type="submit" className="w-full bg-violet-600 text-white py-6 rounded-[2rem] font-black text-xl hover:bg-violet-500 shadow-xl shadow-violet-600/20 active:scale-95 transition-all">دخول</button>
              </div>
-             <button type="button" onClick={() => setShowLoginModal(false)} className="w-full mt-4 text-slate-600 hover:text-slate-400 font-bold text-sm">إلغاء</button>
+             <button type="button" onClick={() => { setShowLoginModal(false); setShowPassword(false); }} className="w-full mt-4 text-slate-600 hover:text-slate-400 font-bold text-sm">إلغاء</button>
           </form>
         </div>
       )}
