@@ -52,7 +52,6 @@ const App: React.FC = () => {
   const [loginError, setLoginError] = useState(false);
   const [adminPassword, setAdminPassword] = useState(DEFAULT_ADMIN_PASSWORD);
 
-  // Fix: Added missing state for customer information and active order
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     fullName: '',
     phoneNumber: '',
@@ -79,30 +78,41 @@ const App: React.FC = () => {
     });
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'thumbnail' | 'gallery') => {
+    const files = e.target.files;
+    if (!files || !editingProduct) return;
+    Array.from(files).forEach((file: File) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        if (type === 'thumbnail') {
+          setEditingProduct({ ...editingProduct, thumbnail: base64 });
+        } else {
+          setEditingProduct(prev => {
+            if (!prev) return null;
+            const currentGallery = prev.galleryImages || [];
+            return { ...prev, galleryImages: [...currentGallery, base64] };
+          });
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const removeGalleryImage = (index: number) => {
+    if (!editingProduct) return;
+    const currentGallery = [...(editingProduct.galleryImages || [])];
+    currentGallery.splice(index, 1);
+    setEditingProduct({ ...editingProduct, galleryImages: currentGallery });
+  };
+
   const trackPixelEvent = (eventName: string, data?: any) => {
     if (typeof window !== 'undefined' && (window as any).fbq && pixelId) {
       const payload = testEventCode ? { ...data, test_event_code: testEventCode } : data;
       (window as any).fbq('track', eventName, payload);
     }
   };
-
-  useEffect(() => {
-    if (pixelId && typeof window !== 'undefined') {
-      const f = window as any;
-      if (f.fbq) return;
-      const n: any = (f.fbq = function () {
-        n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
-      });
-      if (!f._fbq) f._fbq = n;
-      n.push = n; n.loaded = !0; n.version = '2.0'; n.queue = [];
-      const t = document.createElement('script');
-      t.async = !0; t.src = 'https://connect.facebook.net/en_US/fbevents.js';
-      const s = document.getElementsByTagName('script')[0];
-      s.parentNode?.insertBefore(t, s);
-      f.fbq('init', pixelId);
-      f.fbq('track', 'PageView');
-    }
-  }, [pixelId]);
 
   useEffect(() => {
     const authStatus = sessionStorage.getItem('admin_auth');
@@ -160,8 +170,6 @@ const App: React.FC = () => {
     }
   }, [selectedProduct]);
 
-  // Admin Actions
-  // Fix: Added missing handleAdminClick and deleteOrder functions
   const handleAdminClick = () => {
     if (isAdminAuthenticated) {
       setView('admin');
@@ -243,7 +251,6 @@ const App: React.FC = () => {
 
   return (
     <div className={`min-h-screen ${bgMain} ${textPrimary} flex flex-col md:flex-row font-['Tajawal'] overflow-hidden relative`}>
-      {/* Global Toast */}
       {toast.message && (
         <div className={`fixed top-8 left-1/2 -translate-x-1/2 z-[500] px-8 py-4 rounded-2xl shadow-2xl font-black text-sm animate-in slide-in-from-top flex items-center gap-3 ${toast.type === 'error' ? 'bg-rose-600 text-white' : 'bg-emerald-600 text-black'}`}>
           {toast.type === 'error' ? <AlertTriangle size={20}/> : <CheckCircle2 size={20}/>}
@@ -251,7 +258,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Navigation */}
       <aside className={`fixed md:relative bottom-0 left-0 right-0 md:top-0 w-full md:w-80 h-20 md:h-screen ${bgSidebar} border-t md:border-t-0 md:border-l ${borderLight} flex md:flex-col z-[100] shadow-2xl items-center justify-around md:justify-start`}>
         <div className="hidden md:flex p-8 items-center gap-4">
           <div className="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center text-black shadow-lg shadow-emerald-500/20"><Sparkles size={24} /></div>
@@ -302,20 +308,17 @@ const App: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-6 pb-32 max-w-7xl mx-auto">
-              {/* Admin Tabs Bar */}
               <div className={`${bgCard} p-4 rounded-[2rem] border ${borderLight} flex flex-wrap gap-4 items-center justify-between shadow-xl`}>
                  <div className="flex flex-wrap gap-2 w-full md:w-auto">
                     <button onClick={() => setAdminTab('orders')} className={`flex-1 md:flex-none px-4 py-3 rounded-xl font-black text-xs transition-all ${adminTab === 'orders' ? 'bg-emerald-600 text-black' : `${textSecondary}`}`}>الطلبيات ({orders.length})</button>
                     <button onClick={() => setAdminTab('products')} className={`flex-1 md:flex-none px-4 py-3 rounded-xl font-black text-xs transition-all ${adminTab === 'products' ? 'bg-emerald-600 text-black' : `${textSecondary}`}`}>المنتجات ({products.length})</button>
                     <button onClick={() => setAdminTab('settings')} className={`flex-1 md:flex-none px-4 py-3 rounded-xl font-black text-xs transition-all ${adminTab === 'settings' ? 'bg-emerald-600 text-black' : `${textSecondary}`}`}>الإعدادات</button>
-                    <button onClick={() => setAdminTab('export')} className={`flex-1 md:flex-none px-4 py-3 rounded-xl font-black text-xs bg-amber-500/10 text-amber-500 border border-amber-500/20`}><FileCode size={14} /></button>
                  </div>
                  {adminTab === 'products' && (
                     <button onClick={() => { setEditingProduct({ id: 'prod-' + Date.now(), title: '', price: 0, category: 'نظارات', description: '', thumbnail: '', stockStatus: 'available', rating: 5, reviewsCount: 0, shippingTime: '24-48 ساعة', galleryImages: [] }); setIsAddingProduct(true); }} className="bg-emerald-600 text-black px-6 py-3 rounded-xl font-black text-xs flex items-center gap-2 shadow-lg"><PlusCircle size={18} /> إضافة منتج</button>
                  )}
               </div>
 
-              {/* Admin Content Sections */}
               {adminTab === 'products' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                    {products.map(product => (
@@ -323,14 +326,7 @@ const App: React.FC = () => {
                          <div className="aspect-square relative overflow-hidden">
                             <img src={product.thumbnail} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
-                               {/* Facebook Ads Link Button */}
-                               <button 
-                                 onClick={() => copyProductLink(product.id, true)} 
-                                 className="p-3 bg-[#1877F2] text-white rounded-xl shadow-xl hover:scale-110 transition-transform flex items-center gap-2"
-                                 title="نسخ رابط الإعلان لفيسبوك"
-                               >
-                                 <Facebook size={18} /> <span className="text-[10px] font-black">رابط الإعلان</span>
-                               </button>
+                               <button onClick={() => copyProductLink(product.id, true)} className="p-3 bg-[#1877F2] text-white rounded-xl shadow-xl hover:scale-110 transition-transform"><Facebook size={18} /></button>
                                <button onClick={() => { setEditingProduct(product); setIsAddingProduct(false); }} className="p-3 bg-white text-black rounded-xl shadow-xl hover:scale-110 transition-transform"><Edit3 size={18} /></button>
                                <button onClick={() => deleteProduct(product.id)} className="p-3 bg-rose-600 text-white rounded-xl shadow-xl hover:scale-110 transition-transform"><Trash2 size={18} /></button>
                             </div>
@@ -347,7 +343,6 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              {/* Orders Tab */}
               {adminTab === 'orders' && (
                 <div className="grid gap-4">
                   {orders.length === 0 ? <div className="p-20 text-center opacity-30 font-black">لا توجد طلبيات بعد</div> : orders.map(order => (
@@ -364,14 +359,80 @@ const App: React.FC = () => {
                   ))}
                 </div>
               )}
-
-              {/* Settings and Export placeholders omitted for brevity but remain functional */}
             </div>
           )}
         </div>
       </main>
 
-      {/* Product Detail Modal */}
+      {/* FIXED: Added Editing Product Modal */}
+      {editingProduct && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setEditingProduct(null)} />
+          <div className={`${bgCard} w-full max-w-4xl rounded-[3rem] p-8 md:p-12 relative border ${borderLight} shadow-2xl overflow-y-auto max-h-[95vh] no-scrollbar`}>
+            <div className="flex justify-between items-center mb-8">
+              <h3 className="text-2xl font-black">{isAddingProduct ? 'إضافة منتج جديد' : 'تعديل تفاصيل المنتج'}</h3>
+              <button onClick={() => setEditingProduct(null)} className="p-2 hover:bg-white/5 rounded-full"><X size={24} /></button>
+            </div>
+            
+            <form onSubmit={saveProduct} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+               <div className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black opacity-50 px-4">اسم المنتج</label>
+                    <input type="text" placeholder="مثلاً: نظارة شمسية عصرية" required className={`w-full bg-white/5 border ${borderLight} p-4 rounded-xl font-bold`} value={editingProduct.title} onChange={(e) => setEditingProduct({...editingProduct, title: e.target.value})} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black opacity-50 px-4">السعر (DH)</label>
+                      <input type="number" required className={`w-full bg-white/5 border ${borderLight} p-4 rounded-xl font-bold`} value={editingProduct.price} onChange={(e) => setEditingProduct({...editingProduct, price: Number(e.target.value)})} />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black opacity-50 px-4">التصنيف</label>
+                      <select className={`w-full bg-white/5 border ${borderLight} p-4 rounded-xl font-bold`} value={editingProduct.category} onChange={(e) => setEditingProduct({...editingProduct, category: e.target.value as any})}>
+                        {CATEGORIES.filter(c => c !== 'الكل').map(cat => <option key={cat} value={cat} className="text-black">{cat}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black opacity-50 px-4">وصف المنتج</label>
+                    <textarea rows={6} className={`w-full bg-white/5 border ${borderLight} p-4 rounded-xl font-bold text-sm`} value={editingProduct.description} onChange={(e) => setEditingProduct({...editingProduct, description: e.target.value})} />
+                  </div>
+               </div>
+
+               <div className="space-y-6">
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black opacity-50 px-4">الصورة الرئيسية</label>
+                    <div className="aspect-[4/3] bg-white/5 border-2 border-dashed border-emerald-500/20 rounded-2xl flex items-center justify-center relative overflow-hidden group">
+                       {editingProduct.thumbnail ? (
+                          <>
+                            <img src={editingProduct.thumbnail} className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer" onClick={() => document.getElementById('thumb-upload')?.click()}><Camera size={32} /></div>
+                          </>
+                       ) : (
+                          <button type="button" onClick={() => document.getElementById('thumb-upload')?.click()} className="flex flex-col items-center gap-2 text-emerald-500/40 font-black"><ImageIcon size={48} /> رفع صورة</button>
+                       )}
+                       <input id="thumb-upload" type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'thumbnail')} />
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black opacity-50 px-4">صور إضافية</label>
+                    <div className="grid grid-cols-4 gap-2">
+                       {editingProduct.galleryImages?.map((img, idx) => (
+                         <div key={idx} className="aspect-square bg-white/5 rounded-lg border border-emerald-500/10 relative group overflow-hidden">
+                           <img src={img} className="w-full h-full object-cover" />
+                           <button type="button" onClick={() => removeGalleryImage(idx)} className="absolute top-1 left-1 p-1 bg-rose-500 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity"><X size={10} /></button>
+                         </div>
+                       ))}
+                       <button type="button" onClick={() => document.getElementById('gallery-upload')?.click()} className="aspect-square border-2 border-dashed border-emerald-500/20 rounded-lg flex items-center justify-center text-emerald-500/30 bg-white/5"><Plus size={20} /></button>
+                       <input id="gallery-upload" type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleImageUpload(e, 'gallery')} />
+                    </div>
+                  </div>
+                  <button type="submit" className="w-full bg-emerald-600 text-black py-5 rounded-2xl font-black text-xl shadow-xl flex items-center justify-center gap-3"><Save size={24} /> حفظ المنتج</button>
+               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {selectedProduct && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-0 md:p-4 overflow-hidden">
           <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => !isCheckingOut && setSelectedProduct(null)} />
@@ -422,7 +483,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Login Modal */}
       {showLoginModal && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/90 backdrop-blur-xl" onClick={() => setShowLoginModal(false)} />
@@ -439,7 +499,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Order Success Modal */}
       {activeOrder && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-2xl" onClick={() => setActiveOrder(null)} />
