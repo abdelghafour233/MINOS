@@ -12,22 +12,22 @@
     <style>
       body {
         font-family: 'Tajawal', sans-serif;
-        background-color: #050505;
+        background-color: #020617; /* Deep Midnight */
         color: #f8fafc;
       }
       ::-webkit-scrollbar { width: 6px; }
       ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: #1e1b4b; border-radius: 10px; }
-      ::-webkit-scrollbar-thumb:hover { background: #312e81; }
+      ::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; } /* Emerald Green scrollbar */
+      ::-webkit-scrollbar-thumb:hover { background: #059669; }
       
       .text-ltr { direction: ltr; text-align: left; }
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
       .glass-card {
-        background: rgba(255, 255, 255, 0.03);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.02);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(16, 185, 129, 0.1);
       }
       
       @keyframes float {
@@ -37,6 +37,13 @@
       }
       .animate-float {
         animation: float 4s ease-in-out infinite;
+      }
+      
+      .green-glow {
+        box-shadow: 0 0 20px -5px rgba(16, 185, 129, 0.3);
+      }
+      .green-glow-hover:hover {
+        box-shadow: 0 0 30px -5px rgba(16, 185, 129, 0.5);
       }
     </style>
     <script type="importmap">
