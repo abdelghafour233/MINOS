@@ -617,7 +617,7 @@ const App: React.FC = () => {
                           <p className="text-emerald-100 text-xs">توصيل سريع لكل المغرب</p>
                        </div>
                      </div>
-                     <button onClick={() => setIsCheckingOut(true)} className={`w-full ${theme === 'dark' ? 'bg-white text-black' : 'bg-slate-900 text-white'} py-10 rounded-[3rem] font-black text-3xl shadow-2xl transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-4`}><ShoppingBag size={32} /> تأكيد الطلب</button>
+                     <button onClick={() => setIsCheckingOut(true)} className={`w-full ${theme === 'dark' ? 'bg-white text-black' : 'bg-slate-900 text-white'} py-10 rounded-[3rem] font-black text-3xl shadow-2xl transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-4`}><ShoppingBag size={32} /> اشترِ الآن</button>
                    </div>
                  </>
                ) : (
@@ -629,7 +629,7 @@ const App: React.FC = () => {
                       <div className="space-y-3"><label className={`text-[10px] ${textSecondary} uppercase font-black px-6`}>رقم الهاتف</label><div className={`${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-7 rounded-[2.2rem] flex items-center gap-4 focus-within:border-emerald-500 transition-all`}><Phone size={24} className={textSecondary} /><input type="tel" placeholder="06XXXXXXXX" className={`bg-transparent border-none outline-none flex-1 ${textPrimary} font-bold text-ltr text-xl`} value={customerInfo.phoneNumber} onChange={(e) => setCustomerInfo({...customerInfo, phoneNumber: e.target.value})} /></div></div>
                     </div>
                     <div className="pt-10">
-                      <button onClick={confirmOrder} className="w-full bg-emerald-600 text-black py-10 rounded-[3rem] font-black text-2xl hover:bg-emerald-500 shadow-2xl flex items-center justify-center gap-4 transition-all active:scale-95 green-glow">تأكيد وإرسال الطلب <ArrowRight size={28} /></button>
+                      <button onClick={confirmOrder} className="w-full bg-emerald-600 text-black py-10 rounded-[3rem] font-black text-2xl hover:bg-emerald-500 shadow-2xl flex items-center justify-center gap-4 transition-all active:scale-95 green-glow">اشترِ الآن <ArrowRight size={28} /></button>
                       <p className={`text-center text-[10px] ${textSecondary} font-black uppercase mt-8 flex items-center justify-center gap-2`}><ShieldCheck size={14} className="text-emerald-500" /> دفع آمن عند الاستلام</p>
                     </div>
                  </div>
