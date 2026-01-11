@@ -556,12 +556,6 @@ const App: React.FC = () => {
           <div className={`${bgSidebar} w-full max-w-7xl rounded-[4rem] relative overflow-hidden flex flex-col md:flex-row shadow-2xl border ${borderLight} max-h-[95vh] animate-in zoom-in-95 duration-500`}>
             
             <div className="absolute top-8 right-8 z-[110] flex items-center gap-4">
-              {isAdminAuthenticated && (
-                <>
-                  <button onClick={() => startEditProduct(selectedProduct)} className="bg-emerald-500/10 hover:bg-emerald-600 text-emerald-500 hover:text-black p-4 rounded-full transition-all border border-emerald-500/20 shadow-lg" title="تعديل المنتج"><Edit3 size={24} /></button>
-                  <button onClick={() => deleteProduct(selectedProduct.id)} className="bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white p-4 rounded-full transition-all border border-rose-500/20 shadow-lg" title="حذف المنتج"><Trash2 size={24} /></button>
-                </>
-              )}
               <button onClick={() => { setSelectedProduct(null); setIsCheckingOut(false); }} className={`bg-white/5 hover:bg-white/10 ${textSecondary} p-4 rounded-full transition-all active:scale-90 border ${borderLight} shadow-lg`}><X size={24} /></button>
             </div>
 
