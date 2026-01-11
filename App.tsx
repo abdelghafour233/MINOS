@@ -124,11 +124,15 @@ const App: React.FC = () => {
     const savedProducts = localStorage.getItem(STORAGE_KEY_PRODUCTS);
     let currentProducts = MOCK_PRODUCTS;
     if (savedProducts) {
-      try { currentProducts = JSON.parse(savedProducts) as StoreProduct[]; } catch (_e) { currentProducts = MOCK_PRODUCTS; }
+      try { 
+        currentProducts = JSON.parse(savedProducts) as StoreProduct[]; 
+      } catch (_e) { 
+        currentProducts = MOCK_PRODUCTS; 
+      }
     }
     setProducts(currentProducts);
 
-    // Handle Deep Linking
+    // Initial Deep Link Check
     const urlParams = new URLSearchParams(window.location.search);
     const productIdFromUrl = urlParams.get('product');
     if (productIdFromUrl) {
@@ -203,6 +207,15 @@ const App: React.FC = () => {
       const updated = products.filter(p => p.id !== productId);
       setProducts(updated);
       localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(updated));
+      showToast('تم حذف المنتج');
+    }
+  };
+
+  const deleteAllProducts = () => {
+    if (window.confirm('هل أنت متأكد من رغبتك في حذف جميع المنتجات؟ لا يمكن التراجع عن هذا الإجراء.')) {
+      setProducts([]);
+      localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify([]));
+      showToast('تم حذف جميع المنتجات بنجاح', 'success');
     }
   };
 
@@ -291,19 +304,27 @@ const App: React.FC = () => {
                 {CATEGORIES.map(cat => <button key={cat} onClick={() => setActiveTab(cat)} className={`px-6 py-3 rounded-2xl whitespace-nowrap text-xs font-black transition-all ${activeTab === cat ? 'bg-emerald-600 text-black shadow-lg shadow-emerald-600/20' : `${bgCard} ${textSecondary} border ${borderLight}`}`}>{cat}</button>)}
               </div>
               <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-8 pb-32">
-                {(activeTab === 'الكل' ? products : products.filter(p => p.category === activeTab)).map(product => (
-                  <div key={product.id} className={`group relative ${bgCard} rounded-[2rem] border ${borderLight} overflow-hidden transition-all shadow-lg`}>
-                    <div className="aspect-[3/4] overflow-hidden cursor-pointer" onClick={() => setSelectedProduct(product)}>
-                      <img src={product.thumbnail} alt={product.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
-                      <div className="absolute bottom-4 right-4 left-4"><h4 className="text-sm md:text-lg font-black text-white">{product.title}</h4></div>
-                    </div>
-                    <div className="p-4 flex items-center justify-between mt-auto">
-                      <span className="text-sm md:text-xl font-black text-emerald-600">{product.price} DH</span>
-                      <button onClick={() => setSelectedProduct(product)} className="bg-emerald-600 text-black p-2 md:p-3 rounded-xl shadow-xl hover:bg-emerald-500 transition-all"><ShoppingCart size={16} /></button>
-                    </div>
+                {products.length === 0 ? (
+                  <div className="col-span-full py-32 text-center">
+                    <div className="w-24 h-24 bg-emerald-500/5 rounded-full flex items-center justify-center text-emerald-500/20 mx-auto mb-6"><ShoppingBag size={48} /></div>
+                    <h3 className="text-2xl font-black opacity-30">المتجر فارغ حالياً</h3>
+                    <p className="text-sm opacity-20 font-bold mt-2">يرجى إضافة منتجات من لوحة التحكم</p>
                   </div>
-                ))}
+                ) : (
+                  (activeTab === 'الكل' ? products : products.filter(p => p.category === activeTab)).map(product => (
+                    <div key={product.id} className={`group relative ${bgCard} rounded-[2rem] border ${borderLight} overflow-hidden transition-all shadow-lg`}>
+                      <div className="aspect-[3/4] overflow-hidden cursor-pointer" onClick={() => setSelectedProduct(product)}>
+                        <img src={product.thumbnail} alt={product.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+                        <div className="absolute bottom-4 right-4 left-4"><h4 className="text-sm md:text-lg font-black text-white">{product.title}</h4></div>
+                      </div>
+                      <div className="p-4 flex items-center justify-between mt-auto">
+                        <span className="text-sm md:text-xl font-black text-emerald-600">{product.price} DH</span>
+                        <button onClick={() => setSelectedProduct(product)} className="bg-emerald-600 text-black p-2 md:p-3 rounded-xl shadow-xl hover:bg-emerald-500 transition-all"><ShoppingCart size={16} /></button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           ) : (
@@ -315,31 +336,41 @@ const App: React.FC = () => {
                     <button onClick={() => setAdminTab('settings')} className={`flex-1 md:flex-none px-4 py-3 rounded-xl font-black text-xs transition-all ${adminTab === 'settings' ? 'bg-emerald-600 text-black' : `${textSecondary}`}`}>الإعدادات</button>
                  </div>
                  {adminTab === 'products' && (
-                    <button onClick={() => { setEditingProduct({ id: 'prod-' + Date.now(), title: '', price: 0, category: 'نظارات', description: '', thumbnail: '', stockStatus: 'available', rating: 5, reviewsCount: 0, shippingTime: '24-48 ساعة', galleryImages: [] }); setIsAddingProduct(true); }} className="bg-emerald-600 text-black px-6 py-3 rounded-xl font-black text-xs flex items-center gap-2 shadow-lg"><PlusCircle size={18} /> إضافة منتج</button>
+                    <div className="flex gap-2 w-full md:w-auto">
+                       <button onClick={deleteAllProducts} className="flex-1 md:flex-none bg-rose-600/10 text-rose-600 border border-rose-600/20 px-6 py-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 hover:bg-rose-600 hover:text-white transition-all"><Trash2 size={18} /> حذف الكل</button>
+                       <button onClick={() => { setEditingProduct({ id: 'prod-' + Date.now(), title: '', price: 0, category: 'نظارات', description: '', thumbnail: '', stockStatus: 'available', rating: 5, reviewsCount: 0, shippingTime: '24-48 ساعة', galleryImages: [] }); setIsAddingProduct(true); }} className="flex-1 md:flex-none bg-emerald-600 text-black px-6 py-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 shadow-lg"><PlusCircle size={18} /> إضافة منتج</button>
+                    </div>
                  )}
               </div>
 
               {adminTab === 'products' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                   {products.map(product => (
-                      <div key={product.id} className={`${bgCard} border ${borderLight} rounded-[2rem] overflow-hidden flex flex-col shadow-lg group relative`}>
-                         <div className="aspect-square relative overflow-hidden">
-                            <img src={product.thumbnail} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
-                               <button onClick={() => copyProductLink(product.id, true)} className="p-3 bg-[#1877F2] text-white rounded-xl shadow-xl hover:scale-110 transition-transform"><Facebook size={18} /></button>
-                               <button onClick={() => { setEditingProduct(product); setIsAddingProduct(false); }} className="p-3 bg-white text-black rounded-xl shadow-xl hover:scale-110 transition-transform"><Edit3 size={18} /></button>
-                               <button onClick={() => deleteProduct(product.id)} className="p-3 bg-rose-600 text-white rounded-xl shadow-xl hover:scale-110 transition-transform"><Trash2 size={18} /></button>
-                            </div>
-                         </div>
-                         <div className="p-6">
-                            <h4 className="font-black text-sm line-clamp-1 mb-1">{product.title}</h4>
-                            <div className="flex justify-between items-center">
-                              <p className="text-emerald-500 font-black">{product.price} DH</p>
-                              <span className="text-[10px] opacity-40 font-bold">{product.category}</span>
-                            </div>
-                         </div>
-                      </div>
-                   ))}
+                   {products.length === 0 ? (
+                     <div className="col-span-full py-20 text-center border-2 border-dashed border-emerald-500/10 rounded-[3rem]">
+                        <h4 className="text-xl font-black opacity-30">لا توجد منتجات حالياً</h4>
+                        <p className="text-xs opacity-20 font-bold mt-2">ابدأ بإضافة منتج جديد لكي يظهر في المتجر</p>
+                     </div>
+                   ) : (
+                     products.map(product => (
+                        <div key={product.id} className={`${bgCard} border ${borderLight} rounded-[2rem] overflow-hidden flex flex-col shadow-lg group relative`}>
+                           <div className="aspect-square relative overflow-hidden">
+                              <img src={product.thumbnail} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
+                                 <button onClick={() => copyProductLink(product.id, true)} className="p-3 bg-[#1877F2] text-white rounded-xl shadow-xl hover:scale-110 transition-transform"><Facebook size={18} /></button>
+                                 <button onClick={() => { setEditingProduct(product); setIsAddingProduct(false); }} className="p-3 bg-white text-black rounded-xl shadow-xl hover:scale-110 transition-transform"><Edit3 size={18} /></button>
+                                 <button onClick={() => deleteProduct(product.id)} className="p-3 bg-rose-600 text-white rounded-xl shadow-xl hover:scale-110 transition-transform"><Trash2 size={18} /></button>
+                              </div>
+                           </div>
+                           <div className="p-6">
+                              <h4 className="font-black text-sm line-clamp-1 mb-1">{product.title}</h4>
+                              <div className="flex justify-between items-center">
+                                <p className="text-emerald-500 font-black">{product.price} DH</p>
+                                <span className="text-[10px] opacity-40 font-bold">{product.category}</span>
+                              </div>
+                           </div>
+                        </div>
+                     ))
+                   )}
                 </div>
               )}
 
@@ -364,7 +395,6 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* FIXED: Added Editing Product Modal */}
       {editingProduct && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setEditingProduct(null)} />
