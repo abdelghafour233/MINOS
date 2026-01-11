@@ -617,7 +617,7 @@ const App: React.FC = () => {
                           <p className="text-emerald-100 text-xs">توصيل سريع لكل المغرب</p>
                        </div>
                      </div>
-                     <button onClick={() => setIsCheckingOut(true)} className={`w-full ${theme === 'dark' ? 'bg-white text-black' : 'bg-slate-900 text-white'} py-10 rounded-[3rem] font-black text-3xl shadow-2xl transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-4`}><ShoppingBag size={32} /> اشترِ الآن</button>
+                     <button onClick={() => setIsCheckingOut(true)} className={`w-full shimmer-btn animate-buy-pulse ${theme === 'dark' ? 'bg-white text-black' : 'bg-slate-900 text-white'} py-10 rounded-[3rem] font-black text-3xl shadow-2xl transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-4`}><ShoppingBag size={32} /> اشترِ الآن</button>
                    </div>
                  </>
                ) : (
@@ -654,7 +654,7 @@ const App: React.FC = () => {
                       </div>
                     </div>
                     <div className="pt-10">
-                      <button onClick={confirmOrder} className="w-full bg-emerald-600 text-black py-10 rounded-[3rem] font-black text-2xl hover:bg-emerald-500 shadow-2xl flex items-center justify-center gap-4 transition-all active:scale-95 green-glow">اشترِ الآن <ArrowRight size={28} /></button>
+                      <button onClick={confirmOrder} className="w-full shimmer-btn animate-buy-pulse bg-emerald-600 text-black py-10 rounded-[3rem] font-black text-2xl hover:bg-emerald-500 shadow-2xl flex items-center justify-center gap-4 transition-all active:scale-95 green-glow">اشترِ الآن <ArrowRight size={28} /></button>
                       <p className={`text-center text-[10px] ${textSecondary} font-black uppercase mt-8 flex items-center justify-center gap-2`}><ShieldCheck size={14} className="text-emerald-500" /> دفع آمن عند الاستلام</p>
                     </div>
                  </div>
