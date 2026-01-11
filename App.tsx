@@ -51,6 +51,12 @@ const App: React.FC = () => {
   const [loginError, setLoginError] = useState(false);
   const [adminPassword, setAdminPassword] = useState(DEFAULT_ADMIN_PASSWORD);
 
+  // Password change states
+  const [currentPassChange, setCurrentPassChange] = useState('');
+  const [newPassChange, setNewPassChange] = useState('');
+  const [confirmPassChange, setConfirmPassChange] = useState('');
+  const [passChangeMessage, setPassChangeMessage] = useState<{ text: string, type: 'success' | 'error' | '' }>({ text: '', type: '' });
+
   // Storage keys
   const STORAGE_KEY_PRODUCTS = 'ecom_products_v6';
   const STORAGE_KEY_ORDERS = 'ecom_orders_v6';
@@ -92,20 +98,17 @@ const App: React.FC = () => {
     const savedProducts = localStorage.getItem(STORAGE_KEY_PRODUCTS);
     let initialProducts = MOCK_PRODUCTS;
     if (savedProducts) {
-      // Fix: Cast JSON.parse result and use non-conflicting catch variable
       try { initialProducts = JSON.parse(savedProducts) as StoreProduct[]; } catch (_e) { initialProducts = MOCK_PRODUCTS; }
     }
     setProducts(initialProducts);
 
     const savedOrders = localStorage.getItem(STORAGE_KEY_ORDERS);
     if (savedOrders) {
-      // Fix: Cast JSON.parse result and use non-conflicting catch variable
       try { setOrders(JSON.parse(savedOrders) as StoreOrder[]); } catch(_e) { setOrders([]); }
     }
 
     const savedConfig = localStorage.getItem(STORAGE_KEY_CONFIG);
     if (savedConfig) {
-      // Fix: Handle JSON.parse in line 190-194 area to avoid unknown assignment to expected types
       try {
         const c = JSON.parse(savedConfig);
         if (c && typeof c === 'object') {
@@ -116,12 +119,11 @@ const App: React.FC = () => {
           setSheetScriptUrl(c.sheetScriptUrl || STORE_CONFIG.sheetScriptUrl);
         }
       } catch (_e) {
-        console.warn("Failed to parse store configuration from local storage.");
+        console.warn("Failed to parse store configuration.");
       }
     }
   }, []);
 
-  // Sync scroll on product selection
   useEffect(() => {
     if (selectedProduct) {
       setActiveGalleryImage(selectedProduct.thumbnail);
@@ -155,7 +157,7 @@ const App: React.FC = () => {
 
   // Product Operations
   const deleteProduct = (productId: string) => {
-    if (window.confirm('هل أنت متأكد من حذف هذا المنتج؟ سيختفي من المتجر.')) {
+    if (window.confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
       const updated = products.filter(p => p.id !== productId);
       setProducts(updated);
       localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(updated));
@@ -182,23 +184,40 @@ const App: React.FC = () => {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'thumbnail' | 'gallery') => {
     const files = e.target.files;
     if (!files || !editingProduct) return;
-    
-    // Fix: Explicitly type 'file' as File (which extends Blob) to satisfy reader.readAsDataURL requirements
     Array.from(files).forEach((file: File) => {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
-        if (type === 'thumbnail') {
-          setEditingProduct({ ...editingProduct, thumbnail: base64 });
-        } else {
-          setEditingProduct({ 
-            ...editingProduct, 
-            galleryImages: [...(editingProduct.galleryImages || []), base64] 
-          });
-        }
+        if (type === 'thumbnail') setEditingProduct({ ...editingProduct, thumbnail: base64 });
+        else setEditingProduct({ ...editingProduct, galleryImages: [...(editingProduct.galleryImages || []), base64] });
       };
       reader.readAsDataURL(file);
     });
+  };
+
+  const handleChangePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (currentPassChange !== adminPassword) {
+      setPassChangeMessage({ text: '❌ كلمة السر الحالية غير صحيحة', type: 'error' });
+      return;
+    }
+    if (newPassChange !== confirmPassChange) {
+      setPassChangeMessage({ text: '❌ كلمات السر الجديدة غير متطابقة', type: 'error' });
+      return;
+    }
+    if (newPassChange.length < 4) {
+      setPassChangeMessage({ text: '❌ كلمة السر يجب أن تكون 4 أحرف على الأقل', type: 'error' });
+      return;
+    }
+    
+    setAdminPassword(newPassChange);
+    localStorage.setItem(STORAGE_KEY_PASS, newPassChange);
+    setPassChangeMessage({ text: '✅ تم تغيير كلمة السر بنجاح', type: 'success' });
+    setCurrentPassChange('');
+    setNewPassChange('');
+    setConfirmPassChange('');
+    
+    setTimeout(() => setPassChangeMessage({ text: '', type: '' }), 5000);
   };
 
   // Customer Checkout Logic
@@ -382,15 +401,10 @@ export const CATEGORIES = ${JSON.stringify(CATEGORIES, null, 2)};`;
                           <p className={`text-[10px] md:text-xs ${textSecondary} font-bold`}>{order.productTitle} • {order.orderId}</p>
                         </div>
                       </div>
-                      
-                      <div className="grid grid-cols-3 md:grid-cols-3 gap-4 md:gap-10 w-full md:w-auto">
-                        <div className="text-center md:text-right"><p className={`text-[10px] ${textSecondary} font-black uppercase mb-1`}>المدينة</p><p className="text-xs md:text-sm font-bold">{order.customer.city}</p></div>
-                        <div className="text-center md:text-right"><p className={`text-[10px] ${textSecondary} font-black uppercase mb-1`}>الهاتف</p><p className="text-xs md:text-sm font-bold text-emerald-500 font-mono">{order.customer.phoneNumber}</p></div>
-                        <div className="flex gap-2 justify-end">
-                          <button onClick={() => setViewingOrder(order)} className="p-3 bg-white/5 rounded-xl text-slate-400 hover:text-emerald-500 transition-colors"><Eye size={18} /></button>
-                          <button onClick={() => setEditingOrder(order)} className="p-3 bg-white/5 rounded-xl text-slate-400 hover:text-blue-500 transition-colors"><Edit3 size={18} /></button>
-                          <button onClick={() => deleteOrder(order.orderId)} className="p-3 bg-white/5 rounded-xl text-slate-400 hover:text-rose-500 transition-colors"><Trash2 size={18} /></button>
-                        </div>
+                      <div className="flex gap-2 justify-end w-full md:w-auto">
+                        <button onClick={() => setViewingOrder(order)} className="p-3 bg-white/5 rounded-xl text-slate-400 hover:text-emerald-500 transition-colors"><Eye size={18} /></button>
+                        <button onClick={() => setEditingOrder(order)} className="p-3 bg-white/5 rounded-xl text-slate-400 hover:text-blue-500 transition-colors"><Edit3 size={18} /></button>
+                        <button onClick={() => deleteOrder(order.orderId)} className="p-3 bg-white/5 rounded-xl text-slate-400 hover:text-rose-500 transition-colors"><Trash2 size={18} /></button>
                       </div>
                     </div>
                   ))}
@@ -398,7 +412,7 @@ export const CATEGORIES = ${JSON.stringify(CATEGORIES, null, 2)};`;
               )}
 
               {adminTab === 'products' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20">
                    {products.map(product => (
                       <div key={product.id} className={`${bgCard} border ${borderLight} rounded-[2rem] overflow-hidden flex flex-col shadow-lg group`}>
                          <div className="aspect-square relative overflow-hidden">
@@ -408,10 +422,9 @@ export const CATEGORIES = ${JSON.stringify(CATEGORIES, null, 2)};`;
                                <button onClick={() => deleteProduct(product.id)} className="p-3 bg-rose-600 text-white rounded-xl shadow-xl"><Trash2 size={18} /></button>
                             </div>
                          </div>
-                         <div className="p-6 space-y-2">
+                         <div className="p-6">
                             <h4 className="font-black text-sm line-clamp-1">{product.title}</h4>
                             <p className="text-emerald-500 font-black">{product.price} DH</p>
-                            <span className="text-[10px] bg-white/5 px-3 py-1 rounded-full opacity-50">{product.category}</span>
                          </div>
                       </div>
                    ))}
@@ -419,40 +432,46 @@ export const CATEGORIES = ${JSON.stringify(CATEGORIES, null, 2)};`;
               )}
 
               {adminTab === 'settings' && (
-                <div className="max-w-6xl mx-auto space-y-8">
+                <div className="max-w-6xl mx-auto space-y-12 pb-20">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <div className={`${bgCard} p-8 rounded-[3rem] border-2 border-emerald-500/10 shadow-xl`}>
-                      <h3 className="text-xl font-black mb-8 flex items-center gap-3"><Facebook className="text-[#1877F2]" /> Facebook Pixel</h3>
-                      <div className="space-y-6">
-                        <div className="space-y-1"><label className="text-[10px] font-black opacity-50 px-4">Pixel ID</label><input type="text" className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl font-bold`} value={pixelId} onChange={(e) => setPixelId(e.target.value)} /></div>
-                        <div className="space-y-1"><label className="text-[10px] font-black opacity-50 px-4">Test Event Code</label><input type="text" className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl font-bold`} value={testEventCode} onChange={(e) => setTestEventCode(e.target.value)} /></div>
-                      </div>
+                    {/* General Settings */}
+                    <div className={`${bgCard} p-8 rounded-[3rem] border-2 border-emerald-500/10 shadow-xl space-y-8`}>
+                       <h3 className="text-xl font-black flex items-center gap-3"><Settings className="text-emerald-500" /> إعدادات المتجر</h3>
+                       <div className="space-y-6">
+                         <div className="space-y-1"><label className="text-[10px] font-black opacity-50 px-4">Facebook Pixel ID</label><input type="text" className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={pixelId} onChange={(e) => setPixelId(e.target.value)} /></div>
+                         <div className="space-y-1"><label className="text-[10px] font-black opacity-50 px-4">Google Sheet Script URL</label><input type="text" className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={sheetScriptUrl} onChange={(e) => setSheetScriptUrl(e.target.value)} /></div>
+                       </div>
                     </div>
-                    <div className={`${bgCard} p-8 rounded-[3rem] border-2 border-emerald-500/10 shadow-xl`}>
-                      <h3 className="text-xl font-black mb-8 flex items-center gap-3"><Table className="text-emerald-500" /> Google Sheets</h3>
-                      <div className="space-y-4">
-                        <input type="text" placeholder="Script Web App URL" className={`w-full ${theme === 'dark' ? 'bg-slate-950/50' : 'bg-slate-50'} border ${borderLight} p-5 rounded-2xl font-bold`} value={sheetScriptUrl} onChange={(e) => setSheetScriptUrl(e.target.value)} />
-                        <p className="text-[10px] opacity-40 px-4 leading-relaxed">رابط Apps Script Web App لإرسال الطلبيات تلقائياً للجدول.</p>
-                      </div>
-                    </div>
+
+                    {/* Password Change Section */}
+                    <form onSubmit={handleChangePassword} className={`${bgCard} p-8 rounded-[3rem] border-2 border-amber-500/10 shadow-xl space-y-8`}>
+                       <h3 className="text-xl font-black flex items-center gap-3"><KeyRound className="text-amber-500" /> تغيير كلمة المرور</h3>
+                       <div className="space-y-4">
+                         {passChangeMessage.text && (
+                           <div className={`p-4 rounded-2xl text-xs font-bold text-center ${passChangeMessage.type === 'success' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                             {passChangeMessage.text}
+                           </div>
+                         )}
+                         <div className="space-y-1"><label className="text-[10px] font-black opacity-50 px-4">كلمة السر الحالية</label><input type="password" required className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={currentPassChange} onChange={(e) => setCurrentPassChange(e.target.value)} /></div>
+                         <div className="space-y-1"><label className="text-[10px] font-black opacity-50 px-4">كلمة السر الجديدة</label><input type="password" required className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={newPassChange} onChange={(e) => setNewPassChange(e.target.value)} /></div>
+                         <div className="space-y-1"><label className="text-[10px] font-black opacity-50 px-4">تأكيد كلمة السر الجديدة</label><input type="password" required className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={confirmPassChange} onChange={(e) => setConfirmPassChange(e.target.value)} /></div>
+                         <button type="submit" className="w-full bg-amber-500 text-black py-5 rounded-2xl font-black text-sm shadow-xl flex items-center justify-center gap-2 mt-4 hover:bg-amber-400 transition-all"><RefreshCw size={18} /> تحديث كلمة السر</button>
+                       </div>
+                    </form>
                   </div>
-                  <button onClick={() => { localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify({ pixelId, testEventCode, sheetScriptUrl })); alert('تم الحفظ بنجاح!'); }} className="w-full bg-emerald-600 text-black py-6 rounded-3xl font-black text-xl shadow-xl flex items-center justify-center gap-3"><Save size={24} /> حفظ الإعدادات</button>
+                  <button onClick={() => { localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify({ pixelId, sheetScriptUrl })); alert('تم الحفظ بنجاح!'); }} className="w-full bg-emerald-600 text-black py-6 rounded-3xl font-black text-xl shadow-xl flex items-center justify-center gap-3"><Save size={24} /> حفظ كافة الإعدادات</button>
                 </div>
               )}
 
               {adminTab === 'export' && (
-                <div className="max-w-4xl mx-auto space-y-8">
+                <div className="max-w-4xl mx-auto space-y-8 pb-20">
                    <div className={`${bgCard} p-10 rounded-[3.5rem] border-2 border-amber-500/20 shadow-2xl`}>
-                      <h3 className="text-3xl font-black mb-6 flex items-center gap-4 text-amber-500"><Code size={40} /> تحديث المتجر للكل</h3>
-                      <p className={`text-sm ${textSecondary} font-bold mb-8 leading-relaxed`}>
-                        لكي تظهر المنتجات والتغييرات الجديدة لجميع الزوار، قم بنسخ هذا الكود واستبدل محتوى ملف <code className="text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded">constants.tsx</code> في مشروعك.
-                      </p>
+                      <h3 className="text-3xl font-black mb-6 flex items-center gap-4 text-amber-500"><Code size={40} /> تحديث الكود المصدري</h3>
+                      <p className="text-sm opacity-60 font-bold mb-8">انسخ الكود أدناه وضعه في ملف constants.tsx لتثبيت التغييرات للمتجر بالكامل.</p>
                       <div className="relative group">
-                         <pre className="bg-black/50 p-8 rounded-3xl font-mono text-[10px] text-ltr overflow-x-auto h-80 no-scrollbar opacity-70">
-                           {generateConstantsCode()}
-                         </pre>
+                         <pre className="bg-black/50 p-8 rounded-3xl font-mono text-[10px] text-ltr overflow-x-auto h-80 no-scrollbar opacity-70">{generateConstantsCode()}</pre>
                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px] rounded-3xl">
-                            <button onClick={() => { navigator.clipboard.writeText(generateConstantsCode()); alert('تم نسخ الكود بنجاح!'); }} className="bg-amber-500 text-black px-12 py-5 rounded-full font-black flex items-center gap-3 shadow-2xl scale-110"><Copy size={24} /> نسخ الكود بالكامل</button>
+                            <button onClick={() => { navigator.clipboard.writeText(generateConstantsCode()); alert('تم نسخ الكود!'); }} className="bg-amber-500 text-black px-12 py-5 rounded-full font-black flex items-center gap-3 shadow-2xl scale-110"><Copy size={24} /> نسخ الكود بالكامل</button>
                          </div>
                       </div>
                    </div>
@@ -469,49 +488,41 @@ export const CATEGORIES = ${JSON.stringify(CATEGORIES, null, 2)};`;
           <div className="absolute inset-0 bg-black/90 backdrop-blur-xl" onClick={() => setViewingOrder(null)} />
           <div className={`${bgCard} w-full max-w-2xl rounded-[3rem] p-8 md:p-12 relative border ${borderLight} shadow-2xl overflow-y-auto max-h-[90vh]`}>
             <button onClick={() => setViewingOrder(null)} className="absolute top-8 left-8 text-slate-500 hover:text-white"><X size={24} /></button>
-            <h3 className="text-2xl font-black mb-10 flex items-center gap-3"><Package className="text-emerald-500" /> تفاصيل الطلبية</h3>
-            
+            <h3 className="text-2xl font-black mb-10 flex items-center gap-3 text-emerald-500"><Package /> تفاصيل الطلبية</h3>
             <div className="space-y-6">
                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-white/5 p-6 rounded-3xl border ${borderLight}"><p className="text-[10px] font-black uppercase opacity-50 mb-1">رقم الطلب</p><p className="font-mono font-bold text-emerald-500">{viewingOrder.orderId}</p></div>
-                  <div className="bg-white/5 p-6 rounded-3xl border ${borderLight}"><p className="text-[10px] font-black uppercase opacity-50 mb-1">الحالة</p><span className={`text-[10px] font-black px-3 py-1 rounded-full ${viewingOrder.status === 'delivered' ? 'bg-emerald-500 text-black' : 'bg-amber-500 text-black'}`}>{viewingOrder.status}</span></div>
+                  <div className="bg-white/5 p-6 rounded-3xl border ${borderLight}"><p className="text-[10px] font-black opacity-50 mb-1">رقم الطلب</p><p className="font-mono font-bold">{viewingOrder.orderId}</p></div>
+                  <div className="bg-white/5 p-6 rounded-3xl border ${borderLight}"><p className="text-[10px] font-black opacity-50 mb-1">الحالة</p><span className="text-[10px] font-black px-3 py-1 bg-emerald-500 text-black rounded-full">{viewingOrder.status}</span></div>
                </div>
                <div className="bg-white/5 p-8 rounded-3xl border ${borderLight} space-y-4">
-                  <h4 className="font-black flex items-center gap-2"><User size={18} className="text-emerald-500" /> الزبون</h4>
+                  <h4 className="font-black flex items-center gap-2"><User size={18} className="text-emerald-500" /> بيانات الزبون</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm font-bold">
-                     <div><p className="opacity-40 text-[10px] mb-1">الاسم الكامل</p><p>{viewingOrder.customer.fullName}</p></div>
-                     <div><p className="opacity-40 text-[10px] mb-1">رقم الهاتف</p><p className="text-emerald-500 font-mono">{viewingOrder.customer.phoneNumber}</p></div>
-                     <div className="col-span-2"><p className="opacity-40 text-[10px] mb-1">العنوان</p><p>{viewingOrder.customer.city} - {viewingOrder.customer.address || 'لا يوجد عنوان مفصل'}</p></div>
+                     <div><p className="opacity-40 text-[10px] mb-1">الاسم</p><p>{viewingOrder.customer.fullName}</p></div>
+                     <div><p className="opacity-40 text-[10px] mb-1">الهاتف</p><p className="text-emerald-500 font-mono">{viewingOrder.customer.phoneNumber}</p></div>
+                     <div className="col-span-2"><p className="opacity-40 text-[10px] mb-1">المدينة</p><p>{viewingOrder.customer.city}</p></div>
                   </div>
                </div>
-               <div className="bg-white/5 p-8 rounded-3xl border ${borderLight} space-y-4">
-                  <h4 className="font-black flex items-center gap-2"><ShoppingCart size={18} className="text-emerald-500" /> المنتج</h4>
-                  <div className="flex items-center justify-between"><p className="font-bold">{viewingOrder.productTitle}</p><p className="text-2xl font-black text-emerald-500">{viewingOrder.productPrice} DH</p></div>
-               </div>
-               <button onClick={() => { setEditingOrder(viewingOrder); setViewingOrder(null); }} className="w-full bg-white/5 hover:bg-white/10 py-6 rounded-3xl font-black text-lg transition-colors border border-white/10">تعديل بيانات الطلبية</button>
+               <button onClick={() => { setEditingOrder(viewingOrder); setViewingOrder(null); }} className="w-full bg-emerald-600 text-black py-6 rounded-3xl font-black text-lg">تعديل الطلبية</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Order Editing Modal */}
+      {/* Editing Order Modal */}
       {editingOrder && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/90 backdrop-blur-xl" onClick={() => setEditingOrder(null)} />
           <div className={`${bgCard} w-full max-w-xl rounded-[3rem] p-10 relative border ${borderLight} shadow-2xl`}>
             <h3 className="text-2xl font-black mb-8">تعديل الطلبية</h3>
             <div className="space-y-6">
-               <input type="text" placeholder="الاسم الكامل" className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={editingOrder.customer.fullName} onChange={(e) => setEditingOrder({...editingOrder, customer: {...editingOrder.customer, fullName: e.target.value}})} />
-               <input type="text" placeholder="رقم الهاتف" className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={editingOrder.customer.phoneNumber} onChange={(e) => setEditingOrder({...editingOrder, customer: {...editingOrder.customer, phoneNumber: e.target.value}})} />
+               <input type="text" className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={editingOrder.customer.fullName} onChange={(e) => setEditingOrder({...editingOrder, customer: {...editingOrder.customer, fullName: e.target.value}})} />
+               <input type="text" className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={editingOrder.customer.phoneNumber} onChange={(e) => setEditingOrder({...editingOrder, customer: {...editingOrder.customer, phoneNumber: e.target.value}})} />
                <select className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={editingOrder.status} onChange={(e) => setEditingOrder({...editingOrder, status: e.target.value as any})}>
-                  <option value="pending" className="text-black">في الانتظار (Pending)</option>
-                  <option value="shipped" className="text-black">مشحون (Shipped)</option>
-                  <option value="delivered" className="text-black">تم التوصيل (Delivered)</option>
+                  <option value="pending" className="text-black">في الانتظار</option>
+                  <option value="shipped" className="text-black">مشحون</option>
+                  <option value="delivered" className="text-black">تم التوصيل</option>
                </select>
-               <div className="flex gap-4 pt-4">
-                 <button onClick={() => setEditingOrder(null)} className="flex-1 py-5 rounded-2xl font-black opacity-50 hover:opacity-100">إلغاء</button>
-                 <button onClick={saveOrderEdit} className="flex-[2] bg-emerald-600 text-black py-5 rounded-2xl font-black shadow-xl">حفظ</button>
-               </div>
+               <button onClick={saveOrderEdit} className="w-full bg-emerald-600 text-black py-6 rounded-3xl font-black text-lg">حفظ التغييرات</button>
             </div>
           </div>
         </div>
@@ -521,33 +532,27 @@ export const CATEGORIES = ${JSON.stringify(CATEGORIES, null, 2)};`;
       {editingProduct && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setEditingProduct(null)} />
-          <div className={`${bgCard} w-full max-w-4xl rounded-[3.5rem] p-8 md:p-12 relative border ${borderLight} shadow-2xl overflow-y-auto max-h-[90vh] no-scrollbar`}>
-            <h3 className="text-3xl font-black mb-10">{isAddingProduct ? 'إضافة منتج جديد' : 'تعديل المنتج'}</h3>
+          <div className={`${bgCard} w-full max-w-4xl rounded-[3.5rem] p-12 relative border ${borderLight} shadow-2xl overflow-y-auto max-h-[90vh] no-scrollbar`}>
+            <h3 className="text-3xl font-black mb-10">{isAddingProduct ? 'إضافة منتج' : 'تعديل منتج'}</h3>
             <form onSubmit={saveProduct} className="grid grid-cols-1 md:grid-cols-2 gap-10">
                <div className="space-y-6">
-                  <div className="space-y-1"><label className="text-[10px] font-black opacity-50 px-4">اسم المنتج</label><input type="text" required className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={editingProduct.title} onChange={(e) => setEditingProduct({...editingProduct, title: e.target.value})} /></div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1"><label className="text-[10px] font-black opacity-50 px-4">السعر (DH)</label><input type="number" required className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={editingProduct.price} onChange={(e) => setEditingProduct({...editingProduct, price: Number(e.target.value)})} /></div>
-                    <div className="space-y-1"><label className="text-[10px] font-black opacity-50 px-4">الفئة</label><select className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold text-xs`} value={editingProduct.category} onChange={(e) => setEditingProduct({...editingProduct, category: e.target.value as Category})}><option value="أدوات منزلية" className="text-black">أدوات منزلية</option><option value="إلكترونيات" className="text-black">إلكترونيات</option><option value="تجميل وعناية" className="text-black">تجميل وعناية</option><option value="نظارات" className="text-black">نظارات</option></select></div>
-                  </div>
-                  <div className="space-y-1"><label className="text-[10px] font-black opacity-50 px-4">الوصف</label><textarea rows={6} className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold text-sm`} value={editingProduct.description} onChange={(e) => setEditingProduct({...editingProduct, description: e.target.value})} /></div>
+                  <input type="text" placeholder="اسم المنتج" required className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={editingProduct.title} onChange={(e) => setEditingProduct({...editingProduct, title: e.target.value})} />
+                  <input type="number" placeholder="السعر" required className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold`} value={editingProduct.price} onChange={(e) => setEditingProduct({...editingProduct, price: Number(e.target.value)})} />
+                  <textarea rows={5} placeholder="الوصف" className={`w-full bg-white/5 border ${borderLight} p-5 rounded-2xl font-bold text-sm`} value={editingProduct.description} onChange={(e) => setEditingProduct({...editingProduct, description: e.target.value})} />
                </div>
                <div className="space-y-8">
-                  <div className="space-y-4">
-                    <label className="text-xs font-black opacity-50">الصورة الرئيسية</label>
-                    <div className="aspect-square bg-white/5 border-2 border-dashed border-emerald-500/20 rounded-[2.5rem] flex items-center justify-center relative overflow-hidden group">
-                       {editingProduct.thumbnail ? (
-                         <>
-                           <img src={editingProduct.thumbnail} className="w-full h-full object-cover" />
-                           <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer" onClick={() => document.getElementById('thumb-upload')?.click()}><Camera size={40} /></div>
-                         </>
-                       ) : (
-                         <button type="button" onClick={() => document.getElementById('thumb-upload')?.click()} className="flex flex-col items-center gap-4 text-emerald-500/40 font-black"><ImageIcon size={50} /> رفع الصورة</button>
-                       )}
-                       <input id="thumb-upload" type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'thumbnail')} />
-                    </div>
+                  <div className="aspect-square bg-white/5 border-2 border-dashed border-emerald-500/20 rounded-[2.5rem] flex items-center justify-center relative overflow-hidden group">
+                     {editingProduct.thumbnail ? (
+                        <>
+                          <img src={editingProduct.thumbnail} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer" onClick={() => document.getElementById('thumb-upload')?.click()}><Camera size={40} /></div>
+                        </>
+                     ) : (
+                        <button type="button" onClick={() => document.getElementById('thumb-upload')?.click()} className="flex flex-col items-center gap-4 text-emerald-500/40 font-black"><ImageIcon size={50} /> رفع الصورة</button>
+                     )}
+                     <input id="thumb-upload" type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'thumbnail')} />
                   </div>
-                  <button type="submit" className="w-full bg-emerald-600 text-black py-8 rounded-[2.5rem] font-black text-2xl shadow-2xl hover:bg-emerald-500 transition-all">حفظ المنتج</button>
+                  <button type="submit" className="w-full bg-emerald-600 text-black py-8 rounded-[2.5rem] font-black text-2xl shadow-2xl">حفظ المنتج</button>
                </div>
             </form>
           </div>
@@ -600,7 +605,7 @@ export const CATEGORIES = ${JSON.stringify(CATEGORIES, null, 2)};`;
           <div className={`${bgSidebar} w-full max-w-xl rounded-[4rem] p-12 text-center relative border ${borderLight} shadow-2xl`}>
              <div className="w-20 h-20 bg-emerald-600 rounded-full flex items-center justify-center text-black mx-auto mb-8 shadow-xl shadow-emerald-500/30"><Check size={40} strokeWidth={4} /></div>
              <h3 className="text-3xl font-black mb-4">تم استلام طلبك!</h3>
-             <p className={`${textSecondary} font-bold text-lg mb-10`}>سنتصل بك قريباً يا {activeOrder.customer.fullName} لتأكيد الطلبية.</p>
+             <p className={`${textSecondary} font-bold text-lg mb-10`}>سنتصل بك قريباً لتأكيد الطلبية.</p>
              <button onClick={() => setActiveOrder(null)} className="w-full bg-emerald-600 text-black py-6 rounded-3xl font-black text-xl shadow-xl">العودة للمتجر</button>
           </div>
         </div>
