@@ -17,6 +17,30 @@ import { MOCK_PRODUCTS, CATEGORIES, MOROCCAN_CITIES, STORE_CONFIG } from './cons
 
 const adminPassword = 'admin'; 
 
+// دالة ذكية لضغط الصور لتقليل حجم البيانات السحابية
+const compressImage = (base64Str: string, maxWidth = 800, quality = 0.7): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > maxWidth) {
+        height = (maxWidth / width) * height;
+        width = maxWidth;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+  });
+};
+
 const App: React.FC = () => {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [view, setView] = useState<'shop' | 'admin'>('shop');
@@ -32,6 +56,7 @@ const App: React.FC = () => {
   
   const [editingProduct, setEditingProduct] = useState<StoreProduct | null>(null);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
   
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -57,7 +82,7 @@ const App: React.FC = () => {
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
-    setTimeout(() => setToast({ message: '', type: '' }), 3000);
+    setTimeout(() => setToast({ message: '', type: '' }), 6000);
   };
 
   const handleAdminClick = () => {
@@ -72,7 +97,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (dbConfig.url && dbConfig.key) {
       try {
-        const client = createClient(dbConfig.url, dbConfig.key);
+        const client = createClient(dbConfig.url.trim(), dbConfig.key.trim());
         setSupabase(client);
       } catch (e) {
         console.error("Supabase Init Error", e);
@@ -114,16 +139,12 @@ const App: React.FC = () => {
     if (!supabase) { showToast('يرجى إدخال البيانات أولاً', 'error'); return; }
     setIsTestingConn(true);
     try {
-      const { error } = await supabase.from('products').select('count', { count: 'exact', head: true });
+      const { error } = await supabase.from('products').select('id').limit(1);
       if (error) throw error;
-      showToast('تم الاتصال بنجاح! قاعدة البيانات جاهزة');
+      showToast('تم الاتصال بنجاح وقاعدة البيانات مستعدة');
     } catch (err: any) {
       console.error(err);
-      if (err.code === 'PGRST116' || err.message?.includes('not found')) {
-        showToast('خطأ: الجداول غير موجودة. يرجى تشغيل كود SQL أولاً', 'error');
-      } else {
-        showToast('فشل الاتصال: تأكد من صحة المفاتيح ومن تعطيل RLS', 'error');
-      }
+      showToast(`فشل: ${err.message || 'تأكد من تشغيل كود SQL وتعطيل RLS'}`, 'error');
     } finally {
       setIsTestingConn(false);
     }
@@ -131,25 +152,44 @@ const App: React.FC = () => {
 
   const saveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingProduct) return;
-    
-    const productToSave = {
-      ...editingProduct,
-      created_at: isAddingProduct ? new Date().toISOString() : undefined
-    };
-
-    if (supabase) {
-      const { error } = await supabase.from('products').upsert(productToSave);
-      if (error) { 
-        showToast(`خطأ في المزامنة: ${error.message}`, 'error'); 
-        return; 
-      }
+    if (!editingProduct || !supabase) {
+        if(!supabase) showToast('يجب ربط السحابة أولاً للحفظ السحابي', 'error');
+        return;
     }
     
-    await fetchData(); 
-    setEditingProduct(null);
-    setIsAddingProduct(false);
-    showToast('تم الحفظ والمزامنة الفورية!');
+    // تنظيف البيانات لضمان عدم تجاوز الحجم
+    const productToSave: any = { ...editingProduct };
+    
+    // إزالة حقل created_at في حالة التحديث لعدم إرباك Postgres
+    if (!isAddingProduct) {
+        delete productToSave.created_at;
+    } else {
+        productToSave.created_at = new Date().toISOString();
+    }
+
+    try {
+      const { error } = await supabase
+        .from('products')
+        .upsert(productToSave, { onConflict: 'id' });
+
+      if (error) { 
+        console.error("Supabase Save Error:", error);
+        // في حالة حجم البيانات كبير جداً
+        if (error.message.includes('too large') || error.code === '413') {
+           showToast('خطأ: حجم الصور كبير جداً. لقد قمنا بضغطها تلقائياً، يرجى المحاولة مرة أخرى أو اختيار صورة أصغر.', 'error');
+        } else {
+           showToast(`خطأ مزامنة: ${error.message}`, 'error'); 
+        }
+        return; 
+      }
+      
+      showToast('تم الحفظ والمزامنة بنجاح!');
+      await fetchData(); 
+      setEditingProduct(null);
+      setIsAddingProduct(false);
+    } catch (err: any) {
+      showToast(`خطأ غير متوقع: ${err.message}`, 'error');
+    }
   };
 
   const updateOrderStatus = async (orderId: any, status: string) => {
@@ -172,19 +212,22 @@ const App: React.FC = () => {
       productPrice: selectedProduct.price,
       customer: { ...customerInfo },
       orderDate: new Date().toLocaleDateString('ar-MA'),
-      status: 'pending'
+      status: 'pending',
+      created_at: new Date().toISOString()
     };
     if (supabase) {
       const { error } = await supabase.from('orders').insert([newOrder]);
-      if (error) { showToast('خطأ في إرسال الطلب للسحابة', 'error'); return; }
+      if (error) { 
+        console.error("Order error:", error);
+        showToast('خطأ في إرسال الطلب للسحابة', 'error'); 
+        return; 
+      }
     }
-    const updated = [newOrder, ...orders];
-    setOrders(updated as any);
-    localStorage.setItem('ecom_orders_v7', JSON.stringify(updated));
     setActiveOrder(newOrder as any);
     setIsCheckingOut(false);
     setSelectedProduct(null);
     setCustomerInfo({ fullName: '', phoneNumber: '', city: '', address: '' });
+    fetchData();
   };
 
   const saveDbConfig = () => {
@@ -198,24 +241,23 @@ const App: React.FC = () => {
     setTimeout(() => window.location.reload(), 800);
   };
 
-  const sqlCode = `-- 1. إنشاء جدول المنتجات
+  const sqlCode = `-- 1. إعداد الجداول (تأكد من تشغيله مرة واحدة)
 CREATE TABLE IF NOT EXISTS products (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
   thumbnail TEXT,
-  galleryImages TEXT[],
-  price NUMERIC,
-  originalPrice NUMERIC,
+  galleryImages TEXT[] DEFAULT '{}',
+  price NUMERIC DEFAULT 0,
+  originalPrice NUMERIC DEFAULT 0,
   description TEXT,
   category TEXT,
-  stockStatus TEXT,
-  rating NUMERIC,
-  reviewsCount NUMERIC,
-  shippingTime TEXT,
+  stockStatus TEXT DEFAULT 'available',
+  rating NUMERIC DEFAULT 5,
+  reviewsCount NUMERIC DEFAULT 0,
+  shippingTime TEXT DEFAULT '24 ساعة',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 2. إنشاء جدول الطلبيات
 CREATE TABLE IF NOT EXISTS orders (
   id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
   orderId TEXT,
@@ -224,20 +266,22 @@ CREATE TABLE IF NOT EXISTS orders (
   productPrice NUMERIC,
   customer JSONB,
   orderDate TEXT,
-  status TEXT,
+  status TEXT DEFAULT 'pending',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 3. تعطيل الحماية (RLS) للسماح بالوصول من المتجر (هام جداً)
+-- 2. تفعيل الوصول العام المباشر
 ALTER TABLE products DISABLE ROW LEVEL SECURITY;
-ALTER TABLE orders DISABLE ROW LEVEL SECURITY;`;
+ALTER TABLE orders DISABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE products TO anon;
+GRANT ALL ON TABLE orders TO anon;`;
 
   return (
     <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#050a18] text-slate-100' : 'bg-slate-50 text-slate-900'} transition-colors duration-500`}>
       {toast.message && (
-        <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[1000] px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-fade-in-up ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} text-white font-bold text-sm`}>
-          {toast.type === 'error' ? <AlertTriangle size={16}/> : <CheckCircle2 size={16}/>}
-          {toast.message}
+        <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[1000] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 animate-fade-in-up ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} text-white font-black text-sm max-w-[90vw] text-center`}>
+          {toast.type === 'error' ? <AlertTriangle size={20}/> : <CheckCircle2 size={20}/>}
+          <span>{toast.message}</span>
         </div>
       )}
 
@@ -311,25 +355,6 @@ ALTER TABLE orders DISABLE ROW LEVEL SECURITY;`;
 
             {adminTab === 'settings' && (
               <div className="max-w-6xl mx-auto space-y-8">
-                <div className={`glass-morphism p-8 rounded-[2.5rem] border ${supabase ? 'border-emerald-500/20' : 'border-amber-500/20'} flex flex-col md:flex-row items-center justify-between gap-6`}>
-                  <div className="flex items-center gap-6">
-                    <div className={`w-20 h-20 rounded-3xl flex items-center justify-center ${supabase ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
-                      {supabase ? <Wifi size={36}/> : <WifiOff size={36}/>}
-                    </div>
-                    <div>
-                      <h3 className="text-2xl font-black">حالة نظام الربط</h3>
-                      <p className="text-slate-500 font-bold text-sm">
-                        {supabase ? 'المتجر متصل حالياً بالقاعدة السحابية' : 'المتجر يعمل ببيانات تجريبية محلية'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                     <span className={`px-5 py-2 rounded-full font-black text-[10px] uppercase tracking-tighter ${supabase ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'bg-amber-500/20 text-amber-500 border border-amber-500/20'}`}>
-                        {supabase ? 'Active Cloud' : 'Offline Mode'}
-                     </span>
-                  </div>
-                </div>
-
                 <div className="grid md:grid-cols-2 gap-8">
                   <div className="glass-morphism p-10 rounded-[3rem] border border-white/5 space-y-8">
                     <div className="flex items-center gap-4">
@@ -347,10 +372,10 @@ ALTER TABLE orders DISABLE ROW LEVEL SECURITY;`;
                   </div>
 
                   <div className="glass-morphism p-10 rounded-[3rem] border border-white/5 flex flex-col">
-                    <div className="flex items-center gap-4 mb-6"><div className="p-4 bg-emerald-500/10 text-emerald-500 rounded-2xl"><Code size={28}/></div><h3 className="text-2xl font-black">مساعد SQL (مهم)</h3></div>
-                    <p className="text-[10px] text-amber-500 font-bold mb-4 px-2">يجب تشغيل هذا الكود في Supabase SQL Editor لإنشاء الجداول وإتاحة الوصول العام:</p>
+                    <div className="flex items-center gap-4 mb-6"><div className="p-4 bg-emerald-500/10 text-emerald-500 rounded-2xl"><Code size={28}/></div><h3 className="text-2xl font-black">مساعد SQL (مهم للمزامنة)</h3></div>
+                    <p className="text-[10px] text-amber-500 font-bold mb-4 px-2">شغل هذا الكود في SQL Editor في Supabase للسماح بحفظ الصور والبيانات:</p>
                     <pre className="flex-1 bg-black/40 p-6 rounded-[2rem] text-[10px] text-emerald-500 font-mono overflow-auto border border-emerald-500/20 custom-scroll text-ltr">{sqlCode}</pre>
-                    <button onClick={() => { navigator.clipboard.writeText(sqlCode); showToast('تم نسخ الكود!'); }} className="mt-4 flex items-center justify-center gap-2 text-emerald-500 font-black text-sm hover:scale-105 transition-all"><Copy size={16}/> نسخ كود إعداد الجداول</button>
+                    <button onClick={() => { navigator.clipboard.writeText(sqlCode); showToast('تم نسخ الكود!'); }} className="mt-4 flex items-center justify-center gap-2 text-emerald-500 font-black text-sm hover:scale-105 transition-all"><Copy size={16}/> نسخ كود الإعداد</button>
                   </div>
                 </div>
               </div>
@@ -418,7 +443,94 @@ ALTER TABLE orders DISABLE ROW LEVEL SECURITY;`;
         )}
       </main>
 
-      {/* Product View Modal */}
+      {/* Editor Modal */}
+      {editingProduct && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 md:p-10 bg-[#050a18]/95 backdrop-blur-xl">
+          <div className="max-w-5xl w-full glass-morphism p-10 md:p-16 rounded-[4rem] space-y-12 overflow-y-auto max-h-[95vh] no-scrollbar border border-white/5">
+            <div className="flex justify-between items-center">
+              <h3 className="text-4xl font-black text-gradient">تعديل المنتج السحابي</h3>
+              <button onClick={() => setEditingProduct(null)} className="p-4 bg-white/5 rounded-full"><X size={28}/></button>
+            </div>
+            
+            <form onSubmit={saveProduct} className="grid md:grid-cols-2 gap-12">
+              <div className="space-y-8">
+                <div className="space-y-1"><label className="text-xs font-black text-slate-500 px-2">إسم المنتج</label><input type="text" required className="w-full bg-white/5 border border-white/10 p-6 rounded-[2rem] font-black" value={editingProduct.title} onChange={e => setEditingProduct({...editingProduct, title: e.target.value})} /></div>
+                <div className="space-y-1"><label className="text-xs font-black text-slate-500 px-2">السعر</label><input type="number" required className="w-full bg-white/5 border border-white/10 p-6 rounded-[2rem] font-black" value={editingProduct.price} onChange={e => setEditingProduct({...editingProduct, price: Number(e.target.value)})} /></div>
+                
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-slate-500 px-2">الصورة الرئيسية (ستُضغط تلقائياً)</label>
+                  <div className="aspect-video rounded-[3rem] border-4 border-dashed border-white/5 flex flex-col items-center justify-center relative overflow-hidden bg-white/5 group">
+                      {isProcessingImage ? (
+                        <div className="flex flex-col items-center gap-4 text-emerald-500"><RefreshCw className="animate-spin" size={40}/><span className="font-black">جاري معالجة الصورة...</span></div>
+                      ) : editingProduct.thumbnail ? (
+                        <img src={editingProduct.thumbnail} className="absolute inset-0 w-full h-full object-cover" />
+                      ) : (
+                        <UploadCloud size={60}/>
+                      )}
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center cursor-pointer">
+                        <p className="text-white font-black">اضغط لتغيير الصورة</p>
+                      </div>
+                      <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if(file) {
+                            setIsProcessingImage(true);
+                            const reader = new FileReader();
+                            reader.readAsDataURL(file);
+                            reader.onload = async () => {
+                              const compressed = await compressImage(reader.result as string);
+                              setEditingProduct({...editingProduct, thumbnail: compressed});
+                              setIsProcessingImage(false);
+                            };
+                          }
+                      }} />
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-8 flex flex-col">
+                <div className="space-y-1"><label className="text-xs font-black text-slate-500 px-2">وصف المنتج</label><textarea required className="w-full bg-white/5 border border-white/10 p-8 rounded-[3rem] font-bold flex-1 h-32" value={editingProduct.description} onChange={e => setEditingProduct({...editingProduct, description: e.target.value})} /></div>
+                
+                <div className="space-y-2">
+                   <div className="flex justify-between px-2"><label className="text-xs font-black text-slate-500">معرض الصور (Gallery)</label><button type="button" onClick={() => galleryInputRef.current?.click()} className="text-emerald-500 text-xs font-black">+ إضافة صور</button></div>
+                   <input type="file" ref={galleryInputRef} hidden multiple accept="image/*" onChange={async (e) => {
+                      const files = e.target.files;
+                      if(files) {
+                        setIsProcessingImage(true);
+                        const newImages: string[] = [];
+                        for(let i=0; i<files.length; i++) {
+                          const reader = new FileReader();
+                          reader.readAsDataURL(files[i]);
+                          await new Promise(resolve => {
+                            reader.onload = async () => { 
+                              const compressed = await compressImage(reader.result as string, 600, 0.6); 
+                              newImages.push(compressed); 
+                              resolve(null); 
+                            };
+                          });
+                        }
+                        setEditingProduct({...editingProduct, galleryImages: [...(editingProduct.galleryImages || []), ...newImages]});
+                        setIsProcessingImage(false);
+                      }
+                   }} />
+                   <div className="grid grid-cols-4 gap-2 bg-white/5 p-4 rounded-[2rem] min-h-[80px]">
+                      {editingProduct.galleryImages?.map((img, i) => (
+                        <div key={i} className="relative aspect-square rounded-xl overflow-hidden group">
+                           <img src={img} className="w-full h-full object-cover" />
+                           <button type="button" onClick={() => setEditingProduct({...editingProduct, galleryImages: editingProduct.galleryImages?.filter((_, idx) => idx !== i)})} className="absolute inset-0 bg-rose-500/80 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center text-white"><Trash2 size={16}/></button>
+                        </div>
+                      ))}
+                   </div>
+                </div>
+
+                <button type="submit" disabled={isProcessingImage} className="w-full bg-emerald-500 text-black py-7 rounded-[2rem] font-black text-2xl flex items-center justify-center gap-3 shadow-2xl shadow-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed">
+                  <Save size={32}/> {isProcessingImage ? 'جاري معالجة الصور...' : 'حفظ ومزامنة فورية'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* باقي الكود (Product View, Login, Order Success) كما هو */}
       {selectedProduct && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 md:p-6">
           <div className="absolute inset-0 bg-[#050a18]/95 backdrop-blur-xl" onClick={() => !isCheckingOut && setSelectedProduct(null)}></div>
@@ -468,69 +580,6 @@ ALTER TABLE orders DISABLE ROW LEVEL SECURITY;`;
         </div>
       )}
 
-      {/* Editor Modal */}
-      {editingProduct && (
-        <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 md:p-10 bg-[#050a18]/95 backdrop-blur-xl">
-          <div className="max-w-5xl w-full glass-morphism p-10 md:p-16 rounded-[4rem] space-y-12 overflow-y-auto max-h-[95vh] no-scrollbar border border-white/5">
-            <div className="flex justify-between items-center"><h3 className="text-4xl font-black text-gradient">تعديل المنتج السحابي</h3><button onClick={() => setEditingProduct(null)} className="p-4 bg-white/5 rounded-full"><X size={28}/></button></div>
-            <form onSubmit={saveProduct} className="grid md:grid-cols-2 gap-12">
-              <div className="space-y-8">
-                <div className="space-y-1"><label className="text-xs font-black text-slate-500 px-2">إسم المنتج</label><input type="text" required className="w-full bg-white/5 border border-white/10 p-6 rounded-[2rem] font-black" value={editingProduct.title} onChange={e => setEditingProduct({...editingProduct, title: e.target.value})} /></div>
-                <div className="space-y-1"><label className="text-xs font-black text-slate-500 px-2">السعر</label><input type="number" required className="w-full bg-white/5 border border-white/10 p-6 rounded-[2rem] font-black" value={editingProduct.price} onChange={e => setEditingProduct({...editingProduct, price: Number(e.target.value)})} /></div>
-                
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-500 px-2">الصورة الرئيسية</label>
-                  <div className="aspect-video rounded-[3rem] border-4 border-dashed border-white/5 flex flex-col items-center justify-center relative overflow-hidden bg-white/5 group">
-                      {editingProduct.thumbnail ? <img src={editingProduct.thumbnail} className="absolute inset-0 w-full h-full object-cover" /> : <UploadCloud size={60}/>}
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center"><p className="text-white font-black">اضغط للتغيير</p></div>
-                      <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if(file) {
-                            const reader = new FileReader();
-                            reader.readAsDataURL(file);
-                            reader.onload = () => setEditingProduct({...editingProduct, thumbnail: reader.result as string});
-                          }
-                      }} />
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-8 flex flex-col">
-                <div className="space-y-1"><label className="text-xs font-black text-slate-500 px-2">وصف المنتج</label><textarea required className="w-full bg-white/5 border border-white/10 p-8 rounded-[3rem] font-bold flex-1 h-32" value={editingProduct.description} onChange={e => setEditingProduct({...editingProduct, description: e.target.value})} /></div>
-                
-                <div className="space-y-2">
-                   <div className="flex justify-between px-2"><label className="text-xs font-black text-slate-500">معرض الصور (Gallery)</label><button type="button" onClick={() => galleryInputRef.current?.click()} className="text-emerald-500 text-xs font-black">+ إضافة صور</button></div>
-                   <input type="file" ref={galleryInputRef} hidden multiple accept="image/*" onChange={async (e) => {
-                      const files = e.target.files;
-                      if(files) {
-                        const newImages: string[] = [];
-                        for(let i=0; i<files.length; i++) {
-                          const reader = new FileReader();
-                          reader.readAsDataURL(files[i]);
-                          await new Promise(resolve => {
-                            reader.onload = () => { newImages.push(reader.result as string); resolve(null); };
-                          });
-                        }
-                        setEditingProduct({...editingProduct, galleryImages: [...(editingProduct.galleryImages || []), ...newImages]});
-                      }
-                   }} />
-                   <div className="grid grid-cols-4 gap-2 bg-white/5 p-4 rounded-[2rem] min-h-[80px]">
-                      {editingProduct.galleryImages?.map((img, i) => (
-                        <div key={i} className="relative aspect-square rounded-xl overflow-hidden group">
-                           <img src={img} className="w-full h-full object-cover" />
-                           <button type="button" onClick={() => setEditingProduct({...editingProduct, galleryImages: editingProduct.galleryImages?.filter((_, idx) => idx !== i)})} className="absolute inset-0 bg-rose-500/80 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center text-white"><Trash2 size={16}/></button>
-                        </div>
-                      ))}
-                   </div>
-                </div>
-
-                <button type="submit" className="w-full bg-emerald-500 text-black py-7 rounded-[2rem] font-black text-2xl flex items-center justify-center gap-3 shadow-2xl shadow-emerald-500/30"><Save size={32}/> حفظ ومزامنة فورية</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Login Modal */}
       {showLoginModal && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 bg-[#050a18]/95 backdrop-blur-xl">
           <div className="max-w-md w-full glass-morphism p-12 rounded-[4rem] space-y-10 border border-white/5 shadow-2xl">
@@ -544,7 +593,6 @@ ALTER TABLE orders DISABLE ROW LEVEL SECURITY;`;
         </div>
       )}
 
-      {/* Order Success Modal */}
       {activeOrder && (
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-[#050a18]/95 backdrop-blur-xl">
           <div className="max-w-md w-full glass-morphism p-12 rounded-[4rem] text-center space-y-10 animate-fade-in-up border border-emerald-500/20 shadow-2xl">
