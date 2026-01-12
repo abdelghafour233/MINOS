@@ -242,7 +242,7 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* Product Details */}
+      {/* Product Details & Checkout */}
       {selectedProduct && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 md:p-6">
           <div className="absolute inset-0 bg-[#050a18]/95 backdrop-blur-xl" onClick={() => !isCheckingOut && setSelectedProduct(null)}></div>
@@ -270,12 +270,122 @@ const App: React.FC = () => {
                       <div><p className="text-[10px] font-black text-slate-500 uppercase">السعر</p><p className="text-3xl md:text-5xl font-black text-emerald-500">{selectedProduct.price} <span className="text-base">DH</span></p></div>
                       <div className="text-right text-xs md:text-base font-bold text-slate-300"><p className="flex items-center gap-1.5 justify-end"><Truck size={16} /> توصيل مجاني</p><p className="flex items-center gap-1.5 justify-end"><ShieldCheck size={16} /> جودة مضمونة</p></div>
                     </div>
-                    {/* الزر المهتز والمتحرك */}
-                    <button onClick={() => setIsCheckingOut(true)} className="w-full bg-emerald-500 text-black py-5 md:py-6 rounded-2xl font-black text-lg md:text-2xl premium-btn animate-buy-pulse shadow-2xl shadow-emerald-500/20">اشتري الآن - الدفع عند الاستلام</button>
+                    <button onClick={() => setIsCheckingOut(true)} className="w-full bg-emerald-500 text-black py-5 md:py-6 rounded-2xl font-black text-lg md:text-2xl premium-btn shadow-2xl shadow-emerald-500/20">اشتري الآن - الدفع عند الاستلام</button>
                   </div>
                 ) : (
                   <div className="space-y-8 my-auto">
                      <div className="flex items-center gap-3"><button onClick={() => setIsCheckingOut(false)} className="p-2.5 rounded-lg bg-white/5 text-slate-400"><ChevronLeft size={20} /></button><h3 className="text-2xl md:text-3xl font-black text-gradient">إتمام الطلب</h3></div>
                      <div className="space-y-4">
-                       <div className="space-y-1"><label className="text-[10px] font-black text-slate-500 pr-3">الاسم بالكامل</label><input type="text" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold" value={customerInfo.fullName} onChange={e => setCustomerInfo({...customerInfo, fullName: e.target.value})} /></div>
-                       <div className="space-y-1"><label className="text-[10px] font-black text-slate-500 pr-3">المدينة</label><select className
+                       <div className="space-y-1"><label className="text-[10px] font-black text-slate-500 pr-3">الاسم بالكامل</label><input type="text" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-white" value={customerInfo.fullName} onChange={e => setCustomerInfo({...customerInfo, fullName: e.target.value})} /></div>
+                       <div className="space-y-1"><label className="text-[10px] font-black text-slate-500 pr-3">المدينة</label>
+                       <select className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-white appearance-none" value={customerInfo.city} onChange={e => setCustomerInfo({...customerInfo, city: e.target.value})}>
+                         <option value="" className="bg-[#050a18]">اختر المدينة</option>
+                         {MOROCCAN_CITIES.map(city => <option key={city} value={city} className="bg-[#050a18]">{city}</option>)}
+                       </select></div>
+                       <div className="space-y-1"><label className="text-[10px] font-black text-slate-500 pr-3">رقم الهاتف</label><input type="tel" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-left text-white" value={customerInfo.phoneNumber} onChange={e => setCustomerInfo({...customerInfo, phoneNumber: e.target.value})} placeholder="06 XX XX XX XX" /></div>
+                       <div className="space-y-1"><label className="text-[10px] font-black text-slate-500 pr-3">العنوان (اختياري)</label><textarea className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold h-24 text-white" value={customerInfo.address} onChange={e => setCustomerInfo({...customerInfo, address: e.target.value})} /></div>
+                     </div>
+                     <button onClick={confirmOrder} className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg premium-btn">تأكيد الطلب الآن</button>
+                  </div>
+                )}
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {activeOrder && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 bg-[#050a18]/95 backdrop-blur-xl">
+          <div className="max-w-md w-full glass-morphism p-10 rounded-[3rem] text-center space-y-6">
+            <div className="w-24 h-24 bg-emerald-500 rounded-full flex items-center justify-center mx-auto text-black shadow-2xl shadow-emerald-500/50 animate-bounce"><Check size={48} /></div>
+            <h3 className="text-3xl font-black text-gradient">شكراً لثقتك بنا!</h3>
+            <p className="text-slate-400 font-medium text-lg">لقد استلمنا طلبك بنجاح. سيتصل بك فريقنا لتأكيد الطلب خلال الـ 24 ساعة القادمة.</p>
+            <div className="p-6 bg-white/5 rounded-2xl border border-white/10">
+              <p className="text-xs font-black text-slate-500 mb-2">رقم الطلب</p>
+              <p className="text-2xl font-black text-emerald-500">{activeOrder.orderId}</p>
+            </div>
+            <button onClick={() => setActiveOrder(null)} className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg premium-btn">العودة للمتجر</button>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Login Modal */}
+      {showLoginModal && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 bg-[#050a18]/95 backdrop-blur-xl">
+          <div className="max-w-md w-full glass-morphism p-10 rounded-[3rem] space-y-8">
+            <div className="flex justify-between items-center">
+              <h3 className="text-3xl font-black text-gradient">دخول الإدارة</h3>
+              <button onClick={() => setShowLoginModal(false)}><X /></button>
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-500">كلمة المرور</label>
+                <div className="relative">
+                  <input 
+                    type={showPassword ? "text" : "password"} 
+                    className={`w-full bg-white/5 border ${loginError ? 'border-rose-500' : 'border-white/10'} p-5 rounded-2xl font-bold`}
+                    value={passwordInput}
+                    onChange={(e) => { setPasswordInput(e.target.value); setLoginError(false); }}
+                  />
+                  <button onClick={() => setShowPassword(!showPassword)} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+                {loginError && <p className="text-rose-500 text-xs font-bold mt-2">كلمة مرور خاطئة</p>}
+              </div>
+              <button 
+                onClick={() => {
+                  if (passwordInput === adminPassword) {
+                    setIsAdminAuthenticated(true);
+                    sessionStorage.setItem('admin_auth', 'true');
+                    setShowLoginModal(false);
+                    setView('admin');
+                    setPasswordInput('');
+                  } else {
+                    setLoginError(true);
+                  }
+                }} 
+                className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg premium-btn"
+              >
+                دخول
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Product Editor Modal */}
+      {editingProduct && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 md:p-10 bg-[#050a18]/95 backdrop-blur-xl">
+          <div className="max-w-4xl w-full glass-morphism p-6 md:p-12 rounded-[3rem] space-y-8 overflow-y-auto max-h-[90vh] no-scrollbar">
+            <div className="flex justify-between items-center">
+              <h3 className="text-3xl font-black text-gradient">{isAddingProduct ? 'إضافة منتج جديد' : 'تعديل المنتج'}</h3>
+              <button onClick={() => setEditingProduct(null)}><X /></button>
+            </div>
+            <form onSubmit={saveProduct} className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="space-y-1"><label className="text-xs font-black text-slate-500">اسم المنتج</label><input type="text" required className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold" value={editingProduct.title} onChange={e => setEditingProduct({...editingProduct, title: e.target.value})} /></div>
+                <div className="space-y-1"><label className="text-xs font-black text-slate-500">السعر (DH)</label><input type="number" required className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold" value={editingProduct.price} onChange={e => setEditingProduct({...editingProduct, price: Number(e.target.value)})} /></div>
+                <div className="space-y-1"><label className="text-xs font-black text-slate-500">التصنيف</label><select className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold" value={editingProduct.category} onChange={e => setEditingProduct({...editingProduct, category: e.target.value as Category})}>
+                  {CATEGORIES.filter(c => c !== 'الكل').map(c => <option key={c} value={c} className="bg-[#050a18]">{c}</option>)}
+                </select></div>
+                <div className="space-y-1"><label className="text-xs font-black text-slate-500">رابط صورة الغلاف</label><input type="text" required className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold" value={editingProduct.thumbnail} onChange={e => setEditingProduct({...editingProduct, thumbnail: e.target.value})} /></div>
+              </div>
+              <div className="space-y-4">
+                <div className="space-y-1"><label className="text-xs font-black text-slate-500">الوصف</label><textarea required className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold h-32" value={editingProduct.description} onChange={e => setEditingProduct({...editingProduct, description: e.target.value})} /></div>
+                <div className="space-y-1">
+                  <label className="text-xs font-black text-slate-500">صور المعرض (روابط مفصولة بفاصلة)</label>
+                  <textarea className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold h-20" value={editingProduct.galleryImages?.join(', ')} onChange={e => setEditingProduct({...editingProduct, galleryImages: e.target.value.split(',').map(s => s.trim()).filter(Boolean)})} />
+                </div>
+                <button type="submit" className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg premium-btn mt-6 flex items-center justify-center gap-2"><Save size={20}/> حفظ التعديلات</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Fixed: Add default export to fix the import error in index.tsx
+export default App;
