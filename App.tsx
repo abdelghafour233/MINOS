@@ -549,55 +549,88 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* عرض تفاصيل المنتج للزبون - تحسين الصوره والزر */}
+      {/* عرض تفاصيل المنتج للزبون - تحسين حجم الصوره والوصف */}
       {selectedProduct && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 md:p-6 overflow-hidden">
           <div className="absolute inset-0 bg-[#050a18]/95 backdrop-blur-xl" onClick={() => !isCheckingOut && setSelectedProduct(null)}></div>
-          <div className="relative w-full max-w-6xl max-h-[98vh] md:rounded-[3.5rem] glass-morphism overflow-hidden flex flex-col md:flex-row animate-fade-in-up border border-white/5 shadow-2xl">
-             <button onClick={() => { setSelectedProduct(null); setIsCheckingOut(false); }} className="absolute top-4 right-4 z-[210] p-2 md:p-3 bg-black/40 rounded-full text-white hover:bg-emerald-500 hover:text-black transition-all shadow-2xl"><X size={20} /></button>
+          <div className="relative w-full max-w-5xl max-h-[92vh] md:rounded-[3rem] glass-morphism overflow-hidden flex flex-col md:flex-row animate-fade-in-up border border-white/5 shadow-2xl">
+             <button onClick={() => { setSelectedProduct(null); setIsCheckingOut(false); }} className="absolute top-4 right-4 z-[210] p-2 md:p-3 bg-black/40 rounded-full text-white hover:bg-emerald-500 hover:text-black transition-all shadow-2xl"><X size={18} /></button>
              
-             {/* قسم الصورة - إصلاح حجم المنتج ليكون كاملاً داخل الاطار */}
-             <div className="w-full md:w-1/2 h-[35vh] md:h-auto bg-slate-950 relative flex items-center justify-center overflow-hidden">
-                <img src={activeGalleryImage} className="w-full h-full object-contain transition-all duration-500" />
+             {/* قسم الصورة - مصغر ومتناسق */}
+             <div className="w-full md:w-[42%] h-[30vh] md:h-auto bg-slate-950/50 relative flex items-center justify-center overflow-hidden p-4 md:p-8">
+                <div className="relative w-full h-full flex items-center justify-center">
+                  <img src={activeGalleryImage} className="max-w-full max-h-full object-contain transition-all duration-700 drop-shadow-2xl" />
+                </div>
                 {(selectedProduct.galleryImages && selectedProduct.galleryImages.length > 0) && (
-                  <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 px-4 overflow-x-auto no-scrollbar py-2">
-                    <button onClick={() => setActiveGalleryImage(selectedProduct.thumbnail)} className={`w-10 h-10 md:w-14 md:h-14 rounded-lg border-2 transition-all flex-shrink-0 overflow-hidden ${activeGalleryImage === selectedProduct.thumbnail ? 'border-emerald-500 scale-105 shadow-lg' : 'border-white/10 opacity-60'}`}><img src={selectedProduct.thumbnail} className="w-full h-full object-cover" /></button>
+                  <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5 px-4 overflow-x-auto no-scrollbar py-2">
+                    <button onClick={() => setActiveGalleryImage(selectedProduct.thumbnail)} className={`w-8 h-8 md:w-12 md:h-12 rounded-lg border transition-all flex-shrink-0 overflow-hidden ${activeGalleryImage === selectedProduct.thumbnail ? 'border-emerald-500 scale-110 shadow-lg' : 'border-white/10 opacity-60'}`}><img src={selectedProduct.thumbnail} className="w-full h-full object-cover" /></button>
                     {selectedProduct.galleryImages.map((img, i) => (
-                      <button key={i} onClick={() => setActiveGalleryImage(img)} className={`w-10 h-10 md:w-14 md:h-14 rounded-lg border-2 transition-all flex-shrink-0 overflow-hidden ${activeGalleryImage === img ? 'border-emerald-500 scale-105 shadow-lg' : 'border-white/10 opacity-60'}`}><img src={img} className="w-full h-full object-cover" /></button>
+                      <button key={i} onClick={() => setActiveGalleryImage(img)} className={`w-8 h-8 md:w-12 md:h-12 rounded-lg border transition-all flex-shrink-0 overflow-hidden ${activeGalleryImage === img ? 'border-emerald-500 scale-110 shadow-lg' : 'border-white/10 opacity-60'}`}><img src={img} className="w-full h-full object-cover" /></button>
                     ))}
                   </div>
                 )}
              </div>
 
-             {/* قسم المحتوى - ضمان بقاء الزر داخل الاطار عبر السكرول الداخلي */}
-             <div className="w-full md:w-1/2 p-5 md:p-12 lg:p-16 flex flex-col h-[60vh] md:h-auto overflow-y-auto custom-scroll">
+             {/* قسم المحتوى - منمق وأكثر كثافة */}
+             <div className="w-full md:w-[58%] p-6 md:p-10 lg:p-12 flex flex-col h-[62vh] md:h-auto overflow-y-auto custom-scroll border-t md:border-t-0 md:border-r border-white/5">
                 {!isCheckingOut ? (
-                  <div className="space-y-5 md:space-y-8 flex flex-col flex-grow">
-                    <div className="space-y-3">
-                      <span className="bg-emerald-500 text-black px-3 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest inline-block">{selectedProduct.category}</span>
-                      <h2 className="text-xl md:text-5xl font-black text-gradient leading-tight">{selectedProduct.title}</h2>
-                      <div className="max-h-32 md:max-h-none overflow-y-auto md:overflow-visible custom-scroll">
-                         <p className="text-slate-400 text-xs md:text-lg font-medium leading-relaxed">{selectedProduct.description}</p>
+                  <div className="space-y-4 md:space-y-6 flex flex-col h-full">
+                    <div className="space-y-2 md:space-y-4">
+                      <div className="flex items-center gap-2">
+                        <span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider">{selectedProduct.category}</span>
+                        {selectedProduct.stockStatus === 'low_stock' && <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2.5 py-1 rounded-md text-[9px] font-black">كمية محدودة!</span>}
+                      </div>
+                      <h2 className="text-xl md:text-3xl lg:text-4xl font-black text-gradient leading-tight">{selectedProduct.title}</h2>
+                      <div className="max-h-24 md:max-h-40 overflow-y-auto custom-scroll pr-1">
+                         <p className="text-slate-400 text-[11px] md:text-base font-medium leading-relaxed whitespace-pre-line">{selectedProduct.description}</p>
                       </div>
                     </div>
-                    <div className="p-5 md:p-8 glass-morphism rounded-2xl md:rounded-[3rem] flex items-center justify-between border border-white/5 mt-auto">
-                      <div><p className="text-[10px] md:text-xs font-black text-slate-500">السعر</p><p className="text-2xl md:text-5xl font-black text-emerald-500">{selectedProduct.price} <span className="text-sm md:text-xl">DH</span></p></div>
-                      <div className="text-right"><p className="flex items-center gap-1 md:gap-2 justify-end text-emerald-500 font-black text-xs md:text-lg"><Truck size={18} /> توصيل مجاني</p></div>
+                    
+                    <div className="mt-auto space-y-4 md:space-y-6 pt-4 border-t border-white/5">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-[9px] md:text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">السعر النهائي</p>
+                          <div className="flex items-baseline gap-2">
+                             <p className="text-3xl md:text-5xl font-black text-emerald-500">{selectedProduct.price} <span className="text-sm md:text-base">DH</span></p>
+                             {selectedProduct.originalPrice && <p className="text-slate-600 line-through text-xs md:text-lg font-bold">{selectedProduct.originalPrice} DH</p>}
+                          </div>
+                        </div>
+                        <div className="text-right space-y-1">
+                          <p className="flex items-center gap-1 justify-end text-emerald-500 font-black text-[10px] md:text-sm"><Truck size={14} /> توصيل مجاني</p>
+                          <p className="flex items-center gap-1 justify-end text-slate-500 font-bold text-[9px] md:text-[11px]"><ShieldCheck size={14} /> ضمان الجودة</p>
+                        </div>
+                      </div>
+                      
+                      <button onClick={() => setIsCheckingOut(true)} className="w-full bg-emerald-500 text-black py-4 md:py-5 rounded-xl md:rounded-2xl font-black text-base md:text-xl animate-buy-pulse premium-btn shadow-xl shadow-emerald-500/20 shrink-0">تأكيد الطلب الآن</button>
                     </div>
-                    <button onClick={() => setIsCheckingOut(true)} className="w-full bg-emerald-500 text-black py-4 md:py-6 rounded-xl md:rounded-[2rem] font-black text-lg md:text-2xl animate-buy-pulse premium-btn shadow-xl shadow-emerald-500/20 shrink-0">أطلب الآن - الدفع عند الاستلام</button>
                   </div>
                 ) : (
-                  <div className="space-y-6 md:space-y-10 flex flex-col flex-grow">
-                     <div className="flex items-center gap-3"><button onClick={() => setIsCheckingOut(false)} className="p-2 md:p-3 rounded-xl bg-white/5 text-slate-400 hover:text-white transition-all"><ChevronLeft size={24} /></button><h3 className="text-xl md:text-4xl font-black text-gradient">بيانات التوصيل</h3></div>
-                     <div className="space-y-4 flex-grow overflow-y-auto no-scrollbar">
-                       <input type="text" className="w-full bg-white/5 border border-white/10 p-4 md:p-5 rounded-xl md:rounded-2xl font-bold focus:border-emerald-500 outline-none transition-all text-sm" value={customerInfo.fullName} onChange={e => setCustomerInfo({...customerInfo, fullName: e.target.value})} placeholder="الإسم الكامل للزبون" />
-                       <input type="tel" className="w-full bg-white/5 border border-white/10 p-4 md:p-5 rounded-xl md:rounded-2xl font-bold text-left focus:border-emerald-500 outline-none transition-all text-sm" value={customerInfo.phoneNumber} onChange={e => setCustomerInfo({...customerInfo, phoneNumber: e.target.value})} placeholder="رقم الهاتف للاتصال" />
-                       <select className="w-full bg-white/5 border border-white/10 p-4 md:p-5 rounded-xl md:rounded-2xl font-bold appearance-none focus:border-emerald-500 outline-none transition-all text-sm" value={customerInfo.city} onChange={e => setCustomerInfo({...customerInfo, city: e.target.value})}>
-                            <option value="" className="bg-[#050a18]">اختر المدينة</option>
-                            {MOROCCAN_CITIES.map(c => <option key={c} value={c} className="bg-[#050a18]">{c}</option>)}
-                       </select>
+                  <div className="space-y-6 md:space-y-8 flex flex-col h-full">
+                     <div className="flex items-center gap-3">
+                        <button onClick={() => setIsCheckingOut(false)} className="p-2 rounded-xl bg-white/5 text-slate-400 hover:text-white transition-all"><ChevronLeft size={20} /></button>
+                        <div>
+                           <h3 className="text-lg md:text-2xl font-black text-gradient">بيانات التوصيل</h3>
+                           <p className="text-[10px] md:text-xs text-slate-500 font-bold">يرجى ملء المعلومات التالية لإرسال الطلب</p>
+                        </div>
                      </div>
-                     <button onClick={confirmOrder} className="w-full bg-emerald-500 text-black py-4 md:py-6 rounded-xl md:rounded-[2rem] font-black text-lg md:text-xl premium-btn shadow-2xl shrink-0">تأكيد الطلب</button>
+                     <div className="space-y-3.5 flex-grow">
+                       <div className="space-y-1.5">
+                         <label className="text-[9px] md:text-[11px] font-black text-slate-500 px-1 uppercase tracking-wider">الإسم الكامل</label>
+                         <input type="text" className="w-full bg-white/5 border border-white/10 p-3.5 md:p-4 rounded-xl font-bold focus:border-emerald-500 outline-none transition-all text-sm" value={customerInfo.fullName} onChange={e => setCustomerInfo({...customerInfo, fullName: e.target.value})} placeholder="الاسم الشخصي والعائلي" />
+                       </div>
+                       <div className="space-y-1.5">
+                         <label className="text-[9px] md:text-[11px] font-black text-slate-500 px-1 uppercase tracking-wider">رقم الهاتف</label>
+                         <input type="tel" className="w-full bg-white/5 border border-white/10 p-3.5 md:p-4 rounded-xl font-bold text-left focus:border-emerald-500 outline-none transition-all text-sm" value={customerInfo.phoneNumber} onChange={e => setCustomerInfo({...customerInfo, phoneNumber: e.target.value})} placeholder="06 XX XX XX XX" />
+                       </div>
+                       <div className="space-y-1.5">
+                         <label className="text-[9px] md:text-[11px] font-black text-slate-500 px-1 uppercase tracking-wider">المدينة</label>
+                         <select className="w-full bg-white/5 border border-white/10 p-3.5 md:p-4 rounded-xl font-bold appearance-none focus:border-emerald-500 outline-none transition-all text-sm" value={customerInfo.city} onChange={e => setCustomerInfo({...customerInfo, city: e.target.value})}>
+                              <option value="" className="bg-[#050a18]">اختر مدينتك</option>
+                              {MOROCCAN_CITIES.map(c => <option key={c} value={c} className="bg-[#050a18]">{c}</option>)}
+                         </select>
+                       </div>
+                     </div>
+                     <button onClick={confirmOrder} className="w-full bg-emerald-500 text-black py-4 md:py-5 rounded-xl md:rounded-2xl font-black text-base md:text-lg premium-btn shadow-2xl shrink-0 mt-4">إتمام عملية الشراء</button>
                   </div>
                 )}
              </div>
