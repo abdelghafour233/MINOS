@@ -5,7 +5,7 @@ import {
   ArrowRight, Package, Sparkles, ChevronLeft, ChevronDown,
   Settings, Edit3, Trash2, LayoutDashboard, Save, Lock, Sun, Moon,
   CheckCircle2, AlertTriangle, Plus, RefreshCw, Terminal, Copy,
-  ImagePlus, UploadCloud, ImageIcon
+  ImagePlus, UploadCloud, ImageIcon, Filter, Clock, CheckCircle
 } from 'lucide-react';
 import { StoreProduct, StoreOrder } from './types';
 import { MOCK_PRODUCTS, CATEGORIES, MOROCCAN_CITIES } from './constants';
@@ -32,6 +32,7 @@ const App: React.FC = () => {
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | ''}>({message: '', type: ''});
   
   const [editingProduct, setEditingProduct] = useState<StoreProduct | null>(null);
+  const [editingOrder, setEditingOrder] = useState<StoreOrder | null>(null);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
@@ -59,7 +60,6 @@ const App: React.FC = () => {
     setTimeout(() => setToast({ message: '', type: '' }), 5000);
   };
 
-  // Fix: Added explicit null checks and type casting for File objects to prevent 'unknown' to 'Blob' errors during image processing
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'thumbnail' | 'gallery') => {
     const files = e.target.files;
     if (!files || !editingProduct) return;
@@ -76,7 +76,6 @@ const App: React.FC = () => {
         reader.readAsDataURL(file);
       }
     } else {
-      // Explicitly cast Array.from result to File[] to avoid 'unknown' type inference in some TS environments
       (Array.from(files) as File[]).forEach((file: File) => {
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -85,7 +84,7 @@ const App: React.FC = () => {
             setEditingProduct(prev => {
               if (!prev) return prev;
               const currentGallery = prev.galleryImages || [];
-              if (currentGallery.length >= 10) return prev; // حد أقصى 10 صور
+              if (currentGallery.length >= 10) return prev;
               return {
                 ...prev,
                 galleryImages: [...currentGallery, imageData]
@@ -125,7 +124,22 @@ const App: React.FC = () => {
     setIsCheckingOut(false);
     setSelectedProduct(null);
     setCustomerInfo({ fullName: '', phoneNumber: '', city: '' });
-    showToast('تم تسجيل طلبك محلياً بنجاح');
+    showToast('تم تسجيل طلبك بنجاح');
+  };
+
+  const saveOrderEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingOrder) return;
+    const updatedOrders = orders.map(o => o.orderId === editingOrder.orderId ? editingOrder : o);
+    setOrders(updatedOrders);
+    setEditingOrder(null);
+    showToast('تم تحديث بيانات الطلب');
+  };
+
+  const deleteOrder = (id: string) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذا الطلب؟')) return;
+    setOrders(orders.filter(o => o.orderId !== id));
+    showToast('تم حذف الطلب');
   };
 
   const saveProduct = (e: React.FormEvent) => {
@@ -154,6 +168,12 @@ const App: React.FC = () => {
     if (!window.confirm('هل تريد حذف المنتج؟')) return;
     setProducts(products.filter(p => p.id !== id));
     showToast('تم حذف المنتج');
+  };
+
+  const orderStats = {
+    total: orders.length,
+    pending: orders.filter(o => o.status === 'pending').length,
+    delivered: orders.filter(o => o.status === 'delivered').length,
   };
 
   return (
@@ -209,7 +229,10 @@ const App: React.FC = () => {
         ) : (
           <div className="p-4 md:p-12 max-w-6xl mx-auto space-y-10 animate-fade-in-up">
             <header className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <h2 className="text-3xl font-black text-gradient">إدارة المتجر</h2>
+              <div className="space-y-1">
+                <h2 className="text-3xl font-black text-gradient">إدارة المتجر</h2>
+                <p className="text-xs text-slate-500 font-bold">مرحباً بك في لوحة القيادة الخاصة بك</p>
+              </div>
               
               <div className="flex gap-2 glass-morphism p-2 rounded-2xl border border-white/5">
                 <button onClick={() => setAdminTab('orders')} className={`px-5 py-2.5 rounded-xl text-xs font-black ${adminTab === 'orders' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}>الطلبات</button>
@@ -219,26 +242,65 @@ const App: React.FC = () => {
             </header>
 
             {adminTab === 'orders' && (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center px-4">
-                   <h3 className="font-black text-lg">سجل الطلبات ({orders.length})</h3>
-                   <button onClick={() => { setOrders([]); localStorage.removeItem('local_orders'); showToast('تم مسح السجل'); }} className="text-xs text-rose-500 font-bold border border-rose-500/20 px-3 py-1 rounded-lg">مسح الكل</button>
+              <div className="space-y-6">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="glass-morphism p-6 rounded-[2rem] border border-white/5 text-center space-y-1">
+                    <p className="text-[10px] font-black text-slate-500 uppercase">إجمالي الطلبات</p>
+                    <p className="text-3xl font-black text-emerald-500">{orderStats.total}</p>
+                  </div>
+                  <div className="glass-morphism p-6 rounded-[2rem] border border-white/5 text-center space-y-1">
+                    <p className="text-[10px] font-black text-slate-500 uppercase">قيد الانتظار</p>
+                    <p className="text-3xl font-black text-amber-500">{orderStats.pending}</p>
+                  </div>
+                  <div className="glass-morphism p-6 rounded-[2rem] border border-white/5 text-center space-y-1">
+                    <p className="text-[10px] font-black text-slate-500 uppercase">تم التوصيل</p>
+                    <p className="text-3xl font-black text-blue-500">{orderStats.delivered}</p>
+                  </div>
                 </div>
-                {orders.length === 0 ? <div className="py-20 text-center text-slate-500 font-bold">لا توجد طلبيات مسجلة</div> : orders.map((order, i) => (
-                  <div key={i} className="glass-morphism p-6 rounded-[2rem] border border-white/5 flex flex-col md:flex-row justify-between items-center gap-6">
-                    <div className="flex items-center gap-6">
-                      <div className="w-14 h-14 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center font-black">#</div>
-                      <div>
-                        <h4 className="font-black text-lg md:text-xl">{order.customer.fullName}</h4>
-                        <p className="text-sm text-slate-500 font-bold">{order.customer.phoneNumber} - {order.customer.city}</p>
+
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center px-4">
+                     <h3 className="font-black text-lg flex items-center gap-2"><Clock size={20} className="text-emerald-500"/> سجل الطلبات</h3>
+                     <button onClick={() => { if(window.confirm('هل تريد مسح جميع الطلبات نهائياً؟')) { setOrders([]); localStorage.removeItem('local_orders'); showToast('تم مسح السجل'); } }} className="text-xs text-rose-500 font-bold border border-rose-500/20 px-3 py-1 rounded-lg">مسح الكل</button>
+                  </div>
+                  
+                  {orders.length === 0 ? (
+                    <div className="py-20 text-center text-slate-500 font-bold glass-morphism rounded-[3rem] border border-white/5">لا توجد طلبيات مسجلة حالياً</div>
+                  ) : orders.map((order) => (
+                    <div key={order.orderId} className="glass-morphism p-6 rounded-[2.5rem] border border-white/5 flex flex-col md:flex-row justify-between items-center gap-6 group hover:border-white/10 transition-all">
+                      <div className="flex items-center gap-6 w-full md:w-auto">
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black ${
+                          order.status === 'pending' ? 'bg-amber-500/10 text-amber-500' : 
+                          order.status === 'shipped' ? 'bg-blue-500/10 text-blue-500' : 'bg-emerald-500/10 text-emerald-500'
+                        }`}>
+                          {order.status === 'pending' ? <Clock size={24}/> : order.status === 'shipped' ? <Truck size={24}/> : <CheckCircle size={24}/>}
+                        </div>
+                        <div className="space-y-1">
+                          <h4 className="font-black text-lg">{order.customer.fullName}</h4>
+                          <p className="text-xs text-slate-500 font-bold flex items-center gap-2"><Phone size={12}/> {order.customer.phoneNumber} <MapPin size={12}/> {order.customer.city}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-center md:items-end gap-2 w-full md:w-auto">
+                        <p className="text-xs font-black text-emerald-500">{order.productTitle}</p>
+                        <div className="flex items-center gap-3">
+                          <span className="px-4 py-1.5 bg-white/5 text-slate-400 rounded-full text-[10px] font-black uppercase tracking-widest">{order.orderDate}</span>
+                          <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase ${
+                             order.status === 'pending' ? 'bg-amber-500/10 text-amber-500' : 
+                             order.status === 'shipped' ? 'bg-blue-500/10 text-blue-500' : 'bg-emerald-500/10 text-emerald-500'
+                          }`}>
+                            {order.status === 'pending' ? 'قيد الانتظار' : order.status === 'shipped' ? 'تم الشحن' : 'تم التوصيل'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 w-full md:w-auto">
+                        <button onClick={() => setEditingOrder(order)} className="flex-1 md:flex-none p-3 bg-white/5 text-slate-400 rounded-xl hover:bg-emerald-500 hover:text-black transition-all"><Edit3 size={18}/></button>
+                        <button onClick={() => deleteOrder(order.orderId)} className="flex-1 md:flex-none p-3 bg-rose-500/10 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={18}/></button>
                       </div>
                     </div>
-                    <div className="text-center md:text-right">
-                      <p className="text-xs font-black text-emerald-500 mb-2">{order.productTitle}</p>
-                      <span className="px-4 py-1.5 bg-emerald-500/10 text-emerald-500 rounded-full text-[10px] font-black uppercase tracking-widest">{order.orderDate}</span>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
 
@@ -266,7 +328,41 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* مودال تعديل المنتج مع دعم رفع الصور */}
+      {/* مودال تعديل الطلبية */}
+      {editingOrder && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-[#050a18]/95 backdrop-blur-xl">
+          <form onSubmit={saveOrderEdit} className="max-w-lg w-full glass-morphism p-8 md:p-10 rounded-[3rem] space-y-6 border border-white/5">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-xl font-black text-gradient">تعديل بيانات الطلب</h3>
+              <button type="button" onClick={() => setEditingOrder(null)} className="p-2 bg-white/5 rounded-full hover:bg-rose-500/20 text-slate-400 hover:text-rose-500 transition-all"><X size={20}/></button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 uppercase px-1">اسم الزبون</label><input type="text" required className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold text-sm" value={editingOrder.customer.fullName} onChange={e => setEditingOrder({...editingOrder, customer: {...editingOrder.customer, fullName: e.target.value}})} /></div>
+              <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 uppercase px-1">رقم الهاتف</label><input type="text" required className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold text-sm text-left" value={editingOrder.customer.phoneNumber} onChange={e => setEditingOrder({...editingOrder, customer: {...editingOrder.customer, phoneNumber: e.target.value}})} /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-500 uppercase px-1">المدينة</label>
+                  <select className="w-full bg-slate-900 border border-white/10 p-4 rounded-2xl font-bold text-sm" value={editingOrder.customer.city} onChange={e => setEditingOrder({...editingOrder, customer: {...editingOrder.customer, city: e.target.value}})}>
+                    {MOROCCAN_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-500 uppercase px-1">حالة الطلب</label>
+                  <select className="w-full bg-slate-900 border border-white/10 p-4 rounded-2xl font-bold text-sm" value={editingOrder.status} onChange={e => setEditingOrder({...editingOrder, status: e.target.value as any})}>
+                    <option value="pending">قيد الانتظار</option>
+                    <option value="shipped">تم الشحن</option>
+                    <option value="delivered">تم التوصيل</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-4 pt-4"><button type="submit" className="flex-1 bg-emerald-500 text-black py-4 rounded-2xl font-black text-lg shadow-xl shadow-emerald-500/10">تحديث الطلب</button></div>
+          </form>
+        </div>
+      )}
+
+      {/* مودال تعديل المنتج */}
       {editingProduct && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-[#050a18]/95 backdrop-blur-xl">
           <form onSubmit={saveProduct} className="max-w-4xl w-full glass-morphism p-8 md:p-12 rounded-[3rem] space-y-6 overflow-y-auto max-h-[90vh] border border-white/5 no-scrollbar">
@@ -364,7 +460,6 @@ const App: React.FC = () => {
                   <div className="space-y-6 flex-1 flex flex-col">
                     <div className="space-y-3"><h2 className="text-xl md:text-3xl font-black text-gradient">{selectedProduct.title}</h2><p className="text-slate-400 text-[11px] md:text-sm leading-relaxed whitespace-pre-line">{selectedProduct.description}</p></div>
                     
-                    {/* عرض صور المعرض في صفحة المنتج */}
                     {selectedProduct.galleryImages && selectedProduct.galleryImages.length > 0 && (
                       <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
                         {selectedProduct.galleryImages.map((img, i) => (
