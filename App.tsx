@@ -21,7 +21,7 @@ const App: React.FC = () => {
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [orders, setOrders] = useState<StoreOrder[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<StoreProduct | null>(null);
-  const [activeGalleryImage, setActiveGalleryImage] = useState<string>(''); // تتبع الصورة النشطة في المعرض
+  const [activeGalleryImage, setActiveGalleryImage] = useState<string>(''); 
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [activeTab, setActiveTab] = useState('الكل');
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | ''}>({message: '', type: ''});
@@ -62,7 +62,6 @@ const App: React.FC = () => {
     if (authStatus === 'true') setIsAdminAuthenticated(true);
   }, []);
 
-  // دالة لمعالجة تحميل الصور وتحويلها لـ Base64
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'thumbnail' | 'gallery') => {
     const files = e.target.files;
     if (!files || !editingProduct) return;
@@ -72,12 +71,10 @@ const App: React.FC = () => {
       reader.onloadend = () => {
         setEditingProduct({ ...editingProduct, thumbnail: reader.result as string });
       };
-      // Added check and cast to Blob to resolve 'unknown' type error in some environments
       if (files[0]) {
         reader.readAsDataURL(files[0] as Blob);
       }
     } else {
-      // Cast files to FileList to ensure iteration works correctly and file is typed as File
       Array.from(files as FileList).forEach((file: File) => {
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -87,7 +84,6 @@ const App: React.FC = () => {
             return { ...prev, galleryImages: [...currentGallery, reader.result as string] };
           });
         };
-        // Cast to Blob to ensure compatibility with readAsDataURL
         reader.readAsDataURL(file as Blob);
       });
     }
@@ -117,7 +113,10 @@ const App: React.FC = () => {
   };
 
   const confirmOrder = () => {
-    if (!customerInfo.fullName || !customerInfo.phoneNumber || !customerInfo.city || !selectedProduct) return;
+    if (!customerInfo.fullName || !customerInfo.phoneNumber || !customerInfo.city || !selectedProduct) {
+      showToast('المرجو ملأ جميع الخانات المطلوبة', 'error');
+      return;
+    }
     
     const newOrder: StoreOrder = {
       orderId: 'ORD-' + Math.random().toString(36).substring(2, 7).toUpperCase(),
@@ -135,9 +134,16 @@ const App: React.FC = () => {
     setActiveOrder(newOrder);
     setIsCheckingOut(false);
     setSelectedProduct(null);
+    
+    // تفريغ الفورم بعد نجاح الطلب
+    setCustomerInfo({
+      fullName: '',
+      phoneNumber: '',
+      city: '',
+      address: ''
+    });
   };
 
-  // تهيئة الصورة النشطة عند فتح المنتج
   useEffect(() => {
     if (selectedProduct) {
       setActiveGalleryImage(selectedProduct.thumbnail);
@@ -154,7 +160,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Modern Sidebar (Desktop) / Bottom Nav (Mobile) */}
+      {/* Modern Sidebar */}
       <nav className="fixed bottom-0 left-0 right-0 md:top-0 md:right-auto md:w-24 h-20 md:h-screen glass-morphism z-[100] border-t md:border-t-0 md:border-l border-white/5 flex md:flex-col items-center justify-around md:py-10">
         <div className="hidden md:flex flex-col items-center gap-2 mb-10">
            <div className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-black shadow-lg shadow-emerald-500/20"><Zap size={24} fill="black" /></div>
@@ -290,19 +296,17 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* Product Details Modal (Public) */}
+      {/* Product Details Modal */}
       {selectedProduct && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 md:p-6">
           <div className="absolute inset-0 bg-[#050a18]/95 backdrop-blur-xl" onClick={() => !isCheckingOut && setSelectedProduct(null)}></div>
           <div className="relative w-full h-full md:h-auto md:max-w-6xl md:rounded-[4rem] glass-morphism overflow-hidden flex flex-col md:flex-row animate-fade-in-up">
              <button onClick={() => { setSelectedProduct(null); setIsCheckingOut(false); }} className="absolute top-6 right-6 z-[210] p-4 bg-white/5 rounded-full text-white hover:bg-white/10 transition-colors shadow-2xl"><X size={24} /></button>
              
-             {/* Product Images Section */}
              <div className="w-full md:w-1/2 h-[45vh] md:h-auto bg-slate-900 relative p-0 flex flex-col">
                <div className="flex-1 overflow-hidden">
                 <img src={activeGalleryImage} className="w-full h-full object-cover transition-all duration-500" alt={selectedProduct.title} />
                </div>
-               {/* Gallery Thumbnails */}
                {(selectedProduct.galleryImages && selectedProduct.galleryImages.length > 0) && (
                  <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-3 px-4 overflow-x-auto no-scrollbar">
                     {[selectedProduct.thumbnail, ...selectedProduct.galleryImages].map((img, i) => (
@@ -352,7 +356,13 @@ const App: React.FC = () => {
                      <div className="space-y-5">
                        <div className="space-y-1">
                           <label className="text-xs font-black text-slate-500 pr-4">الاسم بالكامل</label>
-                          <input type="text" placeholder="مثال: محمد السعدي" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl font-bold text-lg outline-none focus:border-emerald-500 transition-colors" value={customerInfo.fullName} onChange={e => setCustomerInfo({...customerInfo, fullName: e.target.value})} />
+                          <input 
+                            type="text" 
+                            placeholder="" 
+                            className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl font-bold text-lg outline-none focus:border-emerald-500 transition-colors" 
+                            value={customerInfo.fullName} 
+                            onChange={e => setCustomerInfo({...customerInfo, fullName: e.target.value})} 
+                          />
                        </div>
                        <div className="space-y-1">
                           <label className="text-xs font-black text-slate-500 pr-4">المدينة</label>
@@ -363,7 +373,13 @@ const App: React.FC = () => {
                        </div>
                        <div className="space-y-1">
                           <label className="text-xs font-black text-slate-500 pr-4">رقم الهاتف</label>
-                          <input type="tel" placeholder="06XXXXXXXX" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl font-bold text-lg outline-none focus:border-emerald-500 transition-colors text-ltr" value={customerInfo.phoneNumber} onChange={e => setCustomerInfo({...customerInfo, phoneNumber: e.target.value})} />
+                          <input 
+                            type="tel" 
+                            placeholder="" 
+                            className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl font-bold text-lg outline-none focus:border-emerald-500 transition-colors text-ltr" 
+                            value={customerInfo.phoneNumber} 
+                            onChange={e => setCustomerInfo({...customerInfo, phoneNumber: e.target.value})} 
+                          />
                        </div>
                      </div>
                      <button onClick={confirmOrder} className="w-full bg-emerald-500 text-black py-6 rounded-[2rem] font-black text-2xl premium-btn flex items-center justify-center gap-3">تأكيد الطلب الآن <Check size={28} /></button>
@@ -441,7 +457,6 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="space-y-8">
-                  {/* Thumbnail Upload */}
                   <div className="space-y-2">
                     <label className="text-xs font-black text-slate-500 pr-4">الصورة الرئيسية (تحميل)</label>
                     <div 
@@ -460,7 +475,6 @@ const App: React.FC = () => {
                     <input id="thumb-input" type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'thumbnail')} />
                   </div>
 
-                  {/* Gallery Upload */}
                   <div className="space-y-3">
                     <label className="text-xs font-black text-slate-500 pr-4">صور إضافية (تحميل)</label>
                     <div className="grid grid-cols-4 gap-3">
