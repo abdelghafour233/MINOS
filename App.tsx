@@ -10,7 +10,7 @@ import {
   ChevronDown, Search, ArrowUpRight, Zap, Award, UploadCloud, Download,
   ImagePlus, HelpCircle, RefreshCcw, Globe, Database, Server, Link, Code, RefreshCw,
   Wifi, WifiOff, Radio, SlidersHorizontal, MoreVertical, CopyCheck, Terminal,
-  Home, Key
+  Home, Key, CloudLightning, DatabaseZap
 } from 'lucide-react';
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { StoreProduct, StoreOrder, CustomerInfo, Category } from './types';
@@ -34,15 +34,15 @@ const App: React.FC = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
 
-  // تهيئة معلومات الزبون بدون العنوان
   const [customerInfo, setCustomerInfo] = useState({ fullName: '', phoneNumber: '', city: '' });
   const [activeOrder, setActiveOrder] = useState<StoreOrder | null>(null);
   
+  // إعدادات وحالة الاتصال
   const [dbConfig, setDbConfig] = useState({
     url: localStorage.getItem('sb_url') || 'https://xulrpjjucjwoctgkpqli.supabase.co',
     key: localStorage.getItem('sb_key') || 'sb_publishable_opXVbx0wGCR7vCxGamuPBw_JpNs5aSe'
   });
-  
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'error' | 'connecting' | 'idle'>('idle');
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -50,16 +50,30 @@ const App: React.FC = () => {
     setTimeout(() => setToast({ message: '', type: '' }), 5000);
   };
 
-  const initSupabase = (url: string, key: string) => {
+  const checkConnection = async (client: SupabaseClient) => {
+    setConnectionStatus('connecting');
+    try {
+      const { data, error } = await client.from('products').select('count', { count: 'exact', head: true });
+      if (error) throw error;
+      setConnectionStatus('connected');
+      return true;
+    } catch (err) {
+      setConnectionStatus('error');
+      return false;
+    }
+  };
+
+  const initSupabase = async (url: string, key: string) => {
     try {
       if (url && key) {
         const client = createClient(url.trim(), key.trim());
         setSupabase(client);
+        const isOk = await checkConnection(client);
+        if (isOk) fetchData(client);
         return client;
       }
     } catch (e) {
-      console.error("Supabase Init Error", e);
-      showToast('خطأ في إعدادات الاتصال', 'error');
+      setConnectionStatus('error');
     }
     return null;
   };
@@ -99,17 +113,17 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchData();
     if (sessionStorage.getItem('admin_auth') === 'true') setIsAdminAuthenticated(true);
-  }, [supabase]);
+  }, []);
 
-  const updateDbSettings = () => {
+  const updateDbSettings = async () => {
     localStorage.setItem('sb_url', dbConfig.url);
     localStorage.setItem('sb_key', dbConfig.key);
-    const newClient = initSupabase(dbConfig.url, dbConfig.key);
+    const newClient = await initSupabase(dbConfig.url, dbConfig.key);
     if (newClient) {
-      fetchData(newClient);
-      showToast('تم تحديث الإعدادات والاتصال');
+      showToast('تم تحديث الإعدادات');
+    } else {
+      showToast('فشل الاتصال بالإعدادات الجديدة', 'error');
     }
   };
 
@@ -155,8 +169,13 @@ const App: React.FC = () => {
   const saveProduct = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProduct || !supabase) return;
+    
     supabase.from('products').upsert(editingProduct).then(({ error }) => {
-      if (!error) { showToast('تم حفظ المنتج'); fetchData(); setEditingProduct(null); }
+      if (!error) { 
+        showToast('تم حفظ المنتج'); 
+        fetchData(); 
+        setEditingProduct(null); 
+      }
       else showToast('فشل في الحفظ', 'error');
     });
   };
@@ -168,7 +187,7 @@ const App: React.FC = () => {
     });
   };
 
-  const sqlSetup = `-- سكريبت SQL لإعداد الجداول
+  const sqlSetup = `-- سكريبت SQL لإعداد الجداول (انسخه في SQL Editor)
 CREATE TABLE IF NOT EXISTS products (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
@@ -193,15 +212,7 @@ CREATE TABLE IF NOT EXISTS orders (
   address TEXT,
   status TEXT DEFAULT 'pending',
   created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-ALTER TABLE products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Allow public read" ON products FOR SELECT USING (true);
-CREATE POLICY "Allow admin all" ON products FOR ALL USING (true);
-CREATE POLICY "Allow public insert" ON orders FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow admin manage orders" ON orders FOR ALL USING (true);`.trim();
+);`.trim();
 
   return (
     <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#050a18] text-slate-100' : 'bg-slate-50 text-slate-900'} transition-colors duration-500 pb-20 md:pb-0`}>
@@ -251,7 +262,23 @@ CREATE POLICY "Allow admin manage orders" ON orders FOR ALL USING (true);`.trim(
         ) : (
           <div className="p-4 md:p-12 max-w-6xl mx-auto space-y-10 animate-fade-in-up">
             <header className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <h2 className="text-3xl font-black text-gradient">إدارة المتجر</h2>
+              <div className="flex items-center gap-4">
+                <h2 className="text-3xl font-black text-gradient">إدارة المتجر</h2>
+                {/* مؤشر حالة الاتصال السريع */}
+                <div className={`px-3 py-1.5 rounded-full flex items-center gap-2 text-[10px] font-black ${
+                  connectionStatus === 'connected' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
+                  connectionStatus === 'error' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' :
+                  'bg-white/5 text-slate-400 border border-white/10'
+                }`}>
+                  <div className={`w-2 h-2 rounded-full ${
+                    connectionStatus === 'connected' ? 'bg-emerald-500 animate-pulse' :
+                    connectionStatus === 'error' ? 'bg-rose-500' : 'bg-slate-400'
+                  }`} />
+                  {connectionStatus === 'connected' ? 'متصل بقاعدة البيانات' : 
+                   connectionStatus === 'error' ? 'خطأ في الاتصال' : 'جاري الاتصال...'}
+                </div>
+              </div>
+              
               <div className="flex gap-2 glass-morphism p-2 rounded-2xl border border-white/5">
                 <button onClick={() => setAdminTab('orders')} className={`px-5 py-2.5 rounded-xl text-xs font-black ${adminTab === 'orders' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}>الطلبات</button>
                 <button onClick={() => setAdminTab('products')} className={`px-5 py-2.5 rounded-xl text-xs font-black ${adminTab === 'products' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}>المنتجات</button>
@@ -281,7 +308,7 @@ CREATE POLICY "Allow admin manage orders" ON orders FOR ALL USING (true);`.trim(
 
             {adminTab === 'products' && (
                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                 <button onClick={() => { setEditingProduct({ id: 'P-' + Date.now(), title: '', price: 0, category: 'إلكترونيات', description: '', thumbnail: '', stockStatus: 'available', rating: 5, reviewsCount: 0, shippingTime: '24 ساعة' }); }} className="aspect-square glass-morphism rounded-[2rem] border-2 border-dashed border-white/10 flex flex-col items-center justify-center text-slate-500 hover:border-emerald-500 hover:text-emerald-500 transition-all">
+                 <button onClick={() => { setEditingProduct({ id: 'P-' + Date.now(), title: '', price: 0, category: 'أدوات منزلية', description: '', thumbnail: '', galleryImages: [], stockStatus: 'available', rating: 5, reviewsCount: 0, shippingTime: '24 ساعة' }); }} className="aspect-square glass-morphism rounded-[2rem] border-2 border-dashed border-white/10 flex flex-col items-center justify-center text-slate-500 hover:border-emerald-500 hover:text-emerald-500 transition-all">
                     <Plus size={40}/>
                     <span className="font-black text-xs mt-2">إضافة منتج</span>
                  </button>
@@ -302,32 +329,123 @@ CREATE POLICY "Allow admin manage orders" ON orders FOR ALL USING (true);`.trim(
 
             {adminTab === 'settings' && (
               <div className="max-w-3xl mx-auto space-y-8">
+                {/* كارت حالة الاتصال المتقدمة */}
                 <div className="glass-morphism p-8 rounded-[2.5rem] border border-white/5 space-y-6">
-                  <div className="flex items-center gap-4 text-emerald-500"><Settings size={32}/><h3 className="text-2xl font-black">إعدادات الاتصال</h3></div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 text-emerald-500">
+                      <DatabaseZap size={32}/>
+                      <h3 className="text-2xl font-black">حالة الربط</h3>
+                    </div>
+                    <button 
+                      onClick={() => supabase && checkConnection(supabase)}
+                      className="p-3 bg-white/5 rounded-xl text-slate-400 hover:text-emerald-500 transition-all"
+                    >
+                      <RefreshCw size={20} className={connectionStatus === 'connecting' ? 'animate-spin' : ''} />
+                    </button>
+                  </div>
+
+                  <div className={`p-6 rounded-2xl border flex items-center justify-between ${
+                    connectionStatus === 'connected' ? 'bg-emerald-500/5 border-emerald-500/10' :
+                    connectionStatus === 'error' ? 'bg-rose-500/5 border-rose-500/10' : 'bg-white/5 border-white/10'
+                  }`}>
+                    <div className="flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                        connectionStatus === 'connected' ? 'bg-emerald-500 text-black' :
+                        connectionStatus === 'error' ? 'bg-rose-500 text-white' : 'bg-slate-700 text-slate-400'
+                      }`}>
+                        {connectionStatus === 'connected' ? <CheckCircle2 /> : connectionStatus === 'error' ? <AlertTriangle /> : <Activity />}
+                      </div>
+                      <div>
+                        <p className="font-black text-sm">
+                          {connectionStatus === 'connected' ? 'متصل بنجاح' : 
+                           connectionStatus === 'error' ? 'رابط أو مفتاح خاطئ' : 'جاري التحقق...'}
+                        </p>
+                        <p className="text-[10px] text-slate-500 font-bold">حالة قاعدة البيانات اللحظية</p>
+                      </div>
+                    </div>
+                    {connectionStatus === 'error' && (
+                      <span className="text-[10px] font-black text-rose-500 underline cursor-help">كيف أصلح هذا؟</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="glass-morphism p-8 rounded-[2.5rem] border border-white/5 space-y-6">
+                  <div className="flex items-center gap-4 text-emerald-500"><Settings size={32}/><h3 className="text-2xl font-black">إعدادات Supabase</h3></div>
                   <div className="space-y-4">
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-black text-slate-500 px-2 flex items-center gap-2"><Globe size={14}/> SUPABASE URL</label>
-                      <input type="text" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm" value={dbConfig.url} onChange={e => setDbConfig({...dbConfig, url: e.target.value})} placeholder="https://xxx.supabase.co" />
+                      <input type="text" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm text-ltr" value={dbConfig.url} onChange={e => setDbConfig({...dbConfig, url: e.target.value})} placeholder="https://xxx.supabase.co" />
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-black text-slate-500 px-2 flex items-center gap-2"><Key size={14}/> SUPABASE ANON/PUBLIC KEY</label>
-                      <input type="password" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm" value={dbConfig.key} onChange={e => setDbConfig({...dbConfig, key: e.target.value})} placeholder="eyJhbG..." />
+                      <input type="password" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm text-ltr" value={dbConfig.key} onChange={e => setDbConfig({...dbConfig, key: e.target.value})} placeholder="eyJhbG..." />
                     </div>
-                    <button onClick={updateDbSettings} className="w-full bg-emerald-500 text-black py-4 rounded-xl font-black text-base shadow-xl flex items-center justify-center gap-2"><Save size={20}/> حفظ الإعدادات</button>
+                    <button onClick={updateDbSettings} className="w-full bg-emerald-500 text-black py-4 rounded-xl font-black text-base shadow-xl flex items-center justify-center gap-2"><Save size={20}/> حفظ واختبار الاتصال</button>
                   </div>
                 </div>
 
                 <div className="glass-morphism p-8 rounded-[2.5rem] border border-white/5 space-y-4">
                   <div className="flex items-center gap-4 text-emerald-500"><Terminal size={32}/><h3 className="text-xl font-black">إعدادات SQL</h3></div>
-                  <p className="text-slate-400 text-xs font-bold leading-relaxed">انسخ الكود أدناه ونفذه في SQL Editor بـ Supabase لإنشاء الجداول:</p>
-                  <pre className="bg-black/60 p-5 rounded-2xl text-[10px] text-emerald-400 font-mono overflow-x-auto border border-white/5">{sqlSetup}</pre>
-                  <button onClick={() => { navigator.clipboard.writeText(sqlSetup); showToast('تم النسخ'); }} className="w-full bg-white/5 py-4 rounded-xl font-black text-sm flex items-center justify-center gap-2 border border-white/10"><Copy size={18}/> نسخ الكود</button>
+                  <p className="text-slate-400 text-xs font-bold leading-relaxed">انسخ الكود أدناه ونفذه في SQL Editor بـ Supabase لإنشاء الجداول اللازمة:</p>
+                  <pre className="bg-black/60 p-5 rounded-2xl text-[10px] text-emerald-400 font-mono overflow-x-auto border border-white/5 custom-scroll">{sqlSetup}</pre>
+                  <button onClick={() => { navigator.clipboard.writeText(sqlSetup); showToast('تم النسخ'); }} className="w-full bg-white/5 py-4 rounded-xl font-black text-sm flex items-center justify-center gap-2 border border-white/10"><Copy size={18}/> نسخ كود الجداول</button>
                 </div>
               </div>
             )}
           </div>
         )}
       </main>
+
+      {/* مودال تعديل المنتج */}
+      {editingProduct && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-[#050a18]/95 backdrop-blur-xl">
+          <form onSubmit={saveProduct} className="max-w-3xl w-full glass-morphism p-8 md:p-12 rounded-[3rem] space-y-6 overflow-y-auto max-h-[90vh] border border-white/5 no-scrollbar">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-2xl font-black text-gradient">إدارة بيانات المنتج</h3>
+              <button type="button" onClick={() => setEditingProduct(null)} className="p-2 bg-white/5 rounded-full hover:bg-rose-500/20 text-slate-400 hover:text-rose-500 transition-all"><X size={20}/></button>
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-500 uppercase px-1">اسم المنتج *</label>
+                <input type="text" required className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold text-sm" value={editingProduct.title} onChange={e => setEditingProduct({...editingProduct, title: e.target.value})} placeholder="مثال: ساعة ذكية الترا" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-500 uppercase px-1">السعر (DH) *</label>
+                <input type="number" required className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold text-sm" value={editingProduct.price} onChange={e => setEditingProduct({...editingProduct, price: Number(e.target.value)})} placeholder="299" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-500 uppercase px-1">رابط الصورة الرئيسية *</label>
+                <input type="text" required className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold text-sm text-ltr" value={editingProduct.thumbnail} onChange={e => setEditingProduct({...editingProduct, thumbnail: e.target.value})} placeholder="https://..." />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-500 uppercase px-1">الفئة</label>
+                <select className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold text-sm" value={editingProduct.category} onChange={e => setEditingProduct({...editingProduct, category: e.target.value as any})}>
+                  {CATEGORIES.filter(c => c !== 'الكل').map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-500 uppercase px-1">وصف المنتج</label>
+              <textarea required className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold text-sm h-32" value={editingProduct.description} onChange={e => setEditingProduct({...editingProduct, description: e.target.value})} placeholder="اكتب تفاصيل المنتج هنا..." />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-500 uppercase px-1 flex justify-between">
+                <span>صور المعرض (Gallery)</span>
+                <span className="text-emerald-500">رابط واحد في كل سطر</span>
+              </label>
+              <textarea className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-mono text-xs h-32 text-ltr" value={editingProduct.galleryImages?.join('\n')} onChange={e => setEditingProduct({...editingProduct, galleryImages: e.target.value.split('\n').filter(url => url.trim() !== '')})} placeholder="https://image1.jpg&#10;https://image2.jpg" />
+            </div>
+
+            <div className="flex gap-4 pt-6">
+              <button type="submit" className="flex-1 bg-emerald-500 text-black py-4 rounded-2xl font-black text-lg shadow-xl shadow-emerald-500/10 hover:scale-[1.02] transition-transform">حفظ كافة البيانات</button>
+              <button type="button" onClick={() => setEditingProduct(null)} className="px-8 bg-white/5 rounded-2xl font-black text-slate-400 hover:text-white transition-all">إلغاء</button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {selectedProduct && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 md:p-6 overflow-hidden">
@@ -398,29 +516,6 @@ CREATE POLICY "Allow admin manage orders" ON orders FOR ALL USING (true);`.trim(
             <input type="password" placeholder="الرمز السري" className="w-full bg-white/5 border border-white/10 p-5 rounded-xl font-bold text-center text-3xl tracking-widest" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && passwordInput === adminPassword && (setIsAdminAuthenticated(true), sessionStorage.setItem('admin_auth', 'true'), setShowLoginModal(false), setView('admin'))} />
             <button onClick={() => passwordInput === adminPassword ? (setIsAdminAuthenticated(true), sessionStorage.setItem('admin_auth', 'true'), setShowLoginModal(false), setView('admin')) : showToast('الرمز خاطئ', 'error')} className="w-full bg-emerald-500 text-black py-4 rounded-xl font-black text-lg">دخول</button>
           </div>
-        </div>
-      )}
-
-      {editingProduct && (
-        <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-[#050a18]/95 backdrop-blur-xl">
-          <form onSubmit={saveProduct} className="max-w-2xl w-full glass-morphism p-8 md:p-12 rounded-[3rem] space-y-6 overflow-y-auto max-h-[90vh] border border-white/5">
-            <h3 className="text-2xl font-black text-gradient">إدارة المنتج</h3>
-            <div className="grid md:grid-cols-2 gap-5">
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-500 uppercase px-1">اسم المنتج</label><input type="text" required className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-xs" value={editingProduct.title} onChange={e => setEditingProduct({...editingProduct, title: e.target.value})} /></div>
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-500 uppercase px-1">السعر (DH)</label><input type="number" required className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-xs" value={editingProduct.price} onChange={e => setEditingProduct({...editingProduct, price: Number(e.target.value)})} /></div>
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-500 uppercase px-1">رابط الصورة</label><input type="text" required className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-xs" value={editingProduct.thumbnail} onChange={e => setEditingProduct({...editingProduct, thumbnail: e.target.value})} /></div>
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-500 uppercase px-1">الفئة</label>
-                <select className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-xs" value={editingProduct.category} onChange={e => setEditingProduct({...editingProduct, category: e.target.value as any})}>
-                  {CATEGORIES.filter(c => c !== 'الكل').map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="space-y-1"><label className="text-[10px] font-black text-slate-500 uppercase px-1">وصف المنتج</label><textarea required className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-xs h-32" value={editingProduct.description} onChange={e => setEditingProduct({...editingProduct, description: e.target.value})} /></div>
-            <div className="flex gap-3 pt-4">
-              <button type="submit" className="flex-1 bg-emerald-500 text-black py-4 rounded-xl font-black text-lg">حفظ المنتج</button>
-              <button type="button" onClick={() => setEditingProduct(null)} className="px-8 bg-white/5 rounded-xl font-black text-slate-400">إلغاء</button>
-            </div>
-          </form>
         </div>
       )}
     </div>
