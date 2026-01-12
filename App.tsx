@@ -5,7 +5,8 @@ import {
   ArrowRight, Package, Sparkles, ChevronLeft, ChevronDown,
   Settings, Edit3, Trash2, LayoutDashboard, Save, Lock, Sun, Moon,
   CheckCircle2, AlertTriangle, Plus, RefreshCw, Terminal, Copy,
-  ImagePlus, UploadCloud, ImageIcon, Filter, Clock, CheckCircle
+  ImagePlus, UploadCloud, ImageIcon, Filter, Clock, CheckCircle,
+  Eye, EyeOff
 } from 'lucide-react';
 import { StoreProduct, StoreOrder } from './types';
 import { MOCK_PRODUCTS, CATEGORIES, MOROCCAN_CITIES } from './constants';
@@ -36,6 +37,7 @@ const App: React.FC = () => {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const [customerInfo, setCustomerInfo] = useState({ fullName: '', phoneNumber: '', city: '' });
   const [activeOrder, setActiveOrder] = useState<StoreOrder | null>(null);
@@ -513,9 +515,25 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 bg-[#050a18]/95 backdrop-blur-xl">
           <div className="max-w-xs w-full glass-morphism p-10 rounded-[3rem] space-y-8 text-center">
             <div className="w-20 h-20 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto border border-emerald-500/20"><Lock size={40}/></div>
-            <input type="password" placeholder="الرمز السري" className="w-full bg-white/5 border border-white/10 p-5 rounded-xl font-bold text-center text-3xl tracking-widest" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && passwordInput === adminPassword && (setIsAdminAuthenticated(true), sessionStorage.setItem('admin_auth', 'true'), setShowLoginModal(false), setView('admin'))} />
-            <button onClick={() => passwordInput === adminPassword ? (setIsAdminAuthenticated(true), sessionStorage.setItem('admin_auth', 'true'), setShowLoginModal(false), setView('admin')) : showToast('الرمز خاطئ', 'error')} className="w-full bg-emerald-500 text-black py-4 rounded-xl font-black text-lg">دخول</button>
-            <button onClick={() => setShowLoginModal(false)} className="text-slate-500 text-xs font-bold">إلغاء</button>
+            <div className="relative group">
+              <input 
+                type={showPassword ? 'text' : 'password'} 
+                placeholder="الرمز السري" 
+                className="w-full bg-white/5 border border-white/10 p-5 rounded-xl font-bold text-center text-3xl tracking-widest focus:border-emerald-500 outline-none transition-all" 
+                value={passwordInput} 
+                onChange={e => setPasswordInput(e.target.value)} 
+                onKeyDown={e => e.key === 'Enter' && passwordInput === adminPassword && (setIsAdminAuthenticated(true), sessionStorage.setItem('admin_auth', 'true'), setShowLoginModal(false), setView('admin'))} 
+              />
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute left-4 top-1/2 -translate-y-1/2 p-2 text-slate-500 hover:text-emerald-500 transition-colors"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+            <button onClick={() => passwordInput === adminPassword ? (setIsAdminAuthenticated(true), sessionStorage.setItem('admin_auth', 'true'), setShowLoginModal(false), setView('admin')) : showToast('الرمز خاطئ', 'error')} className="w-full bg-emerald-500 text-black py-4 rounded-xl font-black text-lg premium-btn">دخول</button>
+            <button onClick={() => { setShowLoginModal(false); setPasswordInput(''); setShowPassword(false); }} className="text-slate-500 text-xs font-bold hover:text-rose-500 transition-colors">إلغاء</button>
           </div>
         </div>
       )}
