@@ -1,30 +1,32 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  X, ShoppingBag, ShoppingCart, Star, Truck, MapPin, Phone, User, Check, 
-  ArrowRight, Package, Sparkles, ShieldCheck, ChevronLeft, Bell, 
-  Settings, Edit3, Trash2, LayoutDashboard, Save, Lock, LogOut, 
-  PlusCircle, Eye, EyeOff, Sun, Moon, Image as ImageIcon, 
-  Share2, Copy, Facebook, Link as LinkIcon, Camera, 
-  Activity, Info, CheckCircle2, AlertTriangle, Plus,
-  ChevronDown, Search, ArrowUpRight, Zap, Award, UploadCloud, Download,
-  ImagePlus, HelpCircle, RefreshCcw, Globe, Database, Server, Link, Code, RefreshCw,
-  Wifi, WifiOff, Radio, SlidersHorizontal, MoreVertical, CopyCheck, Terminal,
-  Home, Key, CloudLightning, DatabaseZap
+  X, ShoppingBag, Star, Truck, MapPin, Phone, User, Check, 
+  ArrowRight, Package, Sparkles, ChevronLeft, 
+  Settings, Edit3, Trash2, LayoutDashboard, Save, Lock, Sun, Moon,
+  CheckCircle2, AlertTriangle, Plus, RefreshCw, Terminal, Copy
 } from 'lucide-react';
-import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { StoreProduct, StoreOrder, CustomerInfo, Category } from './types';
-import { MOCK_PRODUCTS, CATEGORIES, MOROCCAN_CITIES, STORE_CONFIG } from './constants';
+import { StoreProduct, StoreOrder } from './types';
+import { MOCK_PRODUCTS, CATEGORIES, MOROCCAN_CITIES } from './constants';
 
 const adminPassword = 'admin'; 
 
 const App: React.FC = () => {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [view, setView] = useState<'shop' | 'admin'>('shop');
-  const [adminTab, setAdminTab] = useState<'orders' | 'products' | 'settings'>('orders');
+  const [adminTab, setAdminTab] = useState<'orders' | 'products'>('orders');
   
-  const [products, setProducts] = useState<StoreProduct[]>([]);
-  const [orders, setOrders] = useState<StoreOrder[]>([]);
+  // استخدام LocalStorage للمنتجات والطلبات لضمان بقاء البيانات دون حاجة لسيرفر
+  const [products, setProducts] = useState<StoreProduct[]>(() => {
+    const saved = localStorage.getItem('local_products');
+    return saved ? JSON.parse(saved) : MOCK_PRODUCTS;
+  });
+  
+  const [orders, setOrders] = useState<StoreOrder[]>(() => {
+    const saved = localStorage.getItem('local_orders');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const [selectedProduct, setSelectedProduct] = useState<StoreProduct | null>(null);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | ''}>({message: '', type: ''});
@@ -36,210 +38,70 @@ const App: React.FC = () => {
 
   const [customerInfo, setCustomerInfo] = useState({ fullName: '', phoneNumber: '', city: '' });
   const [activeOrder, setActiveOrder] = useState<StoreOrder | null>(null);
-  
-  const [dbConfig, setDbConfig] = useState({
-    url: localStorage.getItem('sb_url') || 'https://xulrpjjucjwoctgkpqli.supabase.co',
-    key: localStorage.getItem('sb_key') || 'sb_publishable_opXVbx0wGCR7vCxGamuPBw_JpNs5aSe'
-  });
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'error' | 'connecting' | 'idle'>('idle');
-  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
+
+  // تحديث التخزين المحلي عند تغيير البيانات
+  useEffect(() => {
+    localStorage.setItem('local_products', JSON.stringify(products));
+  }, [products]);
+
+  useEffect(() => {
+    localStorage.setItem('local_orders', JSON.stringify(orders));
+  }, [orders]);
+
+  useEffect(() => {
+    if (sessionStorage.getItem('admin_auth') === 'true') setIsAdminAuthenticated(true);
+  }, []);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast({ message: '', type: '' }), 5000);
   };
 
-  const checkConnection = async (client: SupabaseClient) => {
-    setConnectionStatus('connecting');
-    try {
-      const { data, error } = await client.from('products').select('count', { count: 'exact', head: true });
-      if (error) throw error;
-      setConnectionStatus('connected');
-      return true;
-    } catch (err) {
-      console.error("Connection Check Failed:", err);
-      setConnectionStatus('error');
-      return false;
-    }
-  };
-
-  const initSupabase = async (url: string, key: string) => {
-    try {
-      if (url && key) {
-        const client = createClient(url.trim(), key.trim());
-        setSupabase(client);
-        const isOk = await checkConnection(client);
-        if (isOk) fetchData(client);
-        return client;
-      }
-    } catch (e) {
-      setConnectionStatus('error');
-    }
-    return null;
-  };
-
-  useEffect(() => {
-    initSupabase(dbConfig.url, dbConfig.key);
-  }, []);
-
-  const fetchData = async (clientOverride?: SupabaseClient) => {
-    const client = clientOverride || supabase;
-    if (client) {
-      try {
-        const { data: dbProducts, error: pError } = await client.from('products').select('*').order('created_at', { ascending: false });
-        if (!pError && dbProducts) setProducts(dbProducts.length > 0 ? dbProducts : MOCK_PRODUCTS);
-        
-        const { data: dbOrders, error: oError } = await client.from('orders').select('*').order('created_at', { ascending: false });
-        if (!oError && dbOrders) {
-          const formattedOrders = dbOrders.map((o: any) => ({
-            orderId: o.order_id,
-            productTitle: o.product_title,
-            productPrice: o.product_price,
-            customer: {
-              fullName: o.full_name,
-              phoneNumber: o.phone_number,
-              city: o.city,
-              address: o.address || 'طلب سريع'
-            },
-            status: o.status,
-            orderDate: new Date(o.created_at).toLocaleDateString('ar-MA')
-          }));
-          setOrders(formattedOrders);
-        }
-      } catch (err) {
-        console.error("Fetch error", err);
-      }
-    }
-  };
-
-  useEffect(() => {
-    if (sessionStorage.getItem('admin_auth') === 'true') setIsAdminAuthenticated(true);
-  }, []);
-
-  const updateDbSettings = async () => {
-    localStorage.setItem('sb_url', dbConfig.url);
-    localStorage.setItem('sb_key', dbConfig.key);
-    const newClient = await initSupabase(dbConfig.url, dbConfig.key);
-    if (newClient) {
-      showToast('تم تحديث الإعدادات');
-    } else {
-      showToast('فشل الاتصال بالإعدادات الجديدة', 'error');
-    }
-  };
-
-  const confirmOrder = async () => {
+  const confirmOrder = () => {
     if (!customerInfo.fullName || !customerInfo.phoneNumber || !customerInfo.city) {
       showToast('المرجو ملأ المعلومات الأساسية', 'error'); return;
     }
 
-    const orderPayload = {
-      order_id: 'ORD-' + Math.random().toString(36).substring(2, 7).toUpperCase(),
-      product_id: selectedProduct?.id,
-      product_title: selectedProduct?.title,
-      product_price: selectedProduct?.price,
-      full_name: customerInfo.fullName,
-      phone_number: customerInfo.phoneNumber,
-      city: customerInfo.city,
-      address: 'طلب سريع - بدون عنوان مفصل',
-      status: 'pending'
+    const newOrder: StoreOrder = {
+      orderId: 'ORD-' + Math.random().toString(36).substring(2, 7).toUpperCase(),
+      productId: selectedProduct?.id || '',
+      productTitle: selectedProduct?.title || '',
+      productPrice: selectedProduct?.price || 0,
+      customer: { ...customerInfo, address: 'طلب سريع' },
+      status: 'pending',
+      orderDate: new Date().toLocaleDateString('ar-MA')
     };
     
-    if (supabase) {
-      // محاولة الإرسال مع طباعة تفاصيل الخطأ في الـ Console
-      const { data, error } = await supabase.from('orders').insert([orderPayload]);
-      
-      if (error) {
-        console.error("Supabase Order Error Details:", error);
-        showToast(`خطأ في الإرسال: ${error.message}`, 'error');
-      } else {
-        showToast('تم إرسال الطلب بنجاح');
-        fetchData();
-        setActiveOrder({
-          orderId: orderPayload.order_id,
-          productTitle: orderPayload.product_title,
-          productPrice: orderPayload.product_price,
-          customer: { ...customerInfo, address: orderPayload.address },
-          status: 'pending',
-          orderDate: new Date().toLocaleDateString('ar-MA')
-        } as any);
-        
-        setIsCheckingOut(false);
-        setSelectedProduct(null);
-        setCustomerInfo({ fullName: '', phoneNumber: '', city: '' });
-      }
-    } else {
-      showToast('قاعدة البيانات غير متصلة', 'error');
-    }
+    setOrders([newOrder, ...orders]);
+    setActiveOrder(newOrder);
+    setIsCheckingOut(false);
+    setSelectedProduct(null);
+    setCustomerInfo({ fullName: '', phoneNumber: '', city: '' });
+    showToast('تم تسجيل طلبك محلياً بنجاح');
   };
 
   const saveProduct = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingProduct || !supabase) return;
+    if (!editingProduct) return;
     
-    supabase.from('products').upsert(editingProduct).then(({ error }) => {
-      if (!error) { 
-        showToast('تم حفظ المنتج'); 
-        fetchData(); 
-        setEditingProduct(null); 
-      }
-      else {
-        console.error("Save Product Error:", error);
-        showToast('فشل في الحفظ', 'error');
-      }
-    });
+    const index = products.findIndex(p => p.id === editingProduct.id);
+    if (index > -1) {
+      const updatedProducts = [...products];
+      updatedProducts[index] = editingProduct;
+      setProducts(updatedProducts);
+    } else {
+      setProducts([editingProduct, ...products]);
+    }
+    
+    showToast('تم حفظ المنتج في الذاكرة المحلية');
+    setEditingProduct(null);
   };
 
   const deleteProduct = (id: string) => {
-    if (!window.confirm('هل تريد حذف المنتج؟') || !supabase) return;
-    supabase.from('products').delete().eq('id', id).then(({ error }) => {
-      if (!error) { showToast('تم الحذف'); fetchData(); }
-    });
+    if (!window.confirm('هل تريد حذف المنتج؟')) return;
+    setProducts(products.filter(p => p.id !== id));
+    showToast('تم حذف المنتج');
   };
-
-  const sqlSetup = `-- 1. إنشاء جدول المنتجات
-CREATE TABLE IF NOT EXISTS products (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  price NUMERIC NOT NULL,
-  thumbnail TEXT,
-  description TEXT,
-  category TEXT,
-  "galleryImages" JSONB DEFAULT '[]',
-  "stockStatus" TEXT DEFAULT 'available',
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 2. إنشاء جدول الطلبات
-CREATE TABLE IF NOT EXISTS orders (
-  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-  order_id TEXT UNIQUE,
-  product_id TEXT,
-  product_title TEXT,
-  product_price NUMERIC,
-  full_name TEXT,
-  phone_number TEXT,
-  city TEXT,
-  address TEXT,
-  status TEXT DEFAULT 'pending',
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 3. تفعيل الحماية (RLS)
-ALTER TABLE products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
-
--- 4. سياسات الوصول (هام جداً لحل مشكلة الإرسال)
-DROP POLICY IF EXISTS "Allow public read" ON products;
-CREATE POLICY "Allow public read" ON products FOR SELECT USING (true);
-
-DROP POLICY IF EXISTS "Allow public insert orders" ON orders;
-CREATE POLICY "Allow public insert orders" ON orders FOR INSERT WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Allow admin all products" ON products;
-CREATE POLICY "Allow admin all products" ON products FOR ALL USING (true);
-
-DROP POLICY IF EXISTS "Allow admin all orders" ON orders;
-CREATE POLICY "Allow admin all orders" ON orders FOR ALL USING (true);`.trim();
 
   return (
     <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#050a18] text-slate-100' : 'bg-slate-50 text-slate-900'} transition-colors duration-500 pb-20 md:pb-0`}>
@@ -275,7 +137,7 @@ CREATE POLICY "Allow admin all orders" ON orders FOR ALL USING (true);`.trim();
               {products.length === 0 ? (
                 <div className="col-span-full py-20 text-center space-y-4">
                   <Package size={64} className="mx-auto text-slate-700" />
-                  <p className="text-slate-500 font-bold">المتجر فارغ حالياً، المرجو إضافة منتجات من لوحة التحكم.</p>
+                  <p className="text-slate-500 font-bold">المتجر فارغ حالياً.</p>
                 </div>
               ) : products.map((product) => (
                 <div key={product.id} className="group glass-morphism rounded-[2rem] overflow-hidden flex flex-col border border-white/5 product-card-glow">
@@ -294,32 +156,22 @@ CREATE POLICY "Allow admin all orders" ON orders FOR ALL USING (true);`.trim();
         ) : (
           <div className="p-4 md:p-12 max-w-6xl mx-auto space-y-10 animate-fade-in-up">
             <header className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <div className="flex items-center gap-4">
-                <h2 className="text-3xl font-black text-gradient">إدارة المتجر</h2>
-                <div className={`px-3 py-1.5 rounded-full flex items-center gap-2 text-[10px] font-black ${
-                  connectionStatus === 'connected' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
-                  connectionStatus === 'error' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' :
-                  'bg-white/5 text-slate-400 border border-white/10'
-                }`}>
-                  <div className={`w-2 h-2 rounded-full ${
-                    connectionStatus === 'connected' ? 'bg-emerald-500 animate-pulse' :
-                    connectionStatus === 'error' ? 'bg-rose-500' : 'bg-slate-400'
-                  }`} />
-                  {connectionStatus === 'connected' ? 'متصل' : 
-                   connectionStatus === 'error' ? 'خطأ' : 'جاري...'}
-                </div>
-              </div>
+              <h2 className="text-3xl font-black text-gradient">إدارة المتجر</h2>
               
               <div className="flex gap-2 glass-morphism p-2 rounded-2xl border border-white/5">
                 <button onClick={() => setAdminTab('orders')} className={`px-5 py-2.5 rounded-xl text-xs font-black ${adminTab === 'orders' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}>الطلبات</button>
                 <button onClick={() => setAdminTab('products')} className={`px-5 py-2.5 rounded-xl text-xs font-black ${adminTab === 'products' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}>المنتجات</button>
-                <button onClick={() => setAdminTab('settings')} className={`px-5 py-2.5 rounded-xl text-xs font-black ${adminTab === 'settings' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}>الإعدادات</button>
+                <button onClick={() => { setIsAdminAuthenticated(false); sessionStorage.removeItem('admin_auth'); setView('shop'); }} className="px-5 py-2.5 rounded-xl text-xs font-black text-rose-500">خروج</button>
               </div>
             </header>
 
             {adminTab === 'orders' && (
               <div className="space-y-4">
-                {orders.length === 0 ? <div className="py-20 text-center text-slate-500 font-bold">لا توجد طلبيات</div> : orders.map((order, i) => (
+                <div className="flex justify-between items-center px-4">
+                   <h3 className="font-black text-lg">سجل الطلبات ({orders.length})</h3>
+                   <button onClick={() => { setOrders([]); localStorage.removeItem('local_orders'); showToast('تم مسح السجل'); }} className="text-xs text-rose-500 font-bold border border-rose-500/20 px-3 py-1 rounded-lg">مسح الكل</button>
+                </div>
+                {orders.length === 0 ? <div className="py-20 text-center text-slate-500 font-bold">لا توجد طلبيات مسجلة</div> : orders.map((order, i) => (
                   <div key={i} className="glass-morphism p-6 rounded-[2rem] border border-white/5 flex flex-col md:flex-row justify-between items-center gap-6">
                     <div className="flex items-center gap-6">
                       <div className="w-14 h-14 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center font-black">#</div>
@@ -330,7 +182,7 @@ CREATE POLICY "Allow admin all orders" ON orders FOR ALL USING (true);`.trim();
                     </div>
                     <div className="text-center md:text-right">
                       <p className="text-xs font-black text-emerald-500 mb-2">{order.productTitle}</p>
-                      <span className="px-4 py-1.5 bg-emerald-500/10 text-emerald-500 rounded-full text-[10px] font-black uppercase tracking-widest">طلب جديد</span>
+                      <span className="px-4 py-1.5 bg-emerald-500/10 text-emerald-500 rounded-full text-[10px] font-black uppercase tracking-widest">{order.orderDate}</span>
                     </div>
                   </div>
                 ))}
@@ -357,55 +209,11 @@ CREATE POLICY "Allow admin all orders" ON orders FOR ALL USING (true);`.trim();
                  ))}
                </div>
             )}
-
-            {adminTab === 'settings' && (
-              <div className="max-w-3xl mx-auto space-y-8">
-                <div className="glass-morphism p-8 rounded-[2.5rem] border border-white/5 space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 text-emerald-500"><DatabaseZap size={32}/><h3 className="text-2xl font-black">حالة الربط</h3></div>
-                    <button onClick={() => supabase && checkConnection(supabase)} className="p-3 bg-white/5 rounded-xl text-slate-400 hover:text-emerald-500 transition-all"><RefreshCw size={20} className={connectionStatus === 'connecting' ? 'animate-spin' : ''} /></button>
-                  </div>
-                  <div className={`p-6 rounded-2xl border flex items-center justify-between ${connectionStatus === 'connected' ? 'bg-emerald-500/5 border-emerald-500/10' : connectionStatus === 'error' ? 'bg-rose-500/5 border-rose-500/10' : 'bg-white/5 border-white/10'}`}>
-                    <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${connectionStatus === 'connected' ? 'bg-emerald-500 text-black' : connectionStatus === 'error' ? 'bg-rose-500 text-white' : 'bg-slate-700 text-slate-400'}`}>
-                        {connectionStatus === 'connected' ? <CheckCircle2 /> : connectionStatus === 'error' ? <AlertTriangle /> : <Activity />}
-                      </div>
-                      <div>
-                        <p className="font-black text-sm">{connectionStatus === 'connected' ? 'متصل بنجاح' : connectionStatus === 'error' ? 'خطأ في الاتصال' : 'جاري التحقق...'}</p>
-                        <p className="text-[10px] text-slate-500 font-bold">تأكد من إدخال البيانات بشكل صحيح</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="glass-morphism p-8 rounded-[2.5rem] border border-white/5 space-y-6">
-                  <div className="flex items-center gap-4 text-emerald-500"><Settings size={32}/><h3 className="text-2xl font-black">إعدادات Supabase</h3></div>
-                  <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-500 px-2 flex items-center gap-2"><Globe size={14}/> URL</label>
-                      <input type="text" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm text-ltr" value={dbConfig.url} onChange={e => setDbConfig({...dbConfig, url: e.target.value})} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-500 px-2 flex items-center gap-2"><Key size={14}/> ANON KEY</label>
-                      <input type="password" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm text-ltr" value={dbConfig.key} onChange={e => setDbConfig({...dbConfig, key: e.target.value})} />
-                    </div>
-                    <button onClick={updateDbSettings} className="w-full bg-emerald-500 text-black py-4 rounded-xl font-black text-base shadow-xl flex items-center justify-center gap-2"><Save size={20}/> حفظ واختبار الاتصال</button>
-                  </div>
-                </div>
-
-                <div className="glass-morphism p-8 rounded-[2.5rem] border border-white/5 space-y-4">
-                  <div className="flex items-center gap-4 text-emerald-500"><Terminal size={32}/><h3 className="text-xl font-black">كود الـ SQL لحل مشاكل الإرسال</h3></div>
-                  <p className="text-rose-500 text-xs font-bold leading-relaxed">انسخ الكود أدناه ونفذه في Supabase SQL Editor. هذا الكود يفتح أذونات الإرسال للزوار.</p>
-                  <pre className="bg-black/60 p-5 rounded-2xl text-[10px] text-emerald-400 font-mono overflow-x-auto border border-white/5 custom-scroll ltr text-left">{sqlSetup}</pre>
-                  <button onClick={() => { navigator.clipboard.writeText(sqlSetup); showToast('تم النسخ'); }} className="w-full bg-white/5 py-4 rounded-xl font-black text-sm flex items-center justify-center gap-2 border border-white/10"><Copy size={18}/> نسخ الكود</button>
-                </div>
-              </div>
-            )}
           </div>
         )}
       </main>
 
-      {/* مودالات (تعديل، طلب، شكر، دخول) - نفس المنطق السابق */}
+      {/* مودال تعديل المنتج */}
       {editingProduct && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-[#050a18]/95 backdrop-blur-xl">
           <form onSubmit={saveProduct} className="max-w-3xl w-full glass-morphism p-8 md:p-12 rounded-[3rem] space-y-6 overflow-y-auto max-h-[90vh] border border-white/5 no-scrollbar">
@@ -473,8 +281,8 @@ CREATE POLICY "Allow admin all orders" ON orders FOR ALL USING (true);`.trim();
           <div className="max-w-md w-full glass-morphism p-10 md:p-12 rounded-[3rem] text-center space-y-8 animate-fade-in-up border border-emerald-500/20">
             <div className="w-24 h-24 bg-emerald-500 rounded-full flex items-center justify-center mx-auto text-black shadow-2xl animate-bounce"><Check size={54} /></div>
             <h3 className="text-3xl font-black text-gradient">تم تسجيل طلبك!</h3>
-            <p className="text-slate-400 font-medium text-lg leading-relaxed">سنتصل بك في أقل من 24 ساعة لتأكيد معلوماتك.</p>
-            <button onClick={() => setActiveOrder(null)} className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg shadow-xl">حسناً</button>
+            <p className="text-slate-400 font-medium text-lg leading-relaxed">شكراً لثقتك، سنتصل بك قريباً.</p>
+            <button onClick={() => setActiveOrder(null)} className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg shadow-xl">إغلاق</button>
           </div>
         </div>
       )}
@@ -485,6 +293,7 @@ CREATE POLICY "Allow admin all orders" ON orders FOR ALL USING (true);`.trim();
             <div className="w-20 h-20 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto border border-emerald-500/20"><Lock size={40}/></div>
             <input type="password" placeholder="الرمز السري" className="w-full bg-white/5 border border-white/10 p-5 rounded-xl font-bold text-center text-3xl tracking-widest" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && passwordInput === adminPassword && (setIsAdminAuthenticated(true), sessionStorage.setItem('admin_auth', 'true'), setShowLoginModal(false), setView('admin'))} />
             <button onClick={() => passwordInput === adminPassword ? (setIsAdminAuthenticated(true), sessionStorage.setItem('admin_auth', 'true'), setShowLoginModal(false), setView('admin')) : showToast('الرمز خاطئ', 'error')} className="w-full bg-emerald-500 text-black py-4 rounded-xl font-black text-lg">دخول</button>
+            <button onClick={() => setShowLoginModal(false)} className="text-slate-500 text-xs font-bold">إلغاء</button>
           </div>
         </div>
       )}
