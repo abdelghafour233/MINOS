@@ -34,10 +34,10 @@ const App: React.FC = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
 
-  const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({ fullName: '', phoneNumber: '', city: '', address: '' });
+  // تهيئة معلومات الزبون بدون العنوان
+  const [customerInfo, setCustomerInfo] = useState({ fullName: '', phoneNumber: '', city: '' });
   const [activeOrder, setActiveOrder] = useState<StoreOrder | null>(null);
   
-  // إعدادات Supabase مع الحفظ في localStorage
   const [dbConfig, setDbConfig] = useState({
     url: localStorage.getItem('sb_url') || 'https://xulrpjjucjwoctgkpqli.supabase.co',
     key: localStorage.getItem('sb_key') || 'sb_publishable_opXVbx0wGCR7vCxGamuPBw_JpNs5aSe'
@@ -50,7 +50,6 @@ const App: React.FC = () => {
     setTimeout(() => setToast({ message: '', type: '' }), 5000);
   };
 
-  // تهيئة أو إعادة تهيئة Supabase
   const initSupabase = (url: string, key: string) => {
     try {
       if (url && key) {
@@ -86,7 +85,7 @@ const App: React.FC = () => {
               fullName: o.full_name,
               phoneNumber: o.phone_number,
               city: o.city,
-              address: o.address
+              address: o.address || 'طلب سريع'
             },
             status: o.status,
             orderDate: new Date(o.created_at).toLocaleDateString('ar-MA')
@@ -127,7 +126,7 @@ const App: React.FC = () => {
       full_name: customerInfo.fullName,
       phone_number: customerInfo.phoneNumber,
       city: customerInfo.city,
-      address: customerInfo.address || 'غير محدد',
+      address: 'طلب سريع - بدون عنوان مفصل',
       status: 'pending',
       created_at: new Date().toISOString()
     };
@@ -142,14 +141,14 @@ const App: React.FC = () => {
         orderId: orderPayload.order_id,
         productTitle: orderPayload.product_title,
         productPrice: orderPayload.product_price,
-        customer: customerInfo,
+        customer: { ...customerInfo, address: orderPayload.address },
         status: 'pending',
         orderDate: new Date().toLocaleDateString('ar-MA')
       } as any);
       
       setIsCheckingOut(false);
       setSelectedProduct(null);
-      setCustomerInfo({ fullName: '', phoneNumber: '', city: '', address: '' });
+      setCustomerInfo({ fullName: '', phoneNumber: '', city: '' });
     }
   };
 
@@ -269,7 +268,6 @@ CREATE POLICY "Allow admin manage orders" ON orders FOR ALL USING (true);`.trim(
                       <div>
                         <h4 className="font-black text-lg md:text-xl">{order.customer.fullName}</h4>
                         <p className="text-sm text-slate-500 font-bold">{order.customer.phoneNumber} - {order.customer.city}</p>
-                        <p className="text-[10px] text-slate-400 mt-1">{order.customer.address}</p>
                       </div>
                     </div>
                     <div className="text-center md:text-right">
@@ -334,7 +332,7 @@ CREATE POLICY "Allow admin manage orders" ON orders FOR ALL USING (true);`.trim(
       {selectedProduct && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 md:p-6 overflow-hidden">
           <div className="absolute inset-0 bg-[#050a18]/95 backdrop-blur-xl" onClick={() => !isCheckingOut && setSelectedProduct(null)}></div>
-          <div className="relative w-full max-w-3xl glass-morphism rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row animate-fade-in-up border border-white/5 shadow-2xl">
+          <div className="relative w-full max-w-xl glass-morphism rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row animate-fade-in-up border border-white/5 shadow-2xl">
              <button onClick={() => { setSelectedProduct(null); setIsCheckingOut(false); }} className="absolute top-4 right-4 z-[210] p-2 bg-black/40 rounded-full text-white hover:bg-rose-500"><X size={18} /></button>
              <div className="w-full md:w-[40%] h-[20vh] md:h-auto bg-slate-950/40 flex items-center justify-center p-8">
                 <img src={selectedProduct.thumbnail} className="max-w-full max-h-full object-contain drop-shadow-2xl" />
@@ -355,9 +353,9 @@ CREATE POLICY "Allow admin manage orders" ON orders FOR ALL USING (true);`.trim(
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-5 flex flex-col h-full">
-                     <div className="flex items-center gap-3"><button onClick={() => setIsCheckingOut(false)} className="p-2 bg-white/5 rounded-xl text-slate-400 hover:text-white"><ChevronLeft size={20}/></button><h3 className="text-xl font-black text-gradient">بيانات الشحن</h3></div>
-                     <div className="space-y-4 flex-1">
+                  <div className="space-y-6 flex flex-col h-full">
+                     <div className="flex items-center gap-3"><button onClick={() => setIsCheckingOut(false)} className="p-2 bg-white/5 rounded-xl text-slate-400 hover:text-white"><ChevronLeft size={20}/></button><h3 className="text-xl font-black text-gradient">بيانات الطلب</h3></div>
+                     <div className="space-y-5 flex-1">
                        <div className="space-y-1.5">
                          <label className="text-[10px] font-black text-slate-500 flex items-center gap-1"><User size={12}/> الإسم بالكامل *</label>
                          <input type="text" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm" value={customerInfo.fullName} onChange={e => setCustomerInfo({...customerInfo, fullName: e.target.value})} placeholder="مثال: أحمد العبدلاوي" />
@@ -372,10 +370,6 @@ CREATE POLICY "Allow admin manage orders" ON orders FOR ALL USING (true);`.trim(
                            <option value="">اختر مدينتك</option>
                            {MOROCCAN_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
                          </select>
-                       </div>
-                       <div className="space-y-1.5">
-                         <label className="text-[10px] font-black text-slate-500 flex items-center gap-1"><Home size={12}/> العنوان التفصيلي</label>
-                         <input type="text" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm" value={customerInfo.address} onChange={e => setCustomerInfo({...customerInfo, address: e.target.value})} placeholder="الحي، رقم المنزل، الشارع..." />
                        </div>
                      </div>
                      <button onClick={confirmOrder} className="w-full bg-emerald-500 text-black py-4 md:py-5 rounded-2xl font-black text-lg premium-btn mt-4 shadow-xl">تأكيد الطلب</button>
