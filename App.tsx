@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   X, ShoppingBag, Star, Truck, MapPin, Phone, User, Check, 
-  ArrowRight, Package, Sparkles, ChevronLeft, 
+  ArrowRight, Package, Sparkles, ChevronLeft, ChevronDown,
   Settings, Edit3, Trash2, LayoutDashboard, Save, Lock, Sun, Moon,
   CheckCircle2, AlertTriangle, Plus, RefreshCw, Terminal, Copy
 } from 'lucide-react';
@@ -16,7 +16,6 @@ const App: React.FC = () => {
   const [view, setView] = useState<'shop' | 'admin'>('shop');
   const [adminTab, setAdminTab] = useState<'orders' | 'products'>('orders');
   
-  // استخدام LocalStorage للمنتجات والطلبات لضمان بقاء البيانات دون حاجة لسيرفر
   const [products, setProducts] = useState<StoreProduct[]>(() => {
     const saved = localStorage.getItem('local_products');
     return saved ? JSON.parse(saved) : MOCK_PRODUCTS;
@@ -39,7 +38,6 @@ const App: React.FC = () => {
   const [customerInfo, setCustomerInfo] = useState({ fullName: '', phoneNumber: '', city: '' });
   const [activeOrder, setActiveOrder] = useState<StoreOrder | null>(null);
 
-  // تحديث التخزين المحلي عند تغيير البيانات
   useEffect(() => {
     localStorage.setItem('local_products', JSON.stringify(products));
   }, [products]);
@@ -228,9 +226,12 @@ const App: React.FC = () => {
               <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 uppercase px-1">رابط الصورة الرئيسية *</label><input type="text" required className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold text-sm text-ltr" value={editingProduct.thumbnail} onChange={e => setEditingProduct({...editingProduct, thumbnail: e.target.value})} /></div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-500 uppercase px-1">الفئة</label>
-                <select className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold text-sm" value={editingProduct.category} onChange={e => setEditingProduct({...editingProduct, category: e.target.value as any})}>
-                  {CATEGORIES.filter(c => c !== 'الكل').map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+                <div className="relative">
+                  <select className="w-full bg-white/10 border border-white/10 p-4 rounded-2xl font-bold text-sm appearance-none outline-none focus:border-emerald-500" value={editingProduct.category} onChange={e => setEditingProduct({...editingProduct, category: e.target.value as any})}>
+                    {CATEGORIES.filter(c => c !== 'الكل').map(c => <option key={c} value={c} className="bg-slate-900">{c}</option>)}
+                  </select>
+                  <ChevronDown size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
               </div>
             </div>
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 uppercase px-1">وصف المنتج</label><textarea required className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold text-sm h-32" value={editingProduct.description} onChange={e => setEditingProduct({...editingProduct, description: e.target.value})} /></div>
@@ -259,13 +260,17 @@ const App: React.FC = () => {
                   <div className="space-y-6 flex flex-col h-full">
                      <div className="flex items-center gap-3"><button onClick={() => setIsCheckingOut(false)} className="p-2 bg-white/5 rounded-xl text-slate-400 hover:text-white"><ChevronLeft size={20}/></button><h3 className="text-xl font-black text-gradient">بيانات الطلب</h3></div>
                      <div className="space-y-5 flex-1">
-                       <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 flex items-center gap-1"><User size={12}/> الإسم بالكامل *</label><input type="text" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm" value={customerInfo.fullName} onChange={e => setCustomerInfo({...customerInfo, fullName: e.target.value})} placeholder="أحمد العبدلاوي" /></div>
-                       <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 flex items-center gap-1"><Phone size={12}/> رقم الهاتف *</label><input type="tel" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm text-left" value={customerInfo.phoneNumber} onChange={e => setCustomerInfo({...customerInfo, phoneNumber: e.target.value})} placeholder="06 XX XX XX XX" /></div>
-                       <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 flex items-center gap-1"><MapPin size={12}/> المدينة *</label>
-                         <select className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm" value={customerInfo.city} onChange={e => setCustomerInfo({...customerInfo, city: e.target.value})}>
-                           <option value="">اختر مدينتك</option>
-                           {MOROCCAN_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-                         </select>
+                       <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 flex items-center gap-1"><User size={12}/> الإسم بالكامل *</label><input type="text" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm focus:border-emerald-500 outline-none" value={customerInfo.fullName} onChange={e => setCustomerInfo({...customerInfo, fullName: e.target.value})} placeholder="أحمد العبدلاوي" /></div>
+                       <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 flex items-center gap-1"><Phone size={12}/> رقم الهاتف *</label><input type="tel" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm text-left focus:border-emerald-500 outline-none" value={customerInfo.phoneNumber} onChange={e => setCustomerInfo({...customerInfo, phoneNumber: e.target.value})} placeholder="06 XX XX XX XX" /></div>
+                       <div className="space-y-1.5">
+                         <label className="text-[10px] font-black text-slate-500 flex items-center gap-1"><MapPin size={12}/> المدينة *</label>
+                         <div className="relative">
+                           <select className="w-full bg-slate-900/80 border border-white/20 p-4 rounded-xl font-bold text-sm appearance-none outline-none focus:border-emerald-500 transition-all text-white" value={customerInfo.city} onChange={e => setCustomerInfo({...customerInfo, city: e.target.value})}>
+                             <option value="" className="bg-slate-900 text-slate-400">اختر مدينتك</option>
+                             {MOROCCAN_CITIES.map(c => <option key={c} value={c} className="bg-slate-900 text-white">{c}</option>)}
+                           </select>
+                           <ChevronDown size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500 pointer-events-none" />
+                         </div>
                        </div>
                      </div>
                      <button onClick={confirmOrder} className="w-full bg-emerald-500 text-black py-4 md:py-5 rounded-2xl font-black text-lg premium-btn mt-4 shadow-xl">تأكيد الطلب</button>
