@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, ShoppingBag, ShoppingCart, Star, Truck, MapPin, Phone, User, Check, 
   ArrowRight, Package, Sparkles, ShieldCheck, ChevronLeft, Bell, 
@@ -7,7 +7,8 @@ import {
   PlusCircle, Eye, EyeOff, Sun, Moon, Image as ImageIcon, 
   Share2, Copy, Facebook, Link as LinkIcon, Camera, 
   Activity, Info, CheckCircle2, AlertTriangle, Plus,
-  ChevronDown, Search, ArrowUpRight, Zap, Award, UploadCloud, Download
+  ChevronDown, Search, ArrowUpRight, Zap, Award, UploadCloud, Download,
+  ImagePlus
 } from 'lucide-react';
 import { StoreProduct, StoreOrder, CustomerInfo, Category } from './types';
 import { MOCK_PRODUCTS, CATEGORIES, MOROCCAN_CITIES, STORE_CONFIG } from './constants';
@@ -36,6 +37,9 @@ const App: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false); 
   const [loginError, setLoginError] = useState(false);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     fullName: '',
     phoneNumber: '',
@@ -53,8 +57,6 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    // الأولوية دائماً لبيانات constants.tsx إذا لم يقم المستخدم بتعديل شيء محلياً
-    // هذا يضمن أن الحملات الإعلانية ترى التعديلات الجديدة في الكود
     const savedProducts = localStorage.getItem(STORAGE_KEY_PRODUCTS);
     setProducts(savedProducts ? JSON.parse(savedProducts) : MOCK_PRODUCTS);
     
@@ -85,6 +87,55 @@ const App: React.FC = () => {
     const code = `export const MOCK_PRODUCTS: StoreProduct[] = ${JSON.stringify(products, null, 2)};`;
     navigator.clipboard.writeText(code);
     showToast('تم نسخ كود المنتجات! ضعه في ملف constants.tsx');
+  };
+
+  // وظيفة تحويل الملف إلى Base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && editingProduct) {
+      try {
+        // Fix: Explicitly cast file to File to avoid 'unknown' type inference issues
+        const base64 = await fileToBase64(file as File);
+        setEditingProduct({ ...editingProduct, thumbnail: base64 });
+        showToast('تم تحميل صورة الغلاف بنجاح');
+      } catch (err) {
+        showToast('فشل تحميل الصورة', 'error');
+      }
+    }
+  };
+
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0 && editingProduct) {
+      try {
+        // Fix: Explicitly cast each item to File in the mapping function to ensure correct typing
+        const base64Promises = Array.from(files).map(file => fileToBase64(file as File));
+        const base64s = await Promise.all(base64Promises);
+        setEditingProduct({ 
+          ...editingProduct, 
+          galleryImages: [...(editingProduct.galleryImages || []), ...base64s] 
+        });
+        showToast(`تم إضافة ${files.length} صور للمعرض`);
+      } catch (err) {
+        showToast('فشل تحميل الصور', 'error');
+      }
+    }
+  };
+
+  const removeGalleryImage = (index: number) => {
+    if (editingProduct && editingProduct.galleryImages) {
+      const updatedGallery = editingProduct.galleryImages.filter((_, i) => i !== index);
+      setEditingProduct({ ...editingProduct, galleryImages: updatedGallery });
+    }
   };
 
   const confirmOrder = () => {
@@ -212,7 +263,7 @@ const App: React.FC = () => {
                     <img src={p.thumbnail} className="w-full h-full object-cover aspect-square" alt={p.title} />
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2">
                       <button onClick={() => { setEditingProduct(p); setIsAddingProduct(false); }} className="p-2.5 bg-white text-black rounded-lg"><Edit3 size={16} /></button>
-                      <button onClick={() => { if(window.confirm('حذف؟')) setProducts(products.filter(pr => pr.id !== p.id)) }} className="p-2.5 bg-rose-500 text-white rounded-lg"><Trash2 size={16} /></button>
+                      <button onClick={() => { if(window.confirm('حذف؟')) { setProducts(products.filter(pr => pr.id !== p.id)); localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(products.filter(pr => pr.id !== p.id))); showToast('تم الحذف'); } }} className="p-2.5 bg-rose-500 text-white rounded-lg"><Trash2 size={16} /></button>
                     </div>
                   </div>
                 ))}
@@ -221,7 +272,7 @@ const App: React.FC = () => {
             
             {adminTab === 'orders' && (
               <div className="space-y-3">
-                {orders.map(order => (
+                {orders.length > 0 ? orders.map(order => (
                   <div key={order.orderId} className="glass-morphism p-4 rounded-2xl flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-emerald-500/10 text-emerald-500 rounded-lg flex items-center justify-center"><Package size={18} /></div>
@@ -232,10 +283,12 @@ const App: React.FC = () => {
                     </div>
                     <div className="text-left">
                       <p className="text-xs font-black text-emerald-500">{order.productPrice} DH</p>
-                      <p className="text-[9px] text-slate-500">{order.customer.city}</p>
+                      <p className="text-[9px] text-slate-500">{order.customer.city} | {order.customer.phoneNumber}</p>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="text-center py-20 text-slate-500 font-bold">لا توجد طلبيات حالياً</div>
+                )}
               </div>
             )}
           </div>
@@ -252,8 +305,9 @@ const App: React.FC = () => {
                 <img src={activeGalleryImage} className="w-full h-full object-cover" alt={selectedProduct.title} />
                 {(selectedProduct.galleryImages && selectedProduct.galleryImages.length > 0) && (
                   <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 px-4 overflow-x-auto no-scrollbar">
-                    {[selectedProduct.thumbnail, ...selectedProduct.galleryImages].map((img, i) => (
-                      <button key={i} onClick={() => setActiveGalleryImage(img)} className={`w-12 h-12 rounded-lg border-2 transition-all ${activeGalleryImage === img ? 'border-emerald-500 scale-105' : 'border-white/10 opacity-60'}`}><img src={img} className="w-full h-full object-cover" /></button>
+                    <button onClick={() => setActiveGalleryImage(selectedProduct.thumbnail)} className={`w-12 h-12 rounded-lg border-2 transition-all flex-shrink-0 ${activeGalleryImage === selectedProduct.thumbnail ? 'border-emerald-500 scale-105' : 'border-white/10 opacity-60'}`}><img src={selectedProduct.thumbnail} className="w-full h-full object-cover" /></button>
+                    {selectedProduct.galleryImages.map((img, i) => (
+                      <button key={i} onClick={() => setActiveGalleryImage(img)} className={`w-12 h-12 rounded-lg border-2 transition-all flex-shrink-0 ${activeGalleryImage === img ? 'border-emerald-500 scale-105' : 'border-white/10 opacity-60'}`}><img src={img} className="w-full h-full object-cover" /></button>
                     ))}
                   </div>
                 )}
@@ -270,7 +324,7 @@ const App: React.FC = () => {
                       <div><p className="text-[10px] font-black text-slate-500 uppercase">السعر</p><p className="text-3xl md:text-5xl font-black text-emerald-500">{selectedProduct.price} <span className="text-base">DH</span></p></div>
                       <div className="text-right text-xs md:text-base font-bold text-slate-300"><p className="flex items-center gap-1.5 justify-end"><Truck size={16} /> توصيل مجاني</p><p className="flex items-center gap-1.5 justify-end"><ShieldCheck size={16} /> جودة مضمونة</p></div>
                     </div>
-                    <button onClick={() => setIsCheckingOut(true)} className="w-full bg-emerald-500 text-black py-5 md:py-6 rounded-2xl font-black text-lg md:text-2xl premium-btn shadow-2xl shadow-emerald-500/20">اشتري الآن - الدفع عند الاستلام</button>
+                    <button onClick={() => setIsCheckingOut(true)} className="w-full bg-emerald-500 text-black py-5 md:py-6 rounded-2xl font-black text-lg md:text-2xl animate-buy-pulse premium-btn shadow-2xl shadow-emerald-500/20">اشتري الآن - الدفع عند الاستلام</button>
                   </div>
                 ) : (
                   <div className="space-y-8 my-auto">
@@ -293,22 +347,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Success Modal */}
-      {activeOrder && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 bg-[#050a18]/95 backdrop-blur-xl">
-          <div className="max-w-md w-full glass-morphism p-10 rounded-[3rem] text-center space-y-6">
-            <div className="w-24 h-24 bg-emerald-500 rounded-full flex items-center justify-center mx-auto text-black shadow-2xl shadow-emerald-500/50 animate-bounce"><Check size={48} /></div>
-            <h3 className="text-3xl font-black text-gradient">شكراً لثقتك بنا!</h3>
-            <p className="text-slate-400 font-medium text-lg">لقد استلمنا طلبك بنجاح. سيتصل بك فريقنا لتأكيد الطلب خلال الـ 24 ساعة القادمة.</p>
-            <div className="p-6 bg-white/5 rounded-2xl border border-white/10">
-              <p className="text-xs font-black text-slate-500 mb-2">رقم الطلب</p>
-              <p className="text-2xl font-black text-emerald-500">{activeOrder.orderId}</p>
-            </div>
-            <button onClick={() => setActiveOrder(null)} className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg premium-btn">العودة للمتجر</button>
-          </div>
-        </div>
-      )}
-
       {/* Admin Login Modal */}
       {showLoginModal && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 bg-[#050a18]/95 backdrop-blur-xl">
@@ -326,6 +364,7 @@ const App: React.FC = () => {
                     className={`w-full bg-white/5 border ${loginError ? 'border-rose-500' : 'border-white/10'} p-5 rounded-2xl font-bold`}
                     value={passwordInput}
                     onChange={(e) => { setPasswordInput(e.target.value); setLoginError(false); }}
+                    onKeyDown={(e) => { if(e.key === 'Enter') { /* Login logic */ } }}
                   />
                   <button onClick={() => setShowPassword(!showPassword)} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -362,24 +401,72 @@ const App: React.FC = () => {
               <h3 className="text-3xl font-black text-gradient">{isAddingProduct ? 'إضافة منتج جديد' : 'تعديل المنتج'}</h3>
               <button onClick={() => setEditingProduct(null)}><X /></button>
             </div>
-            <form onSubmit={saveProduct} className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-4">
+            <form onSubmit={saveProduct} className="grid md:grid-cols-2 gap-8">
+              <div className="space-y-6">
                 <div className="space-y-1"><label className="text-xs font-black text-slate-500">اسم المنتج</label><input type="text" required className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold" value={editingProduct.title} onChange={e => setEditingProduct({...editingProduct, title: e.target.value})} /></div>
                 <div className="space-y-1"><label className="text-xs font-black text-slate-500">السعر (DH)</label><input type="number" required className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold" value={editingProduct.price} onChange={e => setEditingProduct({...editingProduct, price: Number(e.target.value)})} /></div>
-                <div className="space-y-1"><label className="text-xs font-black text-slate-500">التصنيف</label><select className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold" value={editingProduct.category} onChange={e => setEditingProduct({...editingProduct, category: e.target.value as Category})}>
-                  {CATEGORIES.filter(c => c !== 'الكل').map(c => <option key={c} value={c} className="bg-[#050a18]">{c}</option>)}
-                </select></div>
-                <div className="space-y-1"><label className="text-xs font-black text-slate-500">رابط صورة الغلاف</label><input type="text" required className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold" value={editingProduct.thumbnail} onChange={e => setEditingProduct({...editingProduct, thumbnail: e.target.value})} /></div>
-              </div>
-              <div className="space-y-4">
-                <div className="space-y-1"><label className="text-xs font-black text-slate-500">الوصف</label><textarea required className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold h-32" value={editingProduct.description} onChange={e => setEditingProduct({...editingProduct, description: e.target.value})} /></div>
-                <div className="space-y-1">
-                  <label className="text-xs font-black text-slate-500">صور المعرض (روابط مفصولة بفاصلة)</label>
-                  <textarea className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold h-20" value={editingProduct.galleryImages?.join(', ')} onChange={e => setEditingProduct({...editingProduct, galleryImages: e.target.value.split(',').map(s => s.trim()).filter(Boolean)})} />
+                
+                {/* تحميل صورة الغلاف */}
+                <div className="space-y-3">
+                  <label className="text-xs font-black text-slate-500">صورة الغلاف</label>
+                  <div className="relative group aspect-square rounded-2xl overflow-hidden border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-3">
+                    {editingProduct.thumbnail ? (
+                      <>
+                        <img src={editingProduct.thumbnail} className="absolute inset-0 w-full h-full object-cover" />
+                        <button type="button" onClick={() => fileInputRef.current?.click()} className="relative z-10 bg-black/60 p-4 rounded-full text-white opacity-0 group-hover:opacity-100 transition-all"><Camera size={24}/></button>
+                      </>
+                    ) : (
+                      <button type="button" onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center gap-2 text-slate-500 hover:text-emerald-500 transition-all">
+                        <UploadCloud size={32}/>
+                        <span className="text-[10px] font-black">اضغط لتحميل صورة</span>
+                      </button>
+                    )}
+                    <input type="file" ref={fileInputRef} hidden accept="image/*" onChange={handleThumbnailUpload} />
+                  </div>
                 </div>
-                <button type="submit" className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg premium-btn mt-6 flex items-center justify-center gap-2"><Save size={20}/> حفظ التعديلات</button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="space-y-1"><label className="text-xs font-black text-slate-500">الوصف</label><textarea required className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold h-32" value={editingProduct.description} onChange={e => setEditingProduct({...editingProduct, description: e.target.value})} /></div>
+                
+                {/* معرض الصور الإضافية */}
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-black text-slate-500">صور إضافية للمعرض</label>
+                    <button type="button" onClick={() => galleryInputRef.current?.click()} className="text-emerald-500 flex items-center gap-1 text-[10px] font-black"><ImagePlus size={14}/> إضافة صور</button>
+                    <input type="file" ref={galleryInputRef} hidden multiple accept="image/*" onChange={handleGalleryUpload} />
+                  </div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {editingProduct.galleryImages?.map((img, i) => (
+                      <div key={i} className="relative aspect-square rounded-lg overflow-hidden group">
+                        <img src={img} className="w-full h-full object-cover" />
+                        <button type="button" onClick={() => removeGalleryImage(i)} className="absolute top-1 right-1 bg-rose-500 p-1 rounded-md text-white opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={10}/></button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-4">
+                  <button type="submit" className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg premium-btn flex items-center justify-center gap-2"><Save size={20}/> حفظ المنتج</button>
+                </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {activeOrder && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-[#050a18]/95 backdrop-blur-xl">
+          <div className="max-w-md w-full glass-morphism p-10 rounded-[3rem] text-center space-y-6">
+            <div className="w-24 h-24 bg-emerald-500 rounded-full flex items-center justify-center mx-auto text-black shadow-2xl shadow-emerald-500/50 animate-bounce"><Check size={48} /></div>
+            <h3 className="text-3xl font-black text-gradient">شكراً لثقتك بنا!</h3>
+            <p className="text-slate-400 font-medium text-lg">لقد استلمنا طلبك بنجاح. سيتصل بك فريقنا لتأكيد الطلب خلال الـ 24 ساعة القادمة.</p>
+            <div className="p-6 bg-white/5 rounded-2xl border border-white/10">
+              <p className="text-xs font-black text-slate-500 mb-2">رقم الطلب</p>
+              <p className="text-2xl font-black text-emerald-500">{activeOrder.orderId}</p>
+            </div>
+            <button onClick={() => setActiveOrder(null)} className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg premium-btn">العودة للمتجر</button>
           </div>
         </div>
       )}
@@ -387,5 +474,4 @@ const App: React.FC = () => {
   );
 };
 
-// Fixed: Add default export to fix the import error in index.tsx
 export default App;
