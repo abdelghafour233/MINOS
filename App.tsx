@@ -9,7 +9,7 @@ import {
   Activity, Info, CheckCircle2, AlertTriangle, Plus,
   ChevronDown, Search, ArrowUpRight, Zap, Award, UploadCloud, Download,
   ImagePlus, HelpCircle, RefreshCcw, Globe, Database, Server, Link, Code, RefreshCw,
-  Wifi, WifiOff, Radio
+  Wifi, WifiOff, Radio, SlidersHorizontal, MoreVertical
 } from 'lucide-react';
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { StoreProduct, StoreOrder, CustomerInfo, Category } from './types';
@@ -299,8 +299,8 @@ const App: React.FC = () => {
           <div className="p-4 md:p-12 max-w-7xl mx-auto space-y-10 animate-fade-in-up">
             <header className="flex flex-col md:flex-row items-center justify-between gap-6">
               <div>
-                <h2 className="text-4xl md:text-5xl font-black text-gradient">مركز التحكم</h2>
-                <p className="text-slate-500 font-bold mt-2">قم بتعديل المنتجات وإدارة الطلبيات بسهولة.</p>
+                <h2 className="text-4xl md:text-5xl font-black text-gradient">لوحة التحكم</h2>
+                <p className="text-slate-500 font-bold mt-2">إدارة المنتجات، الطلبيات، وإعدادات المزامنة.</p>
               </div>
               <div className="flex gap-2 glass-morphism p-2 rounded-[2rem] border border-white/5">
                 <button onClick={() => setAdminTab('products')} className={`px-6 py-3 rounded-2xl font-black text-xs transition-all ${adminTab === 'products' ? 'bg-emerald-500 text-black shadow-lg' : 'text-slate-400'}`}>المنتجات</button>
@@ -310,45 +310,60 @@ const App: React.FC = () => {
             </header>
 
             {adminTab === 'products' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                <button 
-                  onClick={() => { setEditingProduct({ id: 'P-' + Date.now(), title: '', price: 0, category: 'إلكترونيات', description: '', thumbnail: '', stockStatus: 'available', rating: 5, reviewsCount: 0, shippingTime: '24 ساعة', galleryImages: [] }); setIsAddingProduct(true); }}
-                  className="aspect-square border-2 border-dashed border-emerald-500/20 rounded-[2.5rem] flex flex-col items-center justify-center gap-4 text-emerald-500 hover:bg-emerald-500/5 transition-all bg-white/5 group"
-                >
-                  <PlusCircle size={48} className="group-hover:scale-110 transition-transform" />
-                  <span className="font-black text-lg">إضافة منتج جديد</span>
-                </button>
-                {products.map(p => (
-                  <div key={p.id} className="glass-morphism rounded-[2.5rem] overflow-hidden flex flex-col border border-white/5 group relative">
-                    <div className="aspect-square overflow-hidden">
-                       <img src={p.thumbnail} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+              <div className="space-y-10">
+                <div className="flex items-center justify-between">
+                   <h3 className="text-3xl font-black flex items-center gap-3"><SlidersHorizontal size={28}/> إدارة وإعدادات المنتجات</h3>
+                   <button 
+                      onClick={() => { setEditingProduct({ id: 'P-' + Date.now(), title: '', price: 0, category: 'إلكترونيات', description: '', thumbnail: '', stockStatus: 'available', rating: 5, reviewsCount: 0, shippingTime: '24 ساعة', galleryImages: [] }); setIsAddingProduct(true); }}
+                      className="bg-emerald-500 text-black px-6 py-4 rounded-2xl font-black flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+                    >
+                      <PlusCircle size={20} /> إضافة منتج جديد
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                  {products.map(p => (
+                    <div key={p.id} className="glass-morphism rounded-[3rem] overflow-hidden flex flex-col border border-white/5 group shadow-xl">
+                      <div className="aspect-square overflow-hidden relative">
+                         <img src={p.thumbnail} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                         <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-4 py-2 rounded-xl text-[10px] font-black text-emerald-500 border border-emerald-500/30">
+                            {p.price} DH
+                         </div>
+                      </div>
+                      <div className="p-8 space-y-6">
+                         <div className="space-y-2">
+                           <h4 className="font-black text-xl line-clamp-1">{p.title}</h4>
+                           <p className="text-slate-500 text-xs font-bold">{p.category}</p>
+                         </div>
+                         
+                         {/* قسم إعدادات المنتج - التعديل والحذف أولاً */}
+                         <div className="pt-4 border-t border-white/5 space-y-3">
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">إعدادات المنتج</p>
+                            <div className="flex gap-3">
+                                <button 
+                                  onClick={() => { setEditingProduct(p); setIsAddingProduct(false); }}
+                                  className="flex-1 bg-white/5 border border-white/10 text-slate-200 py-4 rounded-2xl flex items-center justify-center gap-2 font-black hover:bg-emerald-500 hover:text-black transition-all"
+                                >
+                                  <Edit3 size={18} /> تعديل البيانات
+                                </button>
+                                <button 
+                                  onClick={async () => { 
+                                    if(window.confirm('هل تريد حذف المنتج نهائياً من السحابة؟')) {
+                                      if (supabase) await supabase.from('products').delete().eq('id', p.id);
+                                      setProducts(products.filter(pr => pr.id !== p.id));
+                                      showToast('تم الحذف بنجاح');
+                                    }
+                                  }}
+                                  className="bg-rose-500/10 text-rose-500 p-4 rounded-2xl hover:bg-rose-500 hover:text-white transition-all border border-rose-500/20"
+                                >
+                                  <Trash2 size={20} />
+                                </button>
+                            </div>
+                         </div>
+                      </div>
                     </div>
-                    <div className="p-6 space-y-4">
-                       <h4 className="font-black text-lg line-clamp-1">{p.title}</h4>
-                       <div className="flex gap-3">
-                          {/* أولاً: أزرار التعديل والحذف بارزة */}
-                          <button 
-                            onClick={() => { setEditingProduct(p); setIsAddingProduct(false); }}
-                            className="flex-1 bg-emerald-500 text-black py-4 rounded-xl flex items-center justify-center gap-2 font-black shadow-lg shadow-emerald-500/20 hover:scale-105 transition-all"
-                          >
-                            <Edit3 size={18} /> تعديل
-                          </button>
-                          <button 
-                            onClick={async () => { 
-                              if(window.confirm('هل تريد حذف المنتج نهائياً من السحابة؟')) {
-                                if (supabase) await supabase.from('products').delete().eq('id', p.id);
-                                setProducts(products.filter(pr => pr.id !== p.id));
-                                showToast('تم الحذف بنجاح');
-                              }
-                            }}
-                            className="bg-rose-500/10 text-rose-500 p-4 rounded-xl hover:bg-rose-500 hover:text-white transition-all"
-                          >
-                            <Trash2 size={20} />
-                          </button>
-                       </div>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
 
@@ -398,32 +413,35 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* مودال التعديل والمزامنة */}
+      {/* مودال التعديل والمزامنة - إعدادات المنتج التفصيلية */}
       {editingProduct && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 md:p-10 bg-[#050a18]/95 backdrop-blur-xl">
-          <div className="max-w-5xl w-full glass-morphism p-8 md:p-16 rounded-[4rem] space-y-12 overflow-y-auto max-h-[95vh] no-scrollbar border border-white/5">
-            <div className="flex justify-between items-center">
-              <h3 className="text-4xl font-black text-gradient">تعديل وبيانات المزامنة</h3>
-              <button onClick={() => setEditingProduct(null)} className="p-4 bg-white/5 rounded-full"><X size={28}/></button>
+          <div className="max-w-5xl w-full glass-morphism p-8 md:p-16 rounded-[4rem] space-y-12 overflow-y-auto max-h-[95vh] no-scrollbar border border-white/5 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-white/5 pb-8">
+              <div className="flex items-center gap-4">
+                 <div className="p-4 bg-emerald-500 text-black rounded-2xl"><Edit3 size={32}/></div>
+                 <h3 className="text-3xl md:text-5xl font-black text-gradient">تعديل إعدادات المنتج</h3>
+              </div>
+              <button onClick={() => setEditingProduct(null)} className="p-4 bg-white/5 rounded-full hover:bg-rose-500 transition-all"><X size={28}/></button>
             </div>
             
             <form onSubmit={saveProduct} className="grid md:grid-cols-2 gap-12">
               <div className="space-y-8">
-                <div className="space-y-1"><label className="text-xs font-black text-slate-500 px-2">إسم المنتج</label><input type="text" required className="w-full bg-white/5 border border-white/10 p-6 rounded-[2rem] font-black" value={editingProduct.title} onChange={e => setEditingProduct({...editingProduct, title: e.target.value})} /></div>
-                <div className="space-y-1"><label className="text-xs font-black text-slate-500 px-2">السعر (DH)</label><input type="number" required className="w-full bg-white/5 border border-white/10 p-6 rounded-[2rem] font-black" value={editingProduct.price} onChange={e => setEditingProduct({...editingProduct, price: Number(e.target.value)})} /></div>
+                <div className="space-y-1"><label className="text-xs font-black text-slate-500 px-2 uppercase tracking-widest">إسم المنتج في المتجر</label><input type="text" required className="w-full bg-white/5 border border-white/10 p-6 rounded-[2rem] font-black focus:border-emerald-500 outline-none transition-all" value={editingProduct.title} onChange={e => setEditingProduct({...editingProduct, title: e.target.value})} /></div>
+                <div className="space-y-1"><label className="text-xs font-black text-slate-500 px-2 uppercase tracking-widest">السعر الحالي (بالدرهم DH)</label><input type="number" required className="w-full bg-white/5 border border-white/10 p-6 rounded-[2rem] font-black focus:border-emerald-500 outline-none transition-all" value={editingProduct.price} onChange={e => setEditingProduct({...editingProduct, price: Number(e.target.value)})} /></div>
                 
                 <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-500 px-2">الصورة الرئيسية (ستُضغط للمزامنة)</label>
+                  <label className="text-xs font-black text-slate-500 px-2 uppercase tracking-widest">الصورة الرئيسية للمنتج</label>
                   <div className="aspect-video rounded-[3rem] border-4 border-dashed border-white/5 flex flex-col items-center justify-center relative overflow-hidden bg-white/5 group">
                       {isProcessingImage ? (
-                        <div className="flex flex-col items-center gap-4 text-emerald-500"><RefreshCw className="animate-spin" size={40}/><span className="font-black">جاري المعالجة...</span></div>
+                        <div className="flex flex-col items-center gap-4 text-emerald-500"><RefreshCw className="animate-spin" size={40}/><span className="font-black">جاري معالجة الصورة...</span></div>
                       ) : editingProduct.thumbnail ? (
                         <img src={editingProduct.thumbnail} className="absolute inset-0 w-full h-full object-cover" />
                       ) : (
-                        <UploadCloud size={60}/>
+                        <div className="flex flex-col items-center gap-3 text-slate-600"><UploadCloud size={60}/><p className="font-black">رفع صورة</p></div>
                       )}
                       <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center cursor-pointer">
-                        <p className="text-white font-black">اضغط لتغيير الصورة</p>
+                        <p className="text-white font-black bg-emerald-500 px-6 py-2 rounded-full">تغيير الصورة</p>
                       </div>
                       <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={async (e) => {
                           const file = e.target.files?.[0];
@@ -443,10 +461,10 @@ const App: React.FC = () => {
               </div>
 
               <div className="space-y-8 flex flex-col">
-                <div className="space-y-1"><label className="text-xs font-black text-slate-500 px-2">الوصف</label><textarea required className="w-full bg-white/5 border border-white/10 p-8 rounded-[3rem] font-bold flex-1 h-32" value={editingProduct.description} onChange={e => setEditingProduct({...editingProduct, description: e.target.value})} /></div>
+                <div className="space-y-1"><label className="text-xs font-black text-slate-500 px-2 uppercase tracking-widest">وصف المنتج (مميزات وفوائد)</label><textarea required className="w-full bg-white/5 border border-white/10 p-8 rounded-[3rem] font-bold flex-1 h-32 focus:border-emerald-500 outline-none transition-all" value={editingProduct.description} onChange={e => setEditingProduct({...editingProduct, description: e.target.value})} /></div>
                 
                 <div className="space-y-2">
-                   <div className="flex justify-between px-2"><label className="text-xs font-black text-slate-500">معرض الصور</label><button type="button" onClick={() => galleryInputRef.current?.click()} className="text-emerald-500 text-xs font-black">+ إضافة صور</button></div>
+                   <div className="flex justify-between px-2 mb-2"><label className="text-xs font-black text-slate-500 uppercase tracking-widest">معرض الصور الإضافية</label><button type="button" onClick={() => galleryInputRef.current?.click()} className="text-emerald-500 text-xs font-black border border-emerald-500/20 px-4 py-1.5 rounded-full hover:bg-emerald-500 hover:text-black transition-all">+ إضافة صور</button></div>
                    <input type="file" ref={galleryInputRef} hidden multiple accept="image/*" onChange={async (e) => {
                       const files = e.target.files;
                       if(files) {
@@ -467,24 +485,25 @@ const App: React.FC = () => {
                         setIsProcessingImage(false);
                       }
                    }} />
-                   <div className="grid grid-cols-4 gap-2 bg-white/5 p-4 rounded-[2rem]">
+                   <div className="grid grid-cols-4 gap-3 bg-white/5 p-6 rounded-[2.5rem] min-h-[100px] border border-white/5">
                       {editingProduct.galleryImages?.map((img, i) => (
-                        <div key={i} className="relative aspect-square rounded-xl overflow-hidden group">
+                        <div key={i} className="relative aspect-square rounded-2xl overflow-hidden group border border-white/10">
                            <img src={img} className="w-full h-full object-cover" />
-                           <button type="button" onClick={() => setEditingProduct({...editingProduct, galleryImages: editingProduct.galleryImages?.filter((_, idx) => idx !== i)})} className="absolute inset-0 bg-rose-500/80 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-all"><Trash2 size={16}/></button>
+                           <button type="button" onClick={() => setEditingProduct({...editingProduct, galleryImages: editingProduct.galleryImages?.filter((_, idx) => idx !== i)})} className="absolute inset-0 bg-rose-500/80 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-all"><Trash2 size={20}/></button>
                         </div>
                       ))}
+                      {(!editingProduct.galleryImages || editingProduct.galleryImages.length === 0) && <p className="col-span-4 text-center text-slate-700 font-bold text-xs py-4">لا توجد صور إضافية</p>}
                    </div>
                 </div>
 
-                {/* زر الحفظ والمزامنة النهائي */}
+                {/* زر الحفظ والمزامنة السحابية النهائي */}
                 <button 
                   type="submit" 
                   disabled={isProcessingImage || isSyncing} 
-                  className="w-full bg-emerald-500 text-black py-7 rounded-[2rem] font-black text-2xl flex items-center justify-center gap-3 shadow-2xl shadow-emerald-500/30 disabled:opacity-50"
+                  className="w-full bg-emerald-500 text-black py-7 rounded-[2rem] font-black text-2xl flex items-center justify-center gap-4 shadow-2xl shadow-emerald-500/30 disabled:opacity-50 premium-btn"
                 >
                   {isSyncing ? <RefreshCw className="animate-spin" size={32}/> : <Save size={32}/>}
-                  {isSyncing ? 'جاري المزامنة مع السحابة...' : 'حفظ ومزامنة الآن'}
+                  {isSyncing ? 'جاري المزامنة مع السحابة...' : 'حفظ الإعدادات والمزامنة'}
                 </button>
               </div>
             </form>
@@ -492,14 +511,17 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* المودالات المتبقية (الدخول، عرض المنتج، النجاح) */}
+      {/* باقي المودالات */}
       {showLoginModal && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 bg-[#050a18]/95 backdrop-blur-xl">
-          <div className="max-w-md w-full glass-morphism p-12 rounded-[4rem] space-y-10 border border-white/5 text-center">
-            <div className="w-20 h-20 bg-emerald-500/10 text-emerald-500 rounded-[2rem] flex items-center justify-center mx-auto"><Lock size={40}/></div>
-            <h3 className="text-4xl font-black text-gradient">دخول الإدارة</h3>
-            <input type="password" className="w-full bg-white/5 border border-white/10 p-6 rounded-[2rem] font-bold focus:border-emerald-500 outline-none text-center text-2xl" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && passwordInput === adminPassword && (setIsAdminAuthenticated(true), sessionStorage.setItem('admin_auth', 'true'), setShowLoginModal(false), setView('admin'))} />
-            <button onClick={() => passwordInput === adminPassword ? (setIsAdminAuthenticated(true), sessionStorage.setItem('admin_auth', 'true'), setShowLoginModal(false), setView('admin')) : showToast('خطأ في الرمز', 'error')} className="w-full bg-emerald-500 text-black py-6 rounded-[2rem] font-black text-xl premium-btn">دخول آمن</button>
+          <div className="max-w-md w-full glass-morphism p-12 rounded-[4rem] space-y-10 border border-white/5 text-center shadow-2xl">
+            <div className="w-24 h-24 bg-emerald-500/10 text-emerald-500 rounded-[2.5rem] flex items-center justify-center mx-auto mb-4 border border-emerald-500/20"><Lock size={48}/></div>
+            <div>
+              <h3 className="text-4xl font-black text-gradient">دخول آمن</h3>
+              <p className="text-slate-500 font-bold mt-2">يرجى إدخال رمز الإدارة للوصول.</p>
+            </div>
+            <input type="password" placeholder="الرمز السري" className="w-full bg-white/5 border border-white/10 p-6 rounded-[2rem] font-bold focus:border-emerald-500 outline-none text-center text-3xl tracking-[1rem]" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && passwordInput === adminPassword && (setIsAdminAuthenticated(true), sessionStorage.setItem('admin_auth', 'true'), setShowLoginModal(false), setView('admin'))} />
+            <button onClick={() => passwordInput === adminPassword ? (setIsAdminAuthenticated(true), sessionStorage.setItem('admin_auth', 'true'), setShowLoginModal(false), setView('admin')) : showToast('رمز الدخول غير صحيح', 'error')} className="w-full bg-emerald-500 text-black py-6 rounded-[2rem] font-black text-xl premium-btn">تأكيد الدخول</button>
           </div>
         </div>
       )}
