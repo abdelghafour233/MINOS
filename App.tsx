@@ -10,17 +10,13 @@ import {
   ChevronDown, Search, ArrowUpRight, Zap, Award, UploadCloud, Download,
   ImagePlus, HelpCircle, RefreshCcw, Globe, Database, Server, Link, Code, RefreshCw,
   Wifi, WifiOff, Radio, SlidersHorizontal, MoreVertical, CopyCheck, Terminal,
-  Home
+  Home, Key
 } from 'lucide-react';
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { StoreProduct, StoreOrder, CustomerInfo, Category } from './types';
 import { MOCK_PRODUCTS, CATEGORIES, MOROCCAN_CITIES, STORE_CONFIG } from './constants';
 
 const adminPassword = 'admin'; 
-
-// إعدادات Supabase الخاصة بك
-const DEFAULT_SB_URL = 'https://xulrpjjucjwoctgkpqli.supabase.co';
-const DEFAULT_SB_KEY = 'sb_publishable_opXVbx0wGCR7vCxGamuPBw_JpNs5aSe';
 
 const App: React.FC = () => {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -41,6 +37,12 @@ const App: React.FC = () => {
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({ fullName: '', phoneNumber: '', city: '', address: '' });
   const [activeOrder, setActiveOrder] = useState<StoreOrder | null>(null);
   
+  // إعدادات Supabase مع الحفظ في localStorage
+  const [dbConfig, setDbConfig] = useState({
+    url: localStorage.getItem('sb_url') || 'https://xulrpjjucjwoctgkpqli.supabase.co',
+    key: localStorage.getItem('sb_key') || 'sb_publishable_opXVbx0wGCR7vCxGamuPBw_JpNs5aSe'
+  });
+  
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -48,22 +50,33 @@ const App: React.FC = () => {
     setTimeout(() => setToast({ message: '', type: '' }), 5000);
   };
 
-  useEffect(() => {
+  // تهيئة أو إعادة تهيئة Supabase
+  const initSupabase = (url: string, key: string) => {
     try {
-      const client = createClient(DEFAULT_SB_URL, DEFAULT_SB_KEY);
-      setSupabase(client);
+      if (url && key) {
+        const client = createClient(url.trim(), key.trim());
+        setSupabase(client);
+        return client;
+      }
     } catch (e) {
       console.error("Supabase Init Error", e);
+      showToast('خطأ في إعدادات الاتصال', 'error');
     }
+    return null;
+  };
+
+  useEffect(() => {
+    initSupabase(dbConfig.url, dbConfig.key);
   }, []);
 
-  const fetchData = async () => {
-    if (supabase) {
+  const fetchData = async (clientOverride?: SupabaseClient) => {
+    const client = clientOverride || supabase;
+    if (client) {
       try {
-        const { data: dbProducts, error: pError } = await supabase.from('products').select('*').order('created_at', { ascending: false });
+        const { data: dbProducts, error: pError } = await client.from('products').select('*').order('created_at', { ascending: false });
         if (!pError && dbProducts) setProducts(dbProducts.length > 0 ? dbProducts : MOCK_PRODUCTS);
         
-        const { data: dbOrders, error: oError } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+        const { data: dbOrders, error: oError } = await client.from('orders').select('*').order('created_at', { ascending: false });
         if (!oError && dbOrders) {
           const formattedOrders = dbOrders.map((o: any) => ({
             orderId: o.order_id,
@@ -91,7 +104,16 @@ const App: React.FC = () => {
     if (sessionStorage.getItem('admin_auth') === 'true') setIsAdminAuthenticated(true);
   }, [supabase]);
 
-  // إرسال الطلب (بدون تأخير أو علامات تحميل)
+  const updateDbSettings = () => {
+    localStorage.setItem('sb_url', dbConfig.url);
+    localStorage.setItem('sb_key', dbConfig.key);
+    const newClient = initSupabase(dbConfig.url, dbConfig.key);
+    if (newClient) {
+      fetchData(newClient);
+      showToast('تم تحديث الإعدادات والاتصال');
+    }
+  };
+
   const confirmOrder = async () => {
     if (!customerInfo.fullName || !customerInfo.phoneNumber || !customerInfo.city) {
       showToast('المرجو ملأ المعلومات الأساسية', 'error'); return;
@@ -110,63 +132,44 @@ const App: React.FC = () => {
       created_at: new Date().toISOString()
     };
     
-    try {
-      if (supabase) {
-        // الإرسال يتم مباشرة
-        supabase.from('orders').insert([orderPayload]).then(({ error }) => {
-          if (error) {
-             showToast('خطأ في الإرسال', 'error');
-          } else {
-             showToast('تم إرسال الطلب');
-             fetchData();
-          }
-        });
-        
-        // الانتقال لصفحة النجاح فوراً لتحسين تجربة المستخدم
-        setActiveOrder({
-          orderId: orderPayload.order_id,
-          productTitle: orderPayload.product_title,
-          productPrice: orderPayload.product_price,
-          customer: customerInfo,
-          status: 'pending',
-          orderDate: new Date().toLocaleDateString('ar-MA')
-        } as any);
-        
-        setIsCheckingOut(false);
-        setSelectedProduct(null);
-        setCustomerInfo({ fullName: '', phoneNumber: '', city: '', address: '' });
-      }
-    } catch (err) {
-      showToast('حدث خطأ غير متوقع', 'error');
+    if (supabase) {
+      supabase.from('orders').insert([orderPayload]).then(({ error }) => {
+        if (error) showToast('خطأ في الإرسال', 'error');
+        else { showToast('تم إرسال الطلب'); fetchData(); }
+      });
+      
+      setActiveOrder({
+        orderId: orderPayload.order_id,
+        productTitle: orderPayload.product_title,
+        productPrice: orderPayload.product_price,
+        customer: customerInfo,
+        status: 'pending',
+        orderDate: new Date().toLocaleDateString('ar-MA')
+      } as any);
+      
+      setIsCheckingOut(false);
+      setSelectedProduct(null);
+      setCustomerInfo({ fullName: '', phoneNumber: '', city: '', address: '' });
     }
   };
 
   const saveProduct = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProduct || !supabase) return;
-    
     supabase.from('products').upsert(editingProduct).then(({ error }) => {
-      if (!error) {
-        showToast('تم حفظ المنتج');
-        fetchData();
-        setEditingProduct(null);
-      } else {
-        showToast('فشل في الحفظ', 'error');
-      }
+      if (!error) { showToast('تم حفظ المنتج'); fetchData(); setEditingProduct(null); }
+      else showToast('فشل في الحفظ', 'error');
     });
   };
 
   const deleteProduct = (id: string) => {
     if (!window.confirm('هل تريد حذف المنتج؟') || !supabase) return;
     supabase.from('products').delete().eq('id', id).then(({ error }) => {
-      if (!error) {
-        showToast('تم الحذف');
-        fetchData();
-      }
+      if (!error) { showToast('تم الحذف'); fetchData(); }
     });
   };
 
-  const sqlSetup = `-- انسخ هذا الكود في SQL Editor بـ Supabase
+  const sqlSetup = `-- سكريبت SQL لإعداد الجداول
 CREATE TABLE IF NOT EXISTS products (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
@@ -210,7 +213,6 @@ CREATE POLICY "Allow admin manage orders" ON orders FOR ALL USING (true);`.trim(
         </div>
       )}
 
-      {/* شريط التنقل */}
       <nav className="fixed bottom-0 left-0 right-0 md:top-0 md:right-auto md:w-24 h-[72px] md:h-screen glass-morphism z-[100] border-t md:border-l border-white/5 flex md:flex-col items-center justify-around md:py-10">
         <div className="flex md:flex-col gap-8 w-full justify-around md:justify-start">
           <button onClick={() => setView('shop')} className={`p-3 rounded-xl transition-all ${view === 'shop' ? 'bg-emerald-500 text-black shadow-lg' : 'text-slate-500'}`}><ShoppingBag size={22} /></button>
@@ -248,14 +250,13 @@ CREATE POLICY "Allow admin manage orders" ON orders FOR ALL USING (true);`.trim(
             </div>
           </div>
         ) : (
-          /* واجهة الإدارة */
           <div className="p-4 md:p-12 max-w-6xl mx-auto space-y-10 animate-fade-in-up">
             <header className="flex flex-col md:flex-row justify-between items-center gap-4">
               <h2 className="text-3xl font-black text-gradient">إدارة المتجر</h2>
               <div className="flex gap-2 glass-morphism p-2 rounded-2xl border border-white/5">
                 <button onClick={() => setAdminTab('orders')} className={`px-5 py-2.5 rounded-xl text-xs font-black ${adminTab === 'orders' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}>الطلبات</button>
                 <button onClick={() => setAdminTab('products')} className={`px-5 py-2.5 rounded-xl text-xs font-black ${adminTab === 'products' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}>المنتجات</button>
-                <button onClick={() => setAdminTab('settings')} className={`px-5 py-2.5 rounded-xl text-xs font-black ${adminTab === 'settings' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}>السحابة</button>
+                <button onClick={() => setAdminTab('settings')} className={`px-5 py-2.5 rounded-xl text-xs font-black ${adminTab === 'settings' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}>الإعدادات</button>
               </div>
             </header>
 
@@ -302,12 +303,27 @@ CREATE POLICY "Allow admin manage orders" ON orders FOR ALL USING (true);`.trim(
             )}
 
             {adminTab === 'settings' && (
-              <div className="max-w-3xl mx-auto glass-morphism p-8 rounded-[2.5rem] border border-white/5 space-y-8">
-                <div className="flex items-center gap-4 text-emerald-500"><Terminal size={32}/><h3 className="text-2xl font-black">إعدادات قاعدة البيانات</h3></div>
-                <div className="space-y-4 text-slate-400 font-bold text-sm leading-relaxed">
-                   <p>لضمان عمل المتجر بسلاسة، يرجى نسخ الكود التالي وتنفيذه في SQL Editor الخاص بـ Supabase:</p>
-                   <pre className="bg-black/60 p-5 rounded-2xl text-[10px] text-emerald-400 font-mono overflow-x-auto border border-emerald-500/10">{sqlSetup}</pre>
-                   <button onClick={() => { navigator.clipboard.writeText(sqlSetup); showToast('تم النسخ'); }} className="w-full bg-emerald-500 text-black py-4 rounded-xl font-black text-base flex items-center justify-center gap-2"><Copy size={20}/> نسخ كود الإعداد</button>
+              <div className="max-w-3xl mx-auto space-y-8">
+                <div className="glass-morphism p-8 rounded-[2.5rem] border border-white/5 space-y-6">
+                  <div className="flex items-center gap-4 text-emerald-500"><Settings size={32}/><h3 className="text-2xl font-black">إعدادات الاتصال</h3></div>
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-slate-500 px-2 flex items-center gap-2"><Globe size={14}/> SUPABASE URL</label>
+                      <input type="text" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm" value={dbConfig.url} onChange={e => setDbConfig({...dbConfig, url: e.target.value})} placeholder="https://xxx.supabase.co" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-slate-500 px-2 flex items-center gap-2"><Key size={14}/> SUPABASE ANON/PUBLIC KEY</label>
+                      <input type="password" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm" value={dbConfig.key} onChange={e => setDbConfig({...dbConfig, key: e.target.value})} placeholder="eyJhbG..." />
+                    </div>
+                    <button onClick={updateDbSettings} className="w-full bg-emerald-500 text-black py-4 rounded-xl font-black text-base shadow-xl flex items-center justify-center gap-2"><Save size={20}/> حفظ الإعدادات</button>
+                  </div>
+                </div>
+
+                <div className="glass-morphism p-8 rounded-[2.5rem] border border-white/5 space-y-4">
+                  <div className="flex items-center gap-4 text-emerald-500"><Terminal size={32}/><h3 className="text-xl font-black">إعدادات SQL</h3></div>
+                  <p className="text-slate-400 text-xs font-bold leading-relaxed">انسخ الكود أدناه ونفذه في SQL Editor بـ Supabase لإنشاء الجداول:</p>
+                  <pre className="bg-black/60 p-5 rounded-2xl text-[10px] text-emerald-400 font-mono overflow-x-auto border border-white/5">{sqlSetup}</pre>
+                  <button onClick={() => { navigator.clipboard.writeText(sqlSetup); showToast('تم النسخ'); }} className="w-full bg-white/5 py-4 rounded-xl font-black text-sm flex items-center justify-center gap-2 border border-white/10"><Copy size={18}/> نسخ الكود</button>
                 </div>
               </div>
             )}
@@ -315,17 +331,14 @@ CREATE POLICY "Allow admin manage orders" ON orders FOR ALL USING (true);`.trim(
         )}
       </main>
 
-      {/* نافذة تفاصيل المنتج والطلب */}
       {selectedProduct && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 md:p-6 overflow-hidden">
           <div className="absolute inset-0 bg-[#050a18]/95 backdrop-blur-xl" onClick={() => !isCheckingOut && setSelectedProduct(null)}></div>
           <div className="relative w-full max-w-3xl glass-morphism rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row animate-fade-in-up border border-white/5 shadow-2xl">
              <button onClick={() => { setSelectedProduct(null); setIsCheckingOut(false); }} className="absolute top-4 right-4 z-[210] p-2 bg-black/40 rounded-full text-white hover:bg-rose-500"><X size={18} /></button>
-             
              <div className="w-full md:w-[40%] h-[20vh] md:h-auto bg-slate-950/40 flex items-center justify-center p-8">
                 <img src={selectedProduct.thumbnail} className="max-w-full max-h-full object-contain drop-shadow-2xl" />
              </div>
-
              <div className="w-full md:w-[60%] p-6 md:p-10 flex flex-col border-t md:border-t-0 md:border-r border-white/5 overflow-y-auto max-h-[70vh] md:max-h-full no-scrollbar">
                 {!isCheckingOut ? (
                   <div className="space-y-6 flex-1 flex flex-col">
@@ -342,7 +355,6 @@ CREATE POLICY "Allow admin manage orders" ON orders FOR ALL USING (true);`.trim(
                     </div>
                   </div>
                 ) : (
-                  /* فورم الطلب */
                   <div className="space-y-5 flex flex-col h-full">
                      <div className="flex items-center gap-3"><button onClick={() => setIsCheckingOut(false)} className="p-2 bg-white/5 rounded-xl text-slate-400 hover:text-white"><ChevronLeft size={20}/></button><h3 className="text-xl font-black text-gradient">بيانات الشحن</h3></div>
                      <div className="space-y-4 flex-1">
@@ -350,12 +362,10 @@ CREATE POLICY "Allow admin manage orders" ON orders FOR ALL USING (true);`.trim(
                          <label className="text-[10px] font-black text-slate-500 flex items-center gap-1"><User size={12}/> الإسم بالكامل *</label>
                          <input type="text" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm" value={customerInfo.fullName} onChange={e => setCustomerInfo({...customerInfo, fullName: e.target.value})} placeholder="مثال: أحمد العبدلاوي" />
                        </div>
-                       
                        <div className="space-y-1.5">
                          <label className="text-[10px] font-black text-slate-500 flex items-center gap-1"><Phone size={12}/> رقم الهاتف *</label>
                          <input type="tel" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm text-left" value={customerInfo.phoneNumber} onChange={e => setCustomerInfo({...customerInfo, phoneNumber: e.target.value})} placeholder="06 XX XX XX XX" />
                        </div>
-
                        <div className="space-y-1.5">
                          <label className="text-[10px] font-black text-slate-500 flex items-center gap-1"><MapPin size={12}/> المدينة *</label>
                          <select className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm" value={customerInfo.city} onChange={e => setCustomerInfo({...customerInfo, city: e.target.value})}>
@@ -363,7 +373,6 @@ CREATE POLICY "Allow admin manage orders" ON orders FOR ALL USING (true);`.trim(
                            {MOROCCAN_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
                          </select>
                        </div>
-
                        <div className="space-y-1.5">
                          <label className="text-[10px] font-black text-slate-500 flex items-center gap-1"><Home size={12}/> العنوان التفصيلي</label>
                          <input type="text" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm" value={customerInfo.address} onChange={e => setCustomerInfo({...customerInfo, address: e.target.value})} placeholder="الحي، رقم المنزل، الشارع..." />
@@ -377,7 +386,6 @@ CREATE POLICY "Allow admin manage orders" ON orders FOR ALL USING (true);`.trim(
         </div>
       )}
 
-      {/* مودال النجاح */}
       {activeOrder && (
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-[#050a18]/95 backdrop-blur-xl">
           <div className="max-w-md w-full glass-morphism p-10 md:p-12 rounded-[3rem] text-center space-y-8 animate-fade-in-up border border-emerald-500/20 shadow-2xl">
@@ -389,7 +397,6 @@ CREATE POLICY "Allow admin manage orders" ON orders FOR ALL USING (true);`.trim(
         </div>
       )}
 
-      {/* مودال دخول الإدارة */}
       {showLoginModal && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 bg-[#050a18]/95 backdrop-blur-xl">
           <div className="max-w-xs w-full glass-morphism p-10 rounded-[3rem] space-y-8 text-center border border-white/5">
@@ -400,7 +407,6 @@ CREATE POLICY "Allow admin manage orders" ON orders FOR ALL USING (true);`.trim(
         </div>
       )}
 
-      {/* مودال تحرير منتج */}
       {editingProduct && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-[#050a18]/95 backdrop-blur-xl">
           <form onSubmit={saveProduct} className="max-w-2xl w-full glass-morphism p-8 md:p-12 rounded-[3rem] space-y-6 overflow-y-auto max-h-[90vh] border border-white/5">
