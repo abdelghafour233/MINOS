@@ -6,12 +6,13 @@ import {
   Settings, Edit3, Trash2, LayoutDashboard, Save, Lock, Sun, Moon,
   CheckCircle2, AlertTriangle, Plus, RefreshCw, Terminal, Copy,
   ImagePlus, UploadCloud, ImageIcon, Filter, Clock, CheckCircle,
-  Eye, EyeOff
+  Eye, EyeOff, Download, MessageSquare, ExternalLink
 } from 'lucide-react';
 import { StoreProduct, StoreOrder } from './types';
 import { MOCK_PRODUCTS, CATEGORIES, MOROCCAN_CITIES } from './constants';
 
 const adminPassword = 'admin'; 
+const MY_WHATSAPP_NUMBER = '212600000000'; // استبدل هذا برقمك الحقيقي
 
 const App: React.FC = () => {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -106,6 +107,22 @@ const App: React.FC = () => {
     setEditingProduct({ ...editingProduct, galleryImages: newGallery });
   };
 
+  const exportOrdersToCSV = () => {
+    if (orders.length === 0) return;
+    const headers = ["رقم الطلب", "المنتج", "السعر", "الزبون", "الهاتف", "المدينة", "التاريخ", "الحالة"];
+    const rows = orders.map(o => [
+      o.orderId, o.productTitle, o.productPrice, o.customer.fullName, 
+      o.customer.phoneNumber, o.customer.city, o.orderDate, o.status
+    ]);
+    const csvContent = "\uFEFF" + [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `orders_${new Date().toLocaleDateString()}.csv`;
+    link.click();
+    showToast('تم تصدير الطلبيات بنجاح');
+  };
+
   const confirmOrder = () => {
     if (!customerInfo.fullName || !customerInfo.phoneNumber || !customerInfo.city) {
       showToast('المرجو ملأ المعلومات الأساسية', 'error'); return;
@@ -127,6 +144,22 @@ const App: React.FC = () => {
     setSelectedProduct(null);
     setCustomerInfo({ fullName: '', phoneNumber: '', city: '' });
     showToast('تم تسجيل طلبك بنجاح');
+
+    // خيار إرسال للواتساب
+    const whatsappMsg = `طلب جديد من المتجر:
+- المنتج: ${newOrder.productTitle}
+- الثمن: ${newOrder.productPrice} DH
+-------------------
+- الزبون: ${newOrder.customer.fullName}
+- الهاتف: ${newOrder.customer.phoneNumber}
+- المدينة: ${newOrder.customer.city}
+- التاريخ: ${newOrder.orderDate}`;
+
+    setTimeout(() => {
+      if(window.confirm('هل تريد إرسال تفاصيل الطلب عبر WhatsApp لتسريع العملية؟')) {
+        window.open(`https://wa.me/${MY_WHATSAPP_NUMBER}?text=${encodeURIComponent(whatsappMsg)}`, '_blank');
+      }
+    }, 1500);
   };
 
   const saveOrderEdit = (e: React.FormEvent) => {
@@ -147,11 +180,7 @@ const App: React.FC = () => {
   const saveProduct = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProduct) return;
-    
-    if (!editingProduct.thumbnail) {
-      showToast('الرجاء اختيار صورة للمنتج', 'error');
-      return;
-    }
+    if (!editingProduct.thumbnail) { showToast('الرجاء اختيار صورة للمنتج', 'error'); return; }
 
     const index = products.findIndex(p => p.id === editingProduct.id);
     if (index > -1) {
@@ -161,7 +190,6 @@ const App: React.FC = () => {
     } else {
       setProducts([editingProduct, ...products]);
     }
-    
     showToast('تم حفظ المنتج بنجاح');
     setEditingProduct(null);
   };
@@ -176,6 +204,7 @@ const App: React.FC = () => {
     total: orders.length,
     pending: orders.filter(o => o.status === 'pending').length,
     delivered: orders.filter(o => o.status === 'delivered').length,
+    totalSales: orders.reduce((acc, curr) => acc + curr.productPrice, 0)
   };
 
   return (
@@ -245,25 +274,36 @@ const App: React.FC = () => {
 
             {adminTab === 'orders' && (
               <div className="space-y-6">
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="glass-morphism p-6 rounded-[2rem] border border-white/5 text-center space-y-1">
-                    <p className="text-[10px] font-black text-slate-500 uppercase">إجمالي الطلبات</p>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="glass-morphism p-6 rounded-[2rem] border border-white/5 text-center space-y-1 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:scale-110 transition-transform"><ShoppingBag size={48}/></div>
+                    <p className="text-[10px] font-black text-slate-500 uppercase">الطلبات</p>
                     <p className="text-3xl font-black text-emerald-500">{orderStats.total}</p>
                   </div>
-                  <div className="glass-morphism p-6 rounded-[2rem] border border-white/5 text-center space-y-1">
+                  <div className="glass-morphism p-6 rounded-[2rem] border border-white/5 text-center space-y-1 relative overflow-hidden group">
+                     <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:scale-110 transition-transform"><Clock size={48}/></div>
                     <p className="text-[10px] font-black text-slate-500 uppercase">قيد الانتظار</p>
                     <p className="text-3xl font-black text-amber-500">{orderStats.pending}</p>
                   </div>
-                  <div className="glass-morphism p-6 rounded-[2rem] border border-white/5 text-center space-y-1">
+                  <div className="glass-morphism p-6 rounded-[2rem] border border-white/5 text-center space-y-1 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:scale-110 transition-transform"><CheckCircle size={48}/></div>
                     <p className="text-[10px] font-black text-slate-500 uppercase">تم التوصيل</p>
                     <p className="text-3xl font-black text-blue-500">{orderStats.delivered}</p>
+                  </div>
+                   <div className="glass-morphism p-6 rounded-[2rem] border border-white/5 text-center space-y-1 relative overflow-hidden group bg-emerald-500/5">
+                    <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:scale-110 transition-transform"><Sparkles size={48}/></div>
+                    <p className="text-[10px] font-black text-slate-500 uppercase">إجمالي المبيعات</p>
+                    <p className="text-3xl font-black text-emerald-500">{orderStats.totalSales} DH</p>
                   </div>
                 </div>
 
                 <div className="space-y-4">
                   <div className="flex justify-between items-center px-4">
                      <h3 className="font-black text-lg flex items-center gap-2"><Clock size={20} className="text-emerald-500"/> سجل الطلبات</h3>
-                     <button onClick={() => { if(window.confirm('هل تريد مسح جميع الطلبات نهائياً؟')) { setOrders([]); localStorage.removeItem('local_orders'); showToast('تم مسح السجل'); } }} className="text-xs text-rose-500 font-bold border border-rose-500/20 px-3 py-1 rounded-lg">مسح الكل</button>
+                     <div className="flex gap-2">
+                        <button onClick={exportOrdersToCSV} className="flex items-center gap-2 text-xs text-emerald-500 font-bold border border-emerald-500/20 px-4 py-2 rounded-xl hover:bg-emerald-500 hover:text-black transition-all"><Download size={14}/> تصدير CSV</button>
+                        <button onClick={() => { if(window.confirm('هل تريد مسح جميع الطلبات نهائياً؟')) { setOrders([]); localStorage.removeItem('local_orders'); showToast('تم مسح السجل'); } }} className="text-xs text-rose-500 font-bold border border-rose-500/20 px-3 py-1 rounded-lg">مسح الكل</button>
+                     </div>
                   </div>
                   
                   {orders.length === 0 ? (
@@ -297,8 +337,12 @@ const App: React.FC = () => {
                       </div>
 
                       <div className="flex gap-2 w-full md:w-auto">
-                        <button onClick={() => setEditingOrder(order)} className="flex-1 md:flex-none p-3 bg-white/5 text-slate-400 rounded-xl hover:bg-emerald-500 hover:text-black transition-all"><Edit3 size={18}/></button>
-                        <button onClick={() => deleteOrder(order.orderId)} className="flex-1 md:flex-none p-3 bg-rose-500/10 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={18}/></button>
+                        <button onClick={() => {
+                           const msg = `طلب ${order.orderId}:\nالزبون: ${order.customer.fullName}\nالمنتج: ${order.productTitle}`;
+                           window.open(`https://wa.me/212${order.customer.phoneNumber.substring(1)}?text=${encodeURIComponent(msg)}`, '_blank');
+                        }} title="تواصل مع الزبون" className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl hover:bg-emerald-500 hover:text-black transition-all"><MessageSquare size={18}/></button>
+                        <button onClick={() => setEditingOrder(order)} className="p-3 bg-white/5 text-slate-400 rounded-xl hover:bg-white/10 transition-all"><Edit3 size={18}/></button>
+                        <button onClick={() => deleteOrder(order.orderId)} className="p-3 bg-rose-500/10 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={18}/></button>
                       </div>
                     </div>
                   ))}
