@@ -8,7 +8,7 @@ import {
   Share2, Copy, Facebook, Link as LinkIcon, Camera, 
   Activity, Info, CheckCircle2, AlertTriangle, Plus,
   ChevronDown, Search, ArrowUpRight, Zap, Award, UploadCloud, Download,
-  ImagePlus
+  ImagePlus, HelpCircle, RefreshCcw
 } from 'lucide-react';
 import { StoreProduct, StoreOrder, CustomerInfo, Category } from './types';
 import { MOCK_PRODUCTS, CATEGORIES, MOROCCAN_CITIES, STORE_CONFIG } from './constants';
@@ -80,16 +80,23 @@ const App: React.FC = () => {
     localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(updated));
     setEditingProduct(null);
     setIsAddingProduct(false);
-    showToast('تم الحفظ محلياً. لتثبيته للجميع، انسخ الكود من الإعدادات.');
+    showToast('تم الحفظ في متصفحك. الآن قم بنسخ الكود من الإعدادات لتثبيته للجميع.');
   };
 
   const copyProductsCode = () => {
     const code = `export const MOCK_PRODUCTS: StoreProduct[] = ${JSON.stringify(products, null, 2)};`;
     navigator.clipboard.writeText(code);
-    showToast('تم نسخ كود المنتجات! ضعه في ملف constants.tsx');
+    showToast('تم نسخ الكود! الآن قم بلصقه في ملف constants.tsx');
   };
 
-  // وظيفة تحويل الملف إلى Base64
+  const resetToDefault = () => {
+    if (window.confirm('هل تريد حقاً مسح تعديلاتك والعودة لبيانات الكود الأصلية؟')) {
+      localStorage.removeItem(STORAGE_KEY_PRODUCTS);
+      setProducts(MOCK_PRODUCTS);
+      showToast('تمت العودة للبيانات الأصلية');
+    }
+  };
+
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -103,10 +110,9 @@ const App: React.FC = () => {
     const file = e.target.files?.[0];
     if (file && editingProduct) {
       try {
-        // Fix: Explicitly cast file to File to avoid 'unknown' type inference issues
         const base64 = await fileToBase64(file as File);
         setEditingProduct({ ...editingProduct, thumbnail: base64 });
-        showToast('تم تحميل صورة الغلاف بنجاح');
+        showToast('تم تحميل صورة الغلاف');
       } catch (err) {
         showToast('فشل تحميل الصورة', 'error');
       }
@@ -117,14 +123,13 @@ const App: React.FC = () => {
     const files = e.target.files;
     if (files && files.length > 0 && editingProduct) {
       try {
-        // Fix: Explicitly cast each item to File in the mapping function to ensure correct typing
         const base64Promises = Array.from(files).map(file => fileToBase64(file as File));
         const base64s = await Promise.all(base64Promises);
         setEditingProduct({ 
           ...editingProduct, 
           galleryImages: [...(editingProduct.galleryImages || []), ...base64s] 
         });
-        showToast(`تم إضافة ${files.length} صور للمعرض`);
+        showToast(`تم إضافة ${files.length} صور`);
       } catch (err) {
         showToast('فشل تحميل الصور', 'error');
       }
@@ -231,21 +236,60 @@ const App: React.FC = () => {
             <header className="flex flex-col md:flex-row items-center justify-between gap-6">
               <div className="text-center md:text-right">
                 <h2 className="text-3xl md:text-4xl font-black text-gradient">إدارة المتجر</h2>
-                <p className="text-slate-500 font-bold text-sm">التعديلات هنا تُحفظ في متصفحك فقط</p>
+                <div className="flex items-center gap-2 justify-center md:justify-start text-emerald-500/80 font-bold text-[10px] mt-1">
+                  <Activity size={12} />
+                  <span>لوحة التحكم تعمل محلياً على هذا الجهاز</span>
+                </div>
               </div>
               <div className="flex gap-2 glass-morphism p-1.5 rounded-2xl w-full md:w-auto overflow-x-auto no-scrollbar">
-                <button onClick={() => setAdminTab('orders')} className={`px-4 py-2.5 rounded-xl font-black text-xs transition-all ${adminTab === 'orders' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}>الطلبيات ({orders.length})</button>
-                <button onClick={() => setAdminTab('products')} className={`px-4 py-2.5 rounded-xl font-black text-xs transition-all ${adminTab === 'products' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}>المنتجات ({products.length})</button>
+                <button onClick={() => setAdminTab('orders')} className={`px-4 py-2.5 rounded-xl font-black text-xs transition-all flex items-center gap-2 ${adminTab === 'orders' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}><Package size={16}/> الطلبيات ({orders.length})</button>
+                <button onClick={() => setAdminTab('products')} className={`px-4 py-2.5 rounded-xl font-black text-xs transition-all flex items-center gap-2 ${adminTab === 'products' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}><ShoppingCart size={16}/> المنتجات ({products.length})</button>
                 <button onClick={() => setAdminTab('settings')} className={`px-4 py-2.5 rounded-xl font-black text-xs transition-all ${adminTab === 'settings' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}><Settings size={18} /></button>
               </div>
             </header>
 
             {adminTab === 'settings' && (
-              <div className="max-w-2xl mx-auto p-10 glass-morphism rounded-[3rem] text-center space-y-6">
-                <div className="p-6 bg-emerald-500/10 text-emerald-500 rounded-3xl inline-block mb-4"><Download size={40} /></div>
-                <h3 className="text-2xl font-black">نشر التعديلات للجميع</h3>
-                <p className="text-slate-400 font-medium">إذا قمت بتغيير الصور أو الأسعار وتريد أن يراها كل زبنائك في الإعلانات، اضغط على الزر أسفله وانسخ الكود إلى ملف <code className="text-emerald-500">constants.tsx</code> في مشروعك.</p>
-                <button onClick={copyProductsCode} className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg premium-btn flex items-center justify-center gap-3"><Copy size={20} /> نسخ كود البيانات الجديد</button>
+              <div className="max-w-4xl mx-auto space-y-6">
+                <div className="glass-morphism p-8 rounded-[2.5rem] border border-emerald-500/20 bg-emerald-500/5">
+                   <div className="flex flex-col md:flex-row gap-8 items-center">
+                      <div className="p-6 bg-emerald-500 text-black rounded-3xl shadow-xl shadow-emerald-500/20"><RefreshCcw size={40} className="animate-spin-slow" /></div>
+                      <div className="text-center md:text-right space-y-3">
+                         <h3 className="text-2xl font-black text-emerald-500">لماذا لا تظهر التغييرات للجميع؟</h3>
+                         <p className="text-slate-300 font-medium leading-relaxed">
+                            أي تعديل تقوم به الآن يُحفظ في **ذاكرة متصفحك فقط**. لكي يرى الزبائن في فيسبوك صورك وأسعارك الجديدة، يجب عليك نسخ "الكود البرمجي" الجديد ووضعه في ملف <code className="text-white bg-white/10 px-2 py-0.5 rounded">constants.tsx</code>.
+                         </p>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="glass-morphism p-8 rounded-[2.5rem] space-y-6 flex flex-col justify-between">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 text-emerald-500"><Download size={24} /><h4 className="text-xl font-black">1. نسخ البيانات</h4></div>
+                      <p className="text-slate-400 text-sm font-medium">سيقوم هذا الزر بتحويل كل منتجاتك الحالية وصورك إلى كود جاهز للاستخدام في المشروع.</p>
+                    </div>
+                    <button onClick={copyProductsCode} className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg premium-btn flex items-center justify-center gap-3 shadow-xl shadow-emerald-500/20"><Copy size={20} /> نسخ كود البيانات الجديد</button>
+                  </div>
+
+                  <div className="glass-morphism p-8 rounded-[2.5rem] space-y-6 flex flex-col justify-between border border-rose-500/10">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 text-rose-500"><AlertTriangle size={24} /><h4 className="text-xl font-black">إعادة تعيين</h4></div>
+                      <p className="text-slate-400 text-sm font-medium">سيقوم هذا الزر بمسح كل تعديلاتك المحلية والعودة إلى المنتجات الأصلية الموجودة في ملف الكود.</p>
+                    </div>
+                    <button onClick={resetToDefault} className="w-full bg-rose-500/10 text-rose-500 border border-rose-500/20 py-5 rounded-2xl font-black text-lg hover:bg-rose-500 hover:text-white transition-all">مسح التعديلات المحلية</button>
+                  </div>
+                </div>
+
+                <div className="glass-morphism p-8 rounded-[2.5rem] space-y-4">
+                   <div className="flex items-center gap-2 text-slate-300 font-black"><HelpCircle size={20}/> <span>الخطوات النهائية للنشر:</span></div>
+                   <ol className="list-decimal list-inside space-y-3 text-slate-400 text-sm font-medium pr-2">
+                     <li>قم بتعديل المنتج، الصور، والأسعار كما تريد في صفحة "المنتجات".</li>
+                     <li>تأكد أن شكل الموقع أعجبك (عبر صفحة المتجر).</li>
+                     <li>اضغط على زر <span className="text-emerald-500">"نسخ كود البيانات الجديد"</span> أعلاه.</li>
+                     <li>اذهب لملف <span className="text-white">constants.tsx</span> وامسح محتوى <code className="text-white bg-white/5 px-1">MOCK_PRODUCTS</code> القديم وضع الكود الجديد مكانه.</li>
+                     <li>الآن التغيير سيظهر لكل زائر يضغط على إعلانك في فيسبوك.</li>
+                   </ol>
+                </div>
               </div>
             )}
 
@@ -253,17 +297,21 @@ const App: React.FC = () => {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <button 
                   onClick={() => { setEditingProduct({ id: 'P-' + Date.now(), title: '', price: 0, category: 'إلكترونيات', description: '', thumbnail: '', stockStatus: 'available', rating: 5, reviewsCount: 0, shippingTime: '24 ساعة', galleryImages: [] }); setIsAddingProduct(true); }}
-                  className="aspect-square border-2 border-dashed border-white/10 rounded-3xl flex flex-col items-center justify-center gap-3 text-slate-500 hover:border-emerald-500 hover:text-emerald-500 transition-all group"
+                  className="aspect-square border-2 border-dashed border-white/10 rounded-3xl flex flex-col items-center justify-center gap-3 text-slate-500 hover:border-emerald-500 hover:text-emerald-500 transition-all group bg-white/5"
                 >
-                  <Plus size={32} />
-                  <span className="font-black text-xs">إضافة منتج</span>
+                  <PlusCircle size={32} />
+                  <span className="font-black text-xs">إضافة منتج جديد</span>
                 </button>
                 {products.map(p => (
                   <div key={p.id} className="glass-morphism rounded-3xl overflow-hidden group relative">
                     <img src={p.thumbnail} className="w-full h-full object-cover aspect-square" alt={p.title} />
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2">
-                      <button onClick={() => { setEditingProduct(p); setIsAddingProduct(false); }} className="p-2.5 bg-white text-black rounded-lg"><Edit3 size={16} /></button>
-                      <button onClick={() => { if(window.confirm('حذف؟')) { setProducts(products.filter(pr => pr.id !== p.id)); localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(products.filter(pr => pr.id !== p.id))); showToast('تم الحذف'); } }} className="p-2.5 bg-rose-500 text-white rounded-lg"><Trash2 size={16} /></button>
+                      <button onClick={() => { setEditingProduct(p); setIsAddingProduct(false); }} className="p-3 bg-emerald-500 text-black rounded-xl font-bold flex items-center gap-2"><Edit3 size={18} /> تعديل</button>
+                      <button onClick={() => { if(window.confirm('هل أنت متأكد من الحذف؟')) { const up = products.filter(pr => pr.id !== p.id); setProducts(up); localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(up)); showToast('تم الحذف بنجاح'); } }} className="p-3 bg-rose-500 text-white rounded-xl"><Trash2 size={18} /></button>
+                    </div>
+                    <div className="absolute bottom-3 right-3 left-3 p-2 bg-black/50 backdrop-blur-md rounded-xl border border-white/10">
+                      <p className="text-[10px] font-black line-clamp-1">{p.title}</p>
+                      <p className="text-xs font-black text-emerald-500">{p.price} DH</p>
                     </div>
                   </div>
                 ))}
@@ -271,23 +319,35 @@ const App: React.FC = () => {
             )}
             
             {adminTab === 'orders' && (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {orders.length > 0 ? orders.map(order => (
-                  <div key={order.orderId} className="glass-morphism p-4 rounded-2xl flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-emerald-500/10 text-emerald-500 rounded-lg flex items-center justify-center"><Package size={18} /></div>
+                  <div key={order.orderId} className="glass-morphism p-6 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-white/5">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center shadow-inner"><Package size={24} /></div>
                       <div>
-                        <h4 className="font-black text-sm">{order.customer.fullName}</h4>
-                        <p className="text-[10px] text-slate-500">{order.productTitle}</p>
+                        <h4 className="font-black text-lg">{order.customer.fullName}</h4>
+                        <div className="flex items-center gap-3 text-slate-500 text-xs font-bold mt-1">
+                           <span className="flex items-center gap-1"><Phone size={12}/> {order.customer.phoneNumber}</span>
+                           <span className="flex items-center gap-1"><MapPin size={12}/> {order.customer.city}</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="text-left">
-                      <p className="text-xs font-black text-emerald-500">{order.productPrice} DH</p>
-                      <p className="text-[9px] text-slate-500">{order.customer.city} | {order.customer.phoneNumber}</p>
+                    <div className="flex items-center justify-between md:text-left gap-10 border-t md:border-t-0 pt-4 md:pt-0 border-white/5">
+                      <div className="text-right md:text-left">
+                        <p className="text-xs text-slate-500 font-bold mb-1">المنتج المطلوب</p>
+                        <p className="font-black text-emerald-500">{order.productTitle} - {order.productPrice} DH</p>
+                      </div>
+                      <div className="flex flex-col items-end">
+                         <span className="px-3 py-1 bg-amber-500/10 text-amber-500 rounded-lg text-[10px] font-black mb-2">قيد المراجعة</span>
+                         <span className="text-[10px] text-slate-500 font-bold">{order.orderDate}</span>
+                      </div>
                     </div>
                   </div>
                 )) : (
-                  <div className="text-center py-20 text-slate-500 font-bold">لا توجد طلبيات حالياً</div>
+                  <div className="text-center py-32 glass-morphism rounded-[3rem] space-y-4">
+                    <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto text-slate-600"><ShoppingBag size={40}/></div>
+                    <p className="text-slate-500 font-black text-xl">لا توجد أي طلبيات حتى الآن</p>
+                  </div>
                 )}
               </div>
             )}
@@ -304,10 +364,10 @@ const App: React.FC = () => {
              <div className="w-full md:w-1/2 h-[40vh] md:h-auto bg-slate-900 relative">
                 <img src={activeGalleryImage} className="w-full h-full object-cover" alt={selectedProduct.title} />
                 {(selectedProduct.galleryImages && selectedProduct.galleryImages.length > 0) && (
-                  <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 px-4 overflow-x-auto no-scrollbar">
-                    <button onClick={() => setActiveGalleryImage(selectedProduct.thumbnail)} className={`w-12 h-12 rounded-lg border-2 transition-all flex-shrink-0 ${activeGalleryImage === selectedProduct.thumbnail ? 'border-emerald-500 scale-105' : 'border-white/10 opacity-60'}`}><img src={selectedProduct.thumbnail} className="w-full h-full object-cover" /></button>
+                  <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 px-4 overflow-x-auto no-scrollbar pb-2">
+                    <button onClick={() => setActiveGalleryImage(selectedProduct.thumbnail)} className={`w-14 h-14 rounded-xl border-2 transition-all flex-shrink-0 overflow-hidden ${activeGalleryImage === selectedProduct.thumbnail ? 'border-emerald-500 scale-105 shadow-lg shadow-emerald-500/20' : 'border-white/10 opacity-60'}`}><img src={selectedProduct.thumbnail} className="w-full h-full object-cover" /></button>
                     {selectedProduct.galleryImages.map((img, i) => (
-                      <button key={i} onClick={() => setActiveGalleryImage(img)} className={`w-12 h-12 rounded-lg border-2 transition-all flex-shrink-0 ${activeGalleryImage === img ? 'border-emerald-500 scale-105' : 'border-white/10 opacity-60'}`}><img src={img} className="w-full h-full object-cover" /></button>
+                      <button key={i} onClick={() => setActiveGalleryImage(img)} className={`w-14 h-14 rounded-xl border-2 transition-all flex-shrink-0 overflow-hidden ${activeGalleryImage === img ? 'border-emerald-500 scale-105 shadow-lg shadow-emerald-500/20' : 'border-white/10 opacity-60'}`}><img src={img} className="w-full h-full object-cover" /></button>
                     ))}
                   </div>
                 )}
@@ -316,30 +376,33 @@ const App: React.FC = () => {
                 {!isCheckingOut ? (
                   <div className="space-y-6 md:space-y-8 my-auto">
                     <div className="space-y-3">
-                      <span className="bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-lg text-[10px] font-black">{selectedProduct.category}</span>
-                      <h2 className="text-2xl md:text-5xl font-black text-gradient leading-tight">{selectedProduct.title}</h2>
+                      <span className="bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider">{selectedProduct.category}</span>
+                      <h2 className="text-3xl md:text-5xl font-black text-gradient leading-tight">{selectedProduct.title}</h2>
                       <p className="text-slate-400 text-sm md:text-lg leading-relaxed font-medium whitespace-pre-wrap">{selectedProduct.description}</p>
                     </div>
-                    <div className="p-5 md:p-8 glass-morphism rounded-3xl flex items-center justify-between">
-                      <div><p className="text-[10px] font-black text-slate-500 uppercase">السعر</p><p className="text-3xl md:text-5xl font-black text-emerald-500">{selectedProduct.price} <span className="text-base">DH</span></p></div>
-                      <div className="text-right text-xs md:text-base font-bold text-slate-300"><p className="flex items-center gap-1.5 justify-end"><Truck size={16} /> توصيل مجاني</p><p className="flex items-center gap-1.5 justify-end"><ShieldCheck size={16} /> جودة مضمونة</p></div>
+                    <div className="p-6 md:p-8 glass-morphism rounded-3xl flex items-center justify-between border border-white/5">
+                      <div><p className="text-[10px] font-black text-slate-500 uppercase mb-1">السعر النهائي</p><p className="text-4xl md:text-5xl font-black text-emerald-500">{selectedProduct.price} <span className="text-base">DH</span></p></div>
+                      <div className="text-right text-xs md:text-sm font-bold text-slate-300 space-y-1.5"><p className="flex items-center gap-1.5 justify-end text-emerald-500"><Truck size={16} /> توصيل مجاني وسريع</p><p className="flex items-center gap-1.5 justify-end"><ShieldCheck size={16} /> الدفع عند المعاينة</p></div>
                     </div>
-                    <button onClick={() => setIsCheckingOut(true)} className="w-full bg-emerald-500 text-black py-5 md:py-6 rounded-2xl font-black text-lg md:text-2xl animate-buy-pulse premium-btn shadow-2xl shadow-emerald-500/20">اشتري الآن - الدفع عند الاستلام</button>
+                    <button onClick={() => setIsCheckingOut(true)} className="w-full bg-emerald-500 text-black py-5 md:py-6 rounded-2xl font-black text-lg md:text-2xl animate-buy-pulse premium-btn shadow-2xl shadow-emerald-500/20">أطلب الآن - الدفع عند الاستلام</button>
                   </div>
                 ) : (
                   <div className="space-y-8 my-auto">
-                     <div className="flex items-center gap-3"><button onClick={() => setIsCheckingOut(false)} className="p-2.5 rounded-lg bg-white/5 text-slate-400"><ChevronLeft size={20} /></button><h3 className="text-2xl md:text-3xl font-black text-gradient">إتمام الطلب</h3></div>
+                     <div className="flex items-center gap-3"><button onClick={() => setIsCheckingOut(false)} className="p-2.5 rounded-lg bg-white/5 text-slate-400 hover:text-white transition-all"><ChevronLeft size={20} /></button><h3 className="text-2xl md:text-3xl font-black text-gradient">أدخل معلوماتك للطلب</h3></div>
                      <div className="space-y-4">
-                       <div className="space-y-1"><label className="text-[10px] font-black text-slate-500 pr-3">الاسم بالكامل</label><input type="text" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-white" value={customerInfo.fullName} onChange={e => setCustomerInfo({...customerInfo, fullName: e.target.value})} /></div>
-                       <div className="space-y-1"><label className="text-[10px] font-black text-slate-500 pr-3">المدينة</label>
-                       <select className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-white appearance-none" value={customerInfo.city} onChange={e => setCustomerInfo({...customerInfo, city: e.target.value})}>
-                         <option value="" className="bg-[#050a18]">اختر المدينة</option>
-                         {MOROCCAN_CITIES.map(city => <option key={city} value={city} className="bg-[#050a18]">{city}</option>)}
-                       </select></div>
-                       <div className="space-y-1"><label className="text-[10px] font-black text-slate-500 pr-3">رقم الهاتف</label><input type="tel" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-left text-white" value={customerInfo.phoneNumber} onChange={e => setCustomerInfo({...customerInfo, phoneNumber: e.target.value})} placeholder="06 XX XX XX XX" /></div>
-                       <div className="space-y-1"><label className="text-[10px] font-black text-slate-500 pr-3">العنوان (اختياري)</label><textarea className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold h-24 text-white" value={customerInfo.address} onChange={e => setCustomerInfo({...customerInfo, address: e.target.value})} /></div>
+                       <div className="space-y-1.5"><label className="text-[11px] font-black text-slate-500 pr-3">الإسم الكامل</label><input type="text" className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold text-white focus:border-emerald-500 focus:bg-emerald-500/5 outline-none transition-all" value={customerInfo.fullName} onChange={e => setCustomerInfo({...customerInfo, fullName: e.target.value})} placeholder="مثلاً: محمد المغربي" /></div>
+                       <div className="space-y-1.5"><label className="text-[11px] font-black text-slate-500 pr-3">المدينة</label>
+                       <div className="relative">
+                        <select className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold text-white appearance-none focus:border-emerald-500 focus:bg-emerald-500/5 outline-none transition-all" value={customerInfo.city} onChange={e => setCustomerInfo({...customerInfo, city: e.target.value})}>
+                          <option value="" className="bg-[#050a18]">إختر مدينتك</option>
+                          {MOROCCAN_CITIES.map(city => <option key={city} value={city} className="bg-[#050a18]">{city}</option>)}
+                        </select>
+                        <ChevronDown size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                       </div></div>
+                       <div className="space-y-1.5"><label className="text-[11px] font-black text-slate-500 pr-3">رقم الهاتف</label><input type="tel" className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold text-left text-white focus:border-emerald-500 focus:bg-emerald-500/5 outline-none transition-all" value={customerInfo.phoneNumber} onChange={e => setCustomerInfo({...customerInfo, phoneNumber: e.target.value})} placeholder="06 XX XX XX XX" /></div>
+                       <div className="space-y-1.5"><label className="text-[11px] font-black text-slate-500 pr-3">العنوان (اختياري)</label><textarea className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold h-24 text-white focus:border-emerald-500 focus:bg-emerald-500/5 outline-none transition-all" value={customerInfo.address} onChange={e => setCustomerInfo({...customerInfo, address: e.target.value})} placeholder="الحي، رقم المنزل..." /></div>
                      </div>
-                     <button onClick={confirmOrder} className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg premium-btn">تأكيد الطلب الآن</button>
+                     <button onClick={confirmOrder} className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg premium-btn shadow-xl shadow-emerald-500/20">تأكيد الطلب بنجاح</button>
                   </div>
                 )}
              </div>
@@ -350,27 +413,37 @@ const App: React.FC = () => {
       {/* Admin Login Modal */}
       {showLoginModal && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 bg-[#050a18]/95 backdrop-blur-xl">
-          <div className="max-w-md w-full glass-morphism p-10 rounded-[3rem] space-y-8">
+          <div className="max-w-md w-full glass-morphism p-10 rounded-[3rem] space-y-8 border border-white/5">
             <div className="flex justify-between items-center">
               <h3 className="text-3xl font-black text-gradient">دخول الإدارة</h3>
-              <button onClick={() => setShowLoginModal(false)}><X /></button>
+              <button onClick={() => setShowLoginModal(false)} className="text-slate-500 hover:text-white"><X /></button>
             </div>
             <div className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-xs font-black text-slate-500">كلمة المرور</label>
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-500">كلمة المرور (admin)</label>
                 <div className="relative">
                   <input 
                     type={showPassword ? "text" : "password"} 
-                    className={`w-full bg-white/5 border ${loginError ? 'border-rose-500' : 'border-white/10'} p-5 rounded-2xl font-bold`}
+                    className={`w-full bg-white/5 border ${loginError ? 'border-rose-500' : 'border-white/10'} p-5 rounded-2xl font-bold focus:border-emerald-500 outline-none transition-all`}
                     value={passwordInput}
                     onChange={(e) => { setPasswordInput(e.target.value); setLoginError(false); }}
-                    onKeyDown={(e) => { if(e.key === 'Enter') { /* Login logic */ } }}
+                    onKeyDown={(e) => { 
+                      if(e.key === 'Enter') {
+                        if (passwordInput === adminPassword) {
+                          setIsAdminAuthenticated(true);
+                          sessionStorage.setItem('admin_auth', 'true');
+                          setShowLoginModal(false);
+                          setView('admin');
+                          setPasswordInput('');
+                        } else { setLoginError(true); }
+                      }
+                    }}
                   />
-                  <button onClick={() => setShowPassword(!showPassword)} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
+                  <button onClick={() => setShowPassword(!showPassword)} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-all">
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
-                {loginError && <p className="text-rose-500 text-xs font-bold mt-2">كلمة مرور خاطئة</p>}
+                {loginError && <p className="text-rose-500 text-xs font-bold mt-2">عذراً، كلمة المرور غير صحيحة.</p>}
               </div>
               <button 
                 onClick={() => {
@@ -386,7 +459,7 @@ const App: React.FC = () => {
                 }} 
                 className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg premium-btn"
               >
-                دخول
+                تأكيد الدخول
               </button>
             </div>
           </div>
@@ -396,29 +469,30 @@ const App: React.FC = () => {
       {/* Product Editor Modal */}
       {editingProduct && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 md:p-10 bg-[#050a18]/95 backdrop-blur-xl">
-          <div className="max-w-4xl w-full glass-morphism p-6 md:p-12 rounded-[3rem] space-y-8 overflow-y-auto max-h-[90vh] no-scrollbar">
+          <div className="max-w-5xl w-full glass-morphism p-6 md:p-12 rounded-[3.5rem] space-y-8 overflow-y-auto max-h-[95vh] no-scrollbar border border-white/5">
             <div className="flex justify-between items-center">
-              <h3 className="text-3xl font-black text-gradient">{isAddingProduct ? 'إضافة منتج جديد' : 'تعديل المنتج'}</h3>
-              <button onClick={() => setEditingProduct(null)}><X /></button>
+              <h3 className="text-3xl font-black text-gradient">{isAddingProduct ? 'إضافة منتج جديد' : 'تعديل تفاصيل المنتج'}</h3>
+              <button onClick={() => setEditingProduct(null)} className="p-2 bg-white/5 rounded-full hover:bg-rose-500/20 hover:text-rose-500 transition-all"><X /></button>
             </div>
-            <form onSubmit={saveProduct} className="grid md:grid-cols-2 gap-8">
+            <form onSubmit={saveProduct} className="grid md:grid-cols-2 gap-10">
               <div className="space-y-6">
-                <div className="space-y-1"><label className="text-xs font-black text-slate-500">اسم المنتج</label><input type="text" required className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold" value={editingProduct.title} onChange={e => setEditingProduct({...editingProduct, title: e.target.value})} /></div>
-                <div className="space-y-1"><label className="text-xs font-black text-slate-500">السعر (DH)</label><input type="number" required className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold" value={editingProduct.price} onChange={e => setEditingProduct({...editingProduct, price: Number(e.target.value)})} /></div>
+                <div className="space-y-1.5"><label className="text-xs font-black text-slate-500">عنوان المنتج</label><input type="text" required className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold focus:border-emerald-500 outline-none transition-all" value={editingProduct.title} onChange={e => setEditingProduct({...editingProduct, title: e.target.value})} /></div>
+                <div className="space-y-1.5"><label className="text-xs font-black text-slate-500">السعر المعروض (DH)</label><input type="number" required className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold focus:border-emerald-500 outline-none transition-all" value={editingProduct.price} onChange={e => setEditingProduct({...editingProduct, price: Number(e.target.value)})} /></div>
                 
-                {/* تحميل صورة الغلاف */}
                 <div className="space-y-3">
-                  <label className="text-xs font-black text-slate-500">صورة الغلاف</label>
-                  <div className="relative group aspect-square rounded-2xl overflow-hidden border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-3">
+                  <label className="text-xs font-black text-slate-500">الصورة الرئيسية (الغلاف)</label>
+                  <div className="relative group aspect-[4/3] rounded-3xl overflow-hidden border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-3 transition-all hover:border-emerald-500/50 bg-white/5">
                     {editingProduct.thumbnail ? (
                       <>
                         <img src={editingProduct.thumbnail} className="absolute inset-0 w-full h-full object-cover" />
-                        <button type="button" onClick={() => fileInputRef.current?.click()} className="relative z-10 bg-black/60 p-4 rounded-full text-white opacity-0 group-hover:opacity-100 transition-all"><Camera size={24}/></button>
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+                           <button type="button" onClick={() => fileInputRef.current?.click()} className="bg-white text-black p-4 rounded-2xl font-black flex items-center gap-2"><Camera size={20}/> تغيير الصورة</button>
+                        </div>
                       </>
                     ) : (
-                      <button type="button" onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center gap-2 text-slate-500 hover:text-emerald-500 transition-all">
-                        <UploadCloud size={32}/>
-                        <span className="text-[10px] font-black">اضغط لتحميل صورة</span>
+                      <button type="button" onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center gap-3 text-slate-500 hover:text-emerald-500 transition-all">
+                        <UploadCloud size={40}/>
+                        <span className="text-xs font-black">إضغط هنا لإختيار صورة المنتج</span>
                       </button>
                     )}
                     <input type="file" ref={fileInputRef} hidden accept="image/*" onChange={handleThumbnailUpload} />
@@ -427,27 +501,27 @@ const App: React.FC = () => {
               </div>
 
               <div className="space-y-6">
-                <div className="space-y-1"><label className="text-xs font-black text-slate-500">الوصف</label><textarea required className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold h-32" value={editingProduct.description} onChange={e => setEditingProduct({...editingProduct, description: e.target.value})} /></div>
+                <div className="space-y-1.5"><label className="text-xs font-black text-slate-500">وصف المنتج (مميزاته وكيفية استخدامه)</label><textarea required className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold h-40 focus:border-emerald-500 outline-none transition-all leading-relaxed" value={editingProduct.description} onChange={e => setEditingProduct({...editingProduct, description: e.target.value})} placeholder="أكتب وصفاً بيعياً مقنعاً هنا..." /></div>
                 
-                {/* معرض الصور الإضافية */}
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <label className="text-xs font-black text-slate-500">صور إضافية للمعرض</label>
-                    <button type="button" onClick={() => galleryInputRef.current?.click()} className="text-emerald-500 flex items-center gap-1 text-[10px] font-black"><ImagePlus size={14}/> إضافة صور</button>
+                  <div className="flex justify-between items-center pr-1">
+                    <label className="text-xs font-black text-slate-500">معرض الصور (صور إضافية)</label>
+                    <button type="button" onClick={() => galleryInputRef.current?.click()} className="text-emerald-500 flex items-center gap-1.5 text-[11px] font-black hover:underline transition-all"><ImagePlus size={16}/> إضافة صور أخرى</button>
                     <input type="file" ref={galleryInputRef} hidden multiple accept="image/*" onChange={handleGalleryUpload} />
                   </div>
-                  <div className="grid grid-cols-4 gap-2">
-                    {editingProduct.galleryImages?.map((img, i) => (
-                      <div key={i} className="relative aspect-square rounded-lg overflow-hidden group">
+                  <div className="grid grid-cols-4 gap-3 bg-white/5 p-4 rounded-3xl border border-white/5 min-h-[100px]">
+                    {editingProduct.galleryImages?.length ? editingProduct.galleryImages.map((img, i) => (
+                      <div key={i} className="relative aspect-square rounded-xl overflow-hidden group shadow-lg">
                         <img src={img} className="w-full h-full object-cover" />
-                        <button type="button" onClick={() => removeGalleryImage(i)} className="absolute top-1 right-1 bg-rose-500 p-1 rounded-md text-white opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={10}/></button>
+                        <button type="button" onClick={() => removeGalleryImage(i)} className="absolute inset-0 bg-rose-500/80 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center text-white"><Trash2 size={16}/></button>
                       </div>
-                    ))}
+                    )) : <div className="col-span-4 flex items-center justify-center text-slate-600 text-[10px] font-bold py-4">لا توجد صور إضافية بعد</div>}
                   </div>
                 </div>
 
-                <div className="pt-4">
-                  <button type="submit" className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg premium-btn flex items-center justify-center gap-2"><Save size={20}/> حفظ المنتج</button>
+                <div className="pt-4 flex gap-4">
+                  <button type="submit" className="flex-1 bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg premium-btn flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/10"><Save size={22}/> حفظ التعديلات</button>
+                  <button type="button" onClick={() => setEditingProduct(null)} className="px-8 bg-white/5 text-slate-400 py-5 rounded-2xl font-black text-lg hover:bg-white/10 transition-all">إلغاء</button>
                 </div>
               </div>
             </form>
@@ -455,18 +529,20 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Success Modal */}
+      {/* Success Order Modal */}
       {activeOrder && (
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-[#050a18]/95 backdrop-blur-xl">
-          <div className="max-w-md w-full glass-morphism p-10 rounded-[3rem] text-center space-y-6">
+          <div className="max-w-md w-full glass-morphism p-10 rounded-[3.5rem] text-center space-y-8 border border-emerald-500/20 shadow-2xl shadow-emerald-500/10">
             <div className="w-24 h-24 bg-emerald-500 rounded-full flex items-center justify-center mx-auto text-black shadow-2xl shadow-emerald-500/50 animate-bounce"><Check size={48} /></div>
-            <h3 className="text-3xl font-black text-gradient">شكراً لثقتك بنا!</h3>
-            <p className="text-slate-400 font-medium text-lg">لقد استلمنا طلبك بنجاح. سيتصل بك فريقنا لتأكيد الطلب خلال الـ 24 ساعة القادمة.</p>
-            <div className="p-6 bg-white/5 rounded-2xl border border-white/10">
-              <p className="text-xs font-black text-slate-500 mb-2">رقم الطلب</p>
-              <p className="text-2xl font-black text-emerald-500">{activeOrder.orderId}</p>
+            <div className="space-y-2">
+              <h3 className="text-3xl font-black text-gradient">تم إرسال طلبك!</h3>
+              <p className="text-slate-400 font-medium text-lg leading-relaxed">شكراً جزيلاً لثقتك بمتجرنا. سيتصل بك فريقنا قريباً جداً لتأكيد العنوان وموعد التسليم.</p>
             </div>
-            <button onClick={() => setActiveOrder(null)} className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg premium-btn">العودة للمتجر</button>
+            <div className="p-6 bg-emerald-500/5 rounded-[2rem] border border-emerald-500/10">
+              <p className="text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">رقم تتبع الطلبية</p>
+              <p className="text-3xl font-black text-emerald-500 tracking-widest">{activeOrder.orderId}</p>
+            </div>
+            <button onClick={() => setActiveOrder(null)} className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg premium-btn shadow-lg">العودة للتسوق</button>
           </div>
         </div>
       )}
