@@ -8,7 +8,8 @@ import {
   Share2, Copy, Facebook, Link as LinkIcon, Camera, 
   Activity, Info, CheckCircle2, AlertTriangle, Plus,
   ChevronDown, Search, ArrowUpRight, Zap, Award, UploadCloud, Download,
-  ImagePlus, HelpCircle, RefreshCcw, Globe, Database, Server, Link, Code, RefreshCw
+  ImagePlus, HelpCircle, RefreshCcw, Globe, Database, Server, Link, Code, RefreshCw,
+  Wifi, WifiOff, Radio
 } from 'lucide-react';
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { StoreProduct, StoreOrder, CustomerInfo, Category } from './types';
@@ -106,11 +107,12 @@ const App: React.FC = () => {
     if (!supabase) { showToast('يرجى إدخال البيانات أولاً', 'error'); return; }
     setIsTestingConn(true);
     try {
+      // محاولة استعلام بسيطة للتأكد من وجود الجداول
       const { error } = await supabase.from('products').select('count', { count: 'exact', head: true });
       if (error) throw error;
-      showToast('تم الاتصال بنجاح! الموقع جاهز للمزامنة');
+      showToast('تم الاتصال بنجاح! السحابة تعمل بامتياز');
     } catch (err: any) {
-      showToast('فشل الاتصال: تأكد من كود SQL ومن المفاتيح', 'error');
+      showToast('فشل الاتصال: يرجى التأكد من تشغيل كود SQL في Supabase', 'error');
     } finally {
       setIsTestingConn(false);
     }
@@ -122,7 +124,7 @@ const App: React.FC = () => {
     
     const productToSave = {
       ...editingProduct,
-      created_at: editingProduct.id.includes('Date') ? new Date().toISOString() : undefined
+      created_at: isAddingProduct ? new Date().toISOString() : editingProduct.id.includes('P-') ? new Date().toISOString() : undefined
     };
 
     if (supabase) {
@@ -130,7 +132,7 @@ const App: React.FC = () => {
       if (error) { showToast('خطأ في المزامنة السحابية', 'error'); return; }
     }
     
-    await fetchData(); // Refresh data from source
+    await fetchData(); 
     setEditingProduct(null);
     setIsAddingProduct(false);
     showToast('تم الحفظ والمزامنة الفورية!');
@@ -174,7 +176,7 @@ const App: React.FC = () => {
   const saveDbConfig = () => {
     localStorage.setItem('sb_url', dbConfig.url);
     localStorage.setItem('sb_key', dbConfig.key);
-    showToast('تم الحفظ، جارِ إعادة التشغيل...');
+    showToast('تم الحفظ، جارِ الربط...');
     setTimeout(() => window.location.reload(), 1000);
   };
 
@@ -219,8 +221,8 @@ CREATE TABLE orders (
 
       <nav className="fixed bottom-0 left-0 right-0 md:top-0 md:right-auto md:w-24 h-[72px] md:h-screen glass-morphism z-[100] border-t md:border-t-0 md:border-l border-white/5 flex md:flex-col items-center justify-around md:py-10 pb-2">
         <div className="hidden md:flex flex-col items-center gap-2 mb-10">
-          <div className={`w-12 h-12 ${supabase ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'} rounded-2xl flex items-center justify-center text-black shadow-lg`}>
-            {supabase ? <Server size={24} /> : <Database size={24} />}
+          <div className={`w-12 h-12 ${supabase ? 'bg-emerald-500 animate-pulse shadow-emerald-500/20' : 'bg-amber-500 shadow-amber-500/20'} rounded-2xl flex items-center justify-center text-black shadow-lg transition-all duration-700`}>
+            {supabase ? <Radio size={24} className="animate-spin-slow" /> : <Database size={24} />}
           </div>
         </div>
         <div className="flex md:flex-col gap-6 md:gap-10 w-full justify-around md:justify-start">
@@ -286,26 +288,49 @@ CREATE TABLE orders (
             </header>
 
             {adminTab === 'settings' && (
-              <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-8">
-                <div className="glass-morphism p-10 rounded-[3rem] border border-white/5 space-y-8">
-                   <div className="flex items-center gap-4">
-                      <div className="p-4 bg-emerald-500 text-black rounded-2xl shadow-xl"><Database size={28}/></div>
-                      <h3 className="text-2xl font-black">بيانات الاتصال</h3>
-                   </div>
-                   <div className="space-y-6">
-                      <div className="space-y-2"><label className="text-xs font-black text-slate-500 px-2">Project URL</label><input type="text" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl font-bold focus:border-emerald-500 outline-none" value={dbConfig.url} onChange={e => setDbConfig({...dbConfig, url: e.target.value})} placeholder="https://xyz.supabase.co" /></div>
-                      <div className="space-y-2"><label className="text-xs font-black text-slate-500 px-2">Anon Key</label><input type="password" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl font-bold focus:border-emerald-500 outline-none" value={dbConfig.key} onChange={e => setDbConfig({...dbConfig, key: e.target.value})} placeholder="المفتاح السري" /></div>
-                      <div className="flex gap-4">
-                        <button onClick={saveDbConfig} className="flex-1 bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg premium-btn shadow-lg">حفظ البيانات</button>
-                        <button onClick={testConnection} disabled={isTestingConn} className="px-8 bg-white/5 border border-white/10 rounded-2xl font-black text-sm flex items-center gap-2 hover:bg-white/10 transition-all">{isTestingConn ? <RefreshCw size={20} className="animate-spin"/> : <Zap size={20} className="text-emerald-500"/>} اختبار الاتصال</button>
-                      </div>
-                   </div>
+              <div className="max-w-6xl mx-auto space-y-8">
+                {/* Connection Status Detail Card */}
+                <div className={`glass-morphism p-8 rounded-[2.5rem] border ${supabase ? 'border-emerald-500/20' : 'border-amber-500/20'} flex flex-col md:flex-row items-center justify-between gap-6`}>
+                  <div className="flex items-center gap-6">
+                    <div className={`w-20 h-20 rounded-3xl flex items-center justify-center ${supabase ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                      {supabase ? <Wifi size={36}/> : <WifiOff size={36}/>}
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-black">حالة نظام الربط</h3>
+                      <p className="text-slate-500 font-bold text-sm">
+                        {supabase ? `متصل بـ: ${dbConfig.url.replace('https://', '').split('.')[0]}` : 'غير متصل بأي مشروع حالياً'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                     <span className={`px-5 py-2 rounded-full font-black text-[10px] uppercase tracking-tighter ${supabase ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'bg-amber-500/20 text-amber-500 border border-amber-500/20'}`}>
+                        {supabase ? 'Connected & Active' : 'Disconnected / Local Mode'}
+                     </span>
+                     <p className="text-[10px] text-slate-500 font-black">آخر تحديث: {new Date().toLocaleTimeString('ar-MA')}</p>
+                  </div>
                 </div>
 
-                <div className="glass-morphism p-10 rounded-[3rem] border border-white/5 flex flex-col">
-                   <div className="flex items-center gap-4 mb-6"><div className="p-4 bg-emerald-500/10 text-emerald-500 rounded-2xl"><Code size={28}/></div><h3 className="text-2xl font-black">مساعد SQL</h3></div>
-                   <pre className="flex-1 bg-black/40 p-6 rounded-[2rem] text-[10px] text-emerald-500 font-mono overflow-auto border border-emerald-500/20 custom-scroll text-ltr">{sqlCode}</pre>
-                   <button onClick={() => { navigator.clipboard.writeText(sqlCode); showToast('تم نسخ الكود! ضعه في Supabase'); }} className="mt-4 flex items-center justify-center gap-2 text-emerald-500 font-black text-sm hover:scale-105 transition-all"><Copy size={16}/> نسخ الكود لإنشاء الجداول</button>
+                <div className="grid md:grid-cols-2 gap-8">
+                  <div className="glass-morphism p-10 rounded-[3rem] border border-white/5 space-y-8">
+                    <div className="flex items-center gap-4">
+                        <div className="p-4 bg-emerald-500 text-black rounded-2xl shadow-xl"><Database size={28}/></div>
+                        <h3 className="text-2xl font-black">بيانات الاتصال</h3>
+                    </div>
+                    <div className="space-y-6">
+                        <div className="space-y-2"><label className="text-xs font-black text-slate-500 px-2">Project URL</label><input type="text" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl font-bold focus:border-emerald-500 outline-none" value={dbConfig.url} onChange={e => setDbConfig({...dbConfig, url: e.target.value})} placeholder="https://xyz.supabase.co" /></div>
+                        <div className="space-y-2"><label className="text-xs font-black text-slate-500 px-2">Anon Key</label><input type="password" className="w-full bg-white/5 border border-white/10 p-5 rounded-2xl font-bold focus:border-emerald-500 outline-none" value={dbConfig.key} onChange={e => setDbConfig({...dbConfig, key: e.target.value})} placeholder="المفتاح السري" /></div>
+                        <div className="flex gap-4">
+                          <button onClick={saveDbConfig} className="flex-1 bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg premium-btn shadow-lg">حفظ البيانات</button>
+                          <button onClick={testConnection} disabled={isTestingConn} className="px-8 bg-white/5 border border-white/10 rounded-2xl font-black text-sm flex items-center gap-2 hover:bg-white/10 transition-all">{isTestingConn ? <RefreshCw size={20} className="animate-spin"/> : <Zap size={20} className="text-emerald-500"/>} اختبار الاتصال</button>
+                        </div>
+                    </div>
+                  </div>
+
+                  <div className="glass-morphism p-10 rounded-[3rem] border border-white/5 flex flex-col">
+                    <div className="flex items-center gap-4 mb-6"><div className="p-4 bg-emerald-500/10 text-emerald-500 rounded-2xl"><Code size={28}/></div><h3 className="text-2xl font-black">مساعد SQL</h3></div>
+                    <pre className="flex-1 bg-black/40 p-6 rounded-[2rem] text-[10px] text-emerald-500 font-mono overflow-auto border border-emerald-500/20 custom-scroll text-ltr">{sqlCode}</pre>
+                    <button onClick={() => { navigator.clipboard.writeText(sqlCode); showToast('تم نسخ الكود! ضعه في Supabase'); }} className="mt-4 flex items-center justify-center gap-2 text-emerald-500 font-black text-sm hover:scale-105 transition-all"><Copy size={16}/> نسخ الكود لإنشاء الجداول</button>
+                  </div>
                 </div>
               </div>
             )}
