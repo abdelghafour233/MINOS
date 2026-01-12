@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   X, ShoppingBag, ShoppingCart, Star, Truck, MapPin, Phone, User, Check, 
@@ -7,7 +6,7 @@ import {
   PlusCircle, Eye, EyeOff, Sun, Moon, Image as ImageIcon, 
   Share2, Copy, Facebook, Link as LinkIcon, Camera, 
   Activity, Info, CheckCircle2, AlertTriangle, Plus,
-  ChevronDown, Search, ArrowUpRight, Zap, Award
+  ChevronDown, Search, ArrowUpRight, Zap, Award, UploadCloud
 } from 'lucide-react';
 import { StoreProduct, StoreOrder, CustomerInfo, Category } from './types';
 import { MOCK_PRODUCTS, CATEGORIES, MOROCCAN_CITIES, STORE_CONFIG } from './constants';
@@ -22,6 +21,7 @@ const App: React.FC = () => {
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [orders, setOrders] = useState<StoreOrder[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<StoreProduct | null>(null);
+  const [activeGalleryImage, setActiveGalleryImage] = useState<string>(''); // تتبع الصورة النشطة في المعرض
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [activeTab, setActiveTab] = useState('الكل');
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | ''}>({message: '', type: ''});
@@ -32,7 +32,7 @@ const App: React.FC = () => {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
-  const [showPassword, setShowPassword] = useState(false); // الحالة الجديدة لإظهار كلمة المرور
+  const [showPassword, setShowPassword] = useState(false); 
   const [loginError, setLoginError] = useState(false);
 
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
@@ -61,6 +61,44 @@ const App: React.FC = () => {
     const authStatus = sessionStorage.getItem('admin_auth');
     if (authStatus === 'true') setIsAdminAuthenticated(true);
   }, []);
+
+  // دالة لمعالجة تحميل الصور وتحويلها لـ Base64
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'thumbnail' | 'gallery') => {
+    const files = e.target.files;
+    if (!files || !editingProduct) return;
+
+    if (target === 'thumbnail') {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditingProduct({ ...editingProduct, thumbnail: reader.result as string });
+      };
+      // Added check and cast to Blob to resolve 'unknown' type error in some environments
+      if (files[0]) {
+        reader.readAsDataURL(files[0] as Blob);
+      }
+    } else {
+      // Cast files to FileList to ensure iteration works correctly and file is typed as File
+      Array.from(files as FileList).forEach((file: File) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setEditingProduct(prev => {
+            if (!prev) return null;
+            const currentGallery = prev.galleryImages || [];
+            return { ...prev, galleryImages: [...currentGallery, reader.result as string] };
+          });
+        };
+        // Cast to Blob to ensure compatibility with readAsDataURL
+        reader.readAsDataURL(file as Blob);
+      });
+    }
+  };
+
+  const removeGalleryImage = (index: number) => {
+    if (!editingProduct) return;
+    const updatedGallery = [...(editingProduct.galleryImages || [])];
+    updatedGallery.splice(index, 1);
+    setEditingProduct({ ...editingProduct, galleryImages: updatedGallery });
+  };
 
   const handleAdminClick = () => {
     if (isAdminAuthenticated) setView('admin');
@@ -98,6 +136,13 @@ const App: React.FC = () => {
     setIsCheckingOut(false);
     setSelectedProduct(null);
   };
+
+  // تهيئة الصورة النشطة عند فتح المنتج
+  useEffect(() => {
+    if (selectedProduct) {
+      setActiveGalleryImage(selectedProduct.thumbnail);
+    }
+  }, [selectedProduct]);
 
   return (
     <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#050a18] text-slate-100' : 'bg-slate-50 text-slate-900'} transition-colors duration-500`}>
@@ -174,7 +219,6 @@ const App: React.FC = () => {
                       <div className="flex items-center justify-between mt-auto">
                         <div>
                           <p className="text-2xl font-black text-emerald-500">{product.price} <span className="text-xs">DH</span></p>
-                          {product.originalPrice && <p className="text-xs text-slate-500 line-through">{product.originalPrice} DH</p>}
                         </div>
                         <button onClick={() => setSelectedProduct(product)} className="w-12 h-12 bg-white/5 hover:bg-emerald-500 hover:text-black rounded-2xl flex items-center justify-center transition-all border border-white/5"><ShoppingCart size={20} /></button>
                       </div>
@@ -198,7 +242,7 @@ const App: React.FC = () => {
             {adminTab === 'products' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <button 
-                  onClick={() => { setEditingProduct({ id: 'P-' + Date.now(), title: '', price: 0, category: 'إلكترونيات', description: '', thumbnail: '', stockStatus: 'available', rating: 5, reviewsCount: 0, shippingTime: '24 ساعة' }); setIsAddingProduct(true); }}
+                  onClick={() => { setEditingProduct({ id: 'P-' + Date.now(), title: '', price: 0, category: 'إلكترونيات', description: '', thumbnail: '', stockStatus: 'available', rating: 5, reviewsCount: 0, shippingTime: '24 ساعة', galleryImages: [] }); setIsAddingProduct(true); }}
                   className="aspect-square border-2 border-dashed border-white/10 rounded-[2.5rem] flex flex-col items-center justify-center gap-4 text-slate-500 hover:border-emerald-500 hover:text-emerald-500 transition-all group"
                 >
                   <div className="p-6 bg-white/5 rounded-3xl group-hover:bg-emerald-500/10 transition-colors"><Plus size={32} /></div>
@@ -246,15 +290,32 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* Product Details Modal */}
+      {/* Product Details Modal (Public) */}
       {selectedProduct && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 md:p-6">
           <div className="absolute inset-0 bg-[#050a18]/95 backdrop-blur-xl" onClick={() => !isCheckingOut && setSelectedProduct(null)}></div>
           <div className="relative w-full h-full md:h-auto md:max-w-6xl md:rounded-[4rem] glass-morphism overflow-hidden flex flex-col md:flex-row animate-fade-in-up">
-             <button onClick={() => { setSelectedProduct(null); setIsCheckingOut(false); }} className="absolute top-6 right-6 z-[210] p-4 bg-white/5 rounded-full text-white hover:bg-white/10 transition-colors"><X size={24} /></button>
+             <button onClick={() => { setSelectedProduct(null); setIsCheckingOut(false); }} className="absolute top-6 right-6 z-[210] p-4 bg-white/5 rounded-full text-white hover:bg-white/10 transition-colors shadow-2xl"><X size={24} /></button>
              
-             <div className="w-full md:w-1/2 h-[45vh] md:h-auto bg-slate-900 relative">
-               <img src={selectedProduct.thumbnail} className="w-full h-full object-cover" alt={selectedProduct.title} />
+             {/* Product Images Section */}
+             <div className="w-full md:w-1/2 h-[45vh] md:h-auto bg-slate-900 relative p-0 flex flex-col">
+               <div className="flex-1 overflow-hidden">
+                <img src={activeGalleryImage} className="w-full h-full object-cover transition-all duration-500" alt={selectedProduct.title} />
+               </div>
+               {/* Gallery Thumbnails */}
+               {(selectedProduct.galleryImages && selectedProduct.galleryImages.length > 0) && (
+                 <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-3 px-4 overflow-x-auto no-scrollbar">
+                    {[selectedProduct.thumbnail, ...selectedProduct.galleryImages].map((img, i) => (
+                      <button 
+                        key={i} 
+                        onClick={() => setActiveGalleryImage(img)}
+                        className={`w-16 h-16 rounded-xl border-2 transition-all flex-shrink-0 overflow-hidden ${activeGalleryImage === img ? 'border-emerald-500 scale-110' : 'border-white/10 opacity-60 hover:opacity-100'}`}
+                      >
+                        <img src={img} className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                 </div>
+               )}
              </div>
 
              <div className="w-full md:w-1/2 p-8 md:p-16 flex flex-col overflow-y-auto no-scrollbar">
@@ -262,7 +323,7 @@ const App: React.FC = () => {
                   <div className="space-y-8 my-auto">
                     <div className="space-y-4">
                       <div className="flex items-center gap-3">
-                        <span className="bg-emerald-500/10 text-emerald-500 px-4 py-1 rounded-lg text-xs font-black">{selectedProduct.category}</span>
+                        <span className="bg-emerald-500/10 text-emerald-500 px-4 py-1 rounded-lg text-xs font-black border border-emerald-500/20">{selectedProduct.category}</span>
                         <div className="flex items-center gap-1 text-amber-500 text-sm font-bold"><Star size={14} fill="currentColor" /> {selectedProduct.rating}</div>
                       </div>
                       <h2 className="text-4xl md:text-5xl font-black text-gradient leading-tight">{selectedProduct.title}</h2>
@@ -280,7 +341,7 @@ const App: React.FC = () => {
                       </div>
                     </div>
 
-                    <button onClick={() => setIsCheckingOut(true)} className="w-full bg-emerald-500 text-black py-6 rounded-[2rem] font-black text-2xl premium-btn shadow-2xl shadow-emerald-500/20">اشتري الآن - الدفع عند الاستلام</button>
+                    <button onClick={() => setIsCheckingOut(true)} className="w-full bg-emerald-500 text-black py-6 rounded-[2rem] font-black text-2xl premium-btn shadow-2xl shadow-emerald-500/20 animate-buy-pulse">اشتري الآن - الدفع عند الاستلام</button>
                   </div>
                 ) : (
                   <div className="space-y-10 my-auto">
@@ -346,20 +407,20 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Product Edit/Add Modal */}
+      {/* Product Edit/Add Modal (Admin) */}
       {editingProduct && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-[#050a18]/95 backdrop-blur-xl" onClick={() => setEditingProduct(null)}></div>
-          <div className="relative w-full max-w-4xl glass-morphism p-8 md:p-12 rounded-[3rem] border-white/10 max-h-[90vh] overflow-y-auto no-scrollbar animate-fade-in-up">
+          <div className="relative w-full max-w-5xl glass-morphism p-8 md:p-12 rounded-[3rem] border-white/10 max-h-[90vh] overflow-y-auto no-scrollbar animate-fade-in-up">
              <div className="flex justify-between items-center mb-10">
-               <h3 className="text-3xl font-black text-gradient">{isAddingProduct ? 'إضافة تحفة جديدة' : 'تعديل بيانات المنتج'}</h3>
+               <h3 className="text-3xl font-black text-gradient">{isAddingProduct ? 'إضافة منتج جديد' : 'تعديل بيانات المنتج'}</h3>
                <button onClick={() => setEditingProduct(null)} className="p-3 bg-white/5 rounded-full"><X size={20} /></button>
              </div>
              <form onSubmit={saveProduct} className="grid grid-cols-1 md:grid-cols-2 gap-10">
                 <div className="space-y-6">
                   <div className="space-y-2">
                     <label className="text-xs font-black text-slate-500 pr-4">عنوان المنتج</label>
-                    <input type="text" required className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold" value={editingProduct.title} onChange={e => setEditingProduct({...editingProduct, title: e.target.value})} />
+                    <input type="text" required placeholder="مثال: سماعات لاسلكية برو" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold" value={editingProduct.title} onChange={e => setEditingProduct({...editingProduct, title: e.target.value})} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -375,25 +436,52 @@ const App: React.FC = () => {
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-black text-slate-500 pr-4">الوصف</label>
-                    <textarea rows={5} required className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm" value={editingProduct.description} onChange={e => setEditingProduct({...editingProduct, description: e.target.value})} />
+                    <textarea rows={5} required placeholder="اكتب تفاصيل المنتج هنا..." className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm" value={editingProduct.description} onChange={e => setEditingProduct({...editingProduct, description: e.target.value})} />
                   </div>
                 </div>
+
                 <div className="space-y-8">
+                  {/* Thumbnail Upload */}
                   <div className="space-y-2">
-                    <label className="text-xs font-black text-slate-500 pr-4">صورة المنتج (URL)</label>
-                    <div className="aspect-square bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 overflow-hidden flex flex-col items-center justify-center gap-4 group relative">
+                    <label className="text-xs font-black text-slate-500 pr-4">الصورة الرئيسية (تحميل)</label>
+                    <div 
+                      onClick={() => document.getElementById('thumb-input')?.click()}
+                      className="aspect-video bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10 overflow-hidden flex flex-col items-center justify-center gap-4 group relative cursor-pointer hover:border-emerald-500/50 transition-all"
+                    >
                        {editingProduct.thumbnail ? (
                          <>
                            <img src={editingProduct.thumbnail} className="w-full h-full object-cover" alt="Preview" />
                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"><Camera size={32} /></div>
                          </>
                        ) : (
-                         <div className="text-slate-600 flex flex-col items-center gap-2"><ImageIcon size={48} /><span className="text-xs font-black">بانتظار رابط الصورة</span></div>
+                         <div className="text-slate-600 flex flex-col items-center gap-2"><UploadCloud size={48} /><span className="text-xs font-black">اضغط لتحميل الصورة</span></div>
                        )}
                     </div>
-                    <input type="text" placeholder="https://..." className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-mono text-xs mt-4" value={editingProduct.thumbnail} onChange={e => setEditingProduct({...editingProduct, thumbnail: e.target.value})} />
+                    <input id="thumb-input" type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'thumbnail')} />
                   </div>
-                  <button type="submit" className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-xl premium-btn flex items-center justify-center gap-3"><Save size={24} /> حفظ التغييرات</button>
+
+                  {/* Gallery Upload */}
+                  <div className="space-y-3">
+                    <label className="text-xs font-black text-slate-500 pr-4">صور إضافية (تحميل)</label>
+                    <div className="grid grid-cols-4 gap-3">
+                       {editingProduct.galleryImages?.map((img, idx) => (
+                         <div key={idx} className="aspect-square bg-white/5 rounded-2xl border border-white/10 relative group overflow-hidden">
+                           <img src={img} className="w-full h-full object-cover" />
+                           <button type="button" onClick={() => removeGalleryImage(idx)} className="absolute top-1 right-1 p-1 bg-rose-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"><X size={12} /></button>
+                         </div>
+                       ))}
+                       <button 
+                        type="button" 
+                        onClick={() => document.getElementById('gallery-input')?.click()}
+                        className="aspect-square border-2 border-dashed border-white/10 rounded-2xl flex items-center justify-center text-slate-500 hover:text-emerald-500 hover:border-emerald-500/50 bg-white/5 transition-all"
+                       >
+                         <Plus size={24} />
+                       </button>
+                    </div>
+                    <input id="gallery-input" type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFileUpload(e, 'gallery')} />
+                  </div>
+
+                  <button type="submit" className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-xl premium-btn flex items-center justify-center gap-3 shadow-xl"><Save size={24} /> حفظ المنتج</button>
                 </div>
              </form>
           </div>
