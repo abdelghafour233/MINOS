@@ -6,53 +6,94 @@ import {
   Settings, Edit3, Trash2, LayoutDashboard, Save, Lock, Sun, Moon,
   CheckCircle2, AlertTriangle, Plus, RefreshCw, Terminal, Copy,
   ImagePlus, UploadCloud, ImageIcon, Filter, Clock, CheckCircle,
-  Eye, EyeOff, Download, MessageSquare, ExternalLink
+  Eye, EyeOff, Download, MessageSquare, ExternalLink, Database, Cloud, HelpCircle,
+  Wand2
 } from 'lucide-react';
+
+// استيراد مكتبات Firebase الأساسية من CDN متوافق مع ESM
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { 
+  getFirestore, collection, addDoc, getDocs, onSnapshot, 
+  doc, setDoc, deleteDoc, query, orderBy 
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
 import { StoreProduct, StoreOrder } from './types';
-import { MOCK_PRODUCTS, CATEGORIES, MOROCCAN_CITIES } from './constants';
+import { MOCK_PRODUCTS, MOROCCAN_CITIES } from './constants';
+
+// ============================================================
+// ⚠️ هـام جـداً: ضـع معـلومـاتك هـنا بـعد نـسخهـا مـن Firebase ⚠️
+// ============================================================
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",           
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",     
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID"              
+};
+// ============================================================
+
+const isFirebaseConfigured = firebaseConfig.apiKey !== "YOUR_API_KEY";
+
+let db: any = null;
+if (isFirebaseConfigured) {
+  try {
+    const app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+  } catch (error) {
+    console.error("خطأ في تشغيل Firebase:", error);
+  }
+}
 
 const adminPassword = 'admin'; 
-const MY_WHATSAPP_NUMBER = '212600000000'; // استبدل هذا برقمك الحقيقي
 
 const App: React.FC = () => {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [view, setView] = useState<'shop' | 'admin'>('shop');
   const [adminTab, setAdminTab] = useState<'orders' | 'products'>('orders');
   
-  const [products, setProducts] = useState<StoreProduct[]>(() => {
-    const saved = localStorage.getItem('local_products');
-    return saved ? JSON.parse(saved) : MOCK_PRODUCTS;
-  });
-  
-  const [orders, setOrders] = useState<StoreOrder[]>(() => {
-    const saved = localStorage.getItem('local_orders');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [products, setProducts] = useState<StoreProduct[]>(MOCK_PRODUCTS);
+  const [orders, setOrders] = useState<StoreOrder[]>([]);
+  const [isLoading, setIsLoading] = useState(isFirebaseConfigured);
+  const [isInitializing, setIsInitializing] = useState(false);
 
   const [selectedProduct, setSelectedProduct] = useState<StoreProduct | null>(null);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | ''}>({message: '', type: ''});
   
   const [editingProduct, setEditingProduct] = useState<StoreProduct | null>(null);
-  const [editingOrder, setEditingOrder] = useState<StoreOrder | null>(null);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
 
   const [customerInfo, setCustomerInfo] = useState({ fullName: '', phoneNumber: '', city: '' });
   const [activeOrder, setActiveOrder] = useState<StoreOrder | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
 
+  // جلب المنتجات في الوقت الحقيقي
   useEffect(() => {
-    localStorage.setItem('local_products', JSON.stringify(products));
-  }, [products]);
+    if (!db) { setIsLoading(false); return; }
+    const unsub = onSnapshot(collection(db, 'products'), (snapshot) => {
+      const prods = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as StoreProduct));
+      if (prods.length > 0) {
+        setProducts(prods);
+      }
+      setIsLoading(false);
+    });
+    return () => unsub();
+  }, []);
 
+  // جلب الطلبيات في الوقت الحقيقي
   useEffect(() => {
-    localStorage.setItem('local_orders', JSON.stringify(orders));
-  }, [orders]);
+    if (!db) return;
+    const q = query(collection(db, 'orders'), orderBy('orderDate', 'desc'));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const ords = snapshot.docs.map(doc => ({ ...doc.data(), orderId: doc.id } as StoreOrder));
+      setOrders(ords);
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     if (sessionStorage.getItem('admin_auth') === 'true') setIsAdminAuthenticated(true);
@@ -63,67 +104,39 @@ const App: React.FC = () => {
     setTimeout(() => setToast({ message: '', type: '' }), 5000);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'thumbnail' | 'gallery') => {
-    const files = e.target.files;
-    if (!files || !editingProduct) return;
-
-    if (type === 'thumbnail') {
-      const file = files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (reader.result && typeof reader.result === 'string') {
-            setEditingProduct({ ...editingProduct, thumbnail: reader.result });
-          }
-        };
-        reader.readAsDataURL(file);
-      }
-    } else {
-      (Array.from(files) as File[]).forEach((file: File) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (reader.result && typeof reader.result === 'string') {
-            const imageData = reader.result;
-            setEditingProduct(prev => {
-              if (!prev) return prev;
-              const currentGallery = prev.galleryImages || [];
-              if (currentGallery.length >= 10) return prev;
-              return {
-                ...prev,
-                galleryImages: [...currentGallery, imageData]
-              };
-            });
-          }
-        };
-        reader.readAsDataURL(file);
-      });
+  // دالة تهيئة قاعدة البيانات تلقائياً
+  const initializeDatabase = async () => {
+    if (!db) {
+        showToast('يجب وضع مفاتيح Firebase أولاً في الكود', 'error');
+        return;
+    }
+    setIsInitializing(true);
+    try {
+        for (const product of MOCK_PRODUCTS) {
+            await setDoc(doc(db, 'products', product.id), product);
+        }
+        showToast('تم تهيئة المتجر ورفع المنتجات بنجاح!');
+    } catch (e) {
+        showToast('فشل التهيئة: تأكد من وضع Test Mode في Firebase', 'error');
+    } finally {
+        setIsInitializing(false);
     }
   };
 
-  const removeGalleryImage = (index: number) => {
-    if (!editingProduct) return;
-    const newGallery = [...(editingProduct.galleryImages || [])];
-    newGallery.splice(index, 1);
-    setEditingProduct({ ...editingProduct, galleryImages: newGallery });
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && editingProduct) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          setEditingProduct({ ...editingProduct, thumbnail: reader.result });
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
-  const exportOrdersToCSV = () => {
-    if (orders.length === 0) return;
-    const headers = ["رقم الطلب", "المنتج", "السعر", "الزبون", "الهاتف", "المدينة", "التاريخ", "الحالة"];
-    const rows = orders.map(o => [
-      o.orderId, o.productTitle, o.productPrice, o.customer.fullName, 
-      o.customer.phoneNumber, o.customer.city, o.orderDate, o.status
-    ]);
-    const csvContent = "\uFEFF" + [headers, ...rows].map(e => e.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `orders_${new Date().toLocaleDateString()}.csv`;
-    link.click();
-    showToast('تم تصدير الطلبيات بنجاح');
-  };
-
-  const confirmOrder = () => {
+  const confirmOrder = async () => {
     if (!customerInfo.fullName || !customerInfo.phoneNumber || !customerInfo.city) {
       showToast('المرجو ملأ المعلومات الأساسية', 'error'); return;
     }
@@ -135,82 +148,104 @@ const App: React.FC = () => {
       productPrice: selectedProduct?.price || 0,
       customer: { ...customerInfo, address: 'طلب سريع' },
       status: 'pending',
-      orderDate: new Date().toLocaleDateString('ar-MA')
+      orderDate: new Date().toISOString()
     };
     
-    setOrders([newOrder, ...orders]);
-    setActiveOrder(newOrder);
-    setIsCheckingOut(false);
-    setSelectedProduct(null);
-    setCustomerInfo({ fullName: '', phoneNumber: '', city: '' });
-    showToast('تم تسجيل طلبك بنجاح');
-
-    // خيار إرسال للواتساب
-    const whatsappMsg = `طلب جديد من المتجر:
-- المنتج: ${newOrder.productTitle}
-- الثمن: ${newOrder.productPrice} DH
--------------------
-- الزبون: ${newOrder.customer.fullName}
-- الهاتف: ${newOrder.customer.phoneNumber}
-- المدينة: ${newOrder.customer.city}
-- التاريخ: ${newOrder.orderDate}`;
-
-    setTimeout(() => {
-      if(window.confirm('هل تريد إرسال تفاصيل الطلب عبر WhatsApp لتسريع العملية؟')) {
-        window.open(`https://wa.me/${MY_WHATSAPP_NUMBER}?text=${encodeURIComponent(whatsappMsg)}`, '_blank');
+    if (db) {
+      try {
+        await addDoc(collection(db, 'orders'), newOrder);
+        setActiveOrder(newOrder);
+        setIsCheckingOut(false);
+        setSelectedProduct(null);
+        setCustomerInfo({ fullName: '', phoneNumber: '', city: '' });
+        showToast('تم تسجيل طلبك بنجاح');
+      } catch (e) {
+        showToast('خطأ في إرسال الطلب للسيرفر', 'error');
       }
-    }, 1500);
+    } else {
+      setOrders([newOrder, ...orders]);
+      setActiveOrder(newOrder);
+      showToast('تم الحفظ محلياً (Firebase غير مفعل)');
+    }
   };
 
-  const saveOrderEdit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingOrder) return;
-    const updatedOrders = orders.map(o => o.orderId === editingOrder.orderId ? editingOrder : o);
-    setOrders(updatedOrders);
-    setEditingOrder(null);
-    showToast('تم تحديث بيانات الطلب');
-  };
-
-  const deleteOrder = (id: string) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذا الطلب؟')) return;
-    setOrders(orders.filter(o => o.orderId !== id));
-    showToast('تم حذف الطلب');
-  };
-
-  const saveProduct = (e: React.FormEvent) => {
+  const saveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProduct) return;
-    if (!editingProduct.thumbnail) { showToast('الرجاء اختيار صورة للمنتج', 'error'); return; }
-
-    const index = products.findIndex(p => p.id === editingProduct.id);
-    if (index > -1) {
-      const updatedProducts = [...products];
-      updatedProducts[index] = editingProduct;
-      setProducts(updatedProducts);
+    
+    if (db) {
+      try {
+        const productRef = doc(db, 'products', editingProduct.id);
+        await setDoc(productRef, editingProduct);
+        showToast('تم الحفظ في السيرفر بنجاح');
+        setEditingProduct(null);
+      } catch (e) {
+        showToast('فشل في الوصول للسيرفر', 'error');
+      }
     } else {
-      setProducts([editingProduct, ...products]);
+      const index = products.findIndex(p => p.id === editingProduct.id);
+      if (index > -1) {
+        const updated = [...products];
+        updated[index] = editingProduct;
+        setProducts(updated);
+      } else {
+        setProducts([editingProduct, ...products]);
+      }
+      showToast('تم الحفظ في المتصفح');
+      setEditingProduct(null);
     }
-    showToast('تم حفظ المنتج بنجاح');
-    setEditingProduct(null);
   };
 
-  const deleteProduct = (id: string) => {
-    if (!window.confirm('هل تريد حذف المنتج؟')) return;
-    setProducts(products.filter(p => p.id !== id));
-    showToast('تم حذف المنتج');
-  };
-
-  const orderStats = {
-    total: orders.length,
-    pending: orders.filter(o => o.status === 'pending').length,
-    delivered: orders.filter(o => o.status === 'delivered').length,
-    totalSales: orders.reduce((acc, curr) => acc + curr.productPrice, 0)
+  const deleteProduct = async (id: string) => {
+    if (!window.confirm('هل تريد حذف المنتج نهائياً من السيرفر؟')) return;
+    if (db) {
+      try {
+        await deleteDoc(doc(db, 'products', id));
+        showToast('تم الحذف من السيرفر');
+      } catch (e) {
+        showToast('فشل الحذف', 'error');
+      }
+    } else {
+      setProducts(products.filter(p => p.id !== id));
+      showToast('تم الحذف محلياً');
+    }
   };
 
   return (
-    <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#050a18] text-slate-100' : 'bg-slate-50 text-slate-900'} transition-colors duration-500 pb-20 md:pb-0`}>
+    <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#050a18] text-slate-100' : 'bg-slate-50 text-slate-900'} transition-colors duration-500 pb-20 md:pb-0 font-['Tajawal']`}>
+      
+      {/* واجهة المساعد التعليمي */}
+      {!isFirebaseConfigured && view === 'admin' && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-[#050a18]/98">
+          <div className="max-w-2xl w-full glass-morphism p-10 rounded-[3rem] border border-emerald-500/20 text-right space-y-6">
+            <div className="flex items-center gap-4 text-emerald-500">
+               <HelpCircle size={40} />
+               <h2 className="text-3xl font-black">خطوات ربط المتجر بالسيرفر</h2>
+            </div>
+            <div className="space-y-4 text-slate-300">
+              <p className="font-bold">أنت الآن في وضع "المعاينة". لكي يرى الزوار منتجاتك، اتبع التالي:</p>
+              <div className="space-y-3 pr-4 border-r-2 border-emerald-500/30">
+                <div className="flex gap-3">
+                  <span className="bg-emerald-500 text-black w-6 h-6 rounded-full flex items-center justify-center font-black text-xs">1</span>
+                  <p>اذهب لـ <a href="https://console.firebase.google.com/" target="_blank" className="text-emerald-500 underline">Firebase Console</a> وأنشئ مشروعاً.</p>
+                </div>
+                <div className="flex gap-3">
+                  <span className="bg-emerald-500 text-black w-6 h-6 rounded-full flex items-center justify-center font-black text-xs">2</span>
+                  <p>اختر <b>Firestore Database</b> ثم <b>Create Database</b> واجعلها في وضع <b>Test Mode</b>.</p>
+                </div>
+                <div className="flex gap-3">
+                  <span className="bg-emerald-500 text-black w-6 h-6 rounded-full flex items-center justify-center font-black text-xs">3</span>
+                  <p>من <b>Project Settings</b>، انسخ الـ <b>Config</b> والصقه في ملف <code>App.tsx</code>.</p>
+                </div>
+              </div>
+            </div>
+            <button onClick={() => setIsAdminAuthenticated(true)} className="w-full bg-emerald-500 text-black py-4 rounded-2xl font-black text-lg">أريد تجربة لوحة التحكم أولاً</button>
+          </div>
+        </div>
+      )}
+
       {toast.message && (
-        <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[1000] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 animate-fade-in-up ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} text-white font-black text-sm max-w-[90vw] text-center`}>
+        <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[1100] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 animate-fade-in-up ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} text-white font-black text-sm max-w-[90vw] text-center`}>
           {toast.type === 'error' ? <AlertTriangle size={18}/> : <CheckCircle2 size={18}/>}
           <span>{toast.message}</span>
         </div>
@@ -230,313 +265,189 @@ const App: React.FC = () => {
             <header className="relative h-[300px] md:h-[450px] rounded-[2.5rem] overflow-hidden flex items-center px-6 md:px-20 animate-fade-in-up shadow-2xl border border-white/5">
               <div className="absolute inset-0 bg-gradient-to-r from-[#050a18] via-[#050a18]/70 to-transparent z-10"></div>
               <img src="https://images.unsplash.com/photo-1591076482161-42ce6da69f67?auto=format&fit=crop&q=80&w=2000" className="absolute inset-0 w-full h-full object-cover" />
-              <div className="relative z-20 max-w-xl space-y-6">
-                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-black uppercase tracking-widest"><Sparkles size={14} /> بضاعة مغربية مختارة</span>
-                <h1 className="text-3xl md:text-5xl font-black text-gradient leading-tight">فخامة التسوق <br/> بين يديك</h1>
+              <div className="relative z-20 max-w-xl space-y-6 text-right">
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-black uppercase tracking-widest"><Sparkles size={14} /> متجرك المغربي السحابي</span>
+                <h1 className="text-3xl md:text-5xl font-black text-gradient leading-tight">منتجات مختارة <br/> بجودة استثنائية</h1>
                 <button onClick={() => document.getElementById('products-grid')?.scrollIntoView({behavior:'smooth'})} className="bg-emerald-500 text-black px-8 py-4 rounded-2xl font-black text-lg premium-btn flex items-center gap-2">تسوق الآن <ArrowRight size={22} /></button>
               </div>
             </header>
 
-            <div id="products-grid" className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-8 pt-6">
-              {products.length === 0 ? (
-                <div className="col-span-full py-20 text-center space-y-4">
-                  <Package size={64} className="mx-auto text-slate-700" />
-                  <p className="text-slate-500 font-bold">المتجر فارغ حالياً.</p>
-                </div>
-              ) : products.map((product) => (
-                <div key={product.id} className="group glass-morphism rounded-[2rem] overflow-hidden flex flex-col border border-white/5 product-card-glow">
-                  <div className="aspect-[4/5] overflow-hidden cursor-pointer" onClick={() => setSelectedProduct(product)}>
-                    <img src={product.thumbnail} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+            {isLoading ? (
+              <div className="flex flex-col items-center py-20 gap-4">
+                <RefreshCw size={48} className="animate-spin text-emerald-500" />
+                <p className="font-black text-slate-500">جاري الاتصال بالسيرفر...</p>
+              </div>
+            ) : (
+              <div id="products-grid" className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-8 pt-6">
+                {products.map((product) => (
+                  <div key={product.id} className="group glass-morphism rounded-[2rem] overflow-hidden flex flex-col border border-white/5 product-card-glow">
+                    <div className="aspect-[4/5] overflow-hidden cursor-pointer" onClick={() => setSelectedProduct(product)}>
+                      <img src={product.thumbnail} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                    </div>
+                    <div className="p-5 space-y-3 flex-1 flex flex-col text-right">
+                      <h3 className="font-black text-sm md:text-base line-clamp-1">{product.title}</h3>
+                      <p className="text-xl md:text-2xl font-black text-emerald-500">{product.price} DH</p>
+                      <button onClick={() => setSelectedProduct(product)} className="w-full bg-white/5 py-3 rounded-xl border border-white/10 font-black text-xs hover:bg-emerald-500 hover:text-black transition-all">اطلب الآن</button>
+                    </div>
                   </div>
-                  <div className="p-5 space-y-3 flex-1 flex flex-col">
-                    <h3 className="font-black text-sm md:text-base line-clamp-1">{product.title}</h3>
-                    <p className="text-xl md:text-2xl font-black text-emerald-500">{product.price} DH</p>
-                    <button onClick={() => setSelectedProduct(product)} className="w-full bg-white/5 py-3 rounded-xl border border-white/10 font-black text-xs hover:bg-emerald-500 hover:text-black transition-all">اطلب الآن</button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
-          <div className="p-4 md:p-12 max-w-6xl mx-auto space-y-10 animate-fade-in-up">
+          <div className="p-4 md:p-12 max-w-6xl mx-auto space-y-10 animate-fade-in-up text-right">
             <header className="flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="space-y-1">
-                <h2 className="text-3xl font-black text-gradient">إدارة المتجر</h2>
-                <p className="text-xs text-slate-500 font-bold">مرحباً بك في لوحة القيادة الخاصة بك</p>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-3xl font-black text-gradient">إدارة المتجر</h2>
+                  {isFirebaseConfigured ? <Cloud size={20} className="text-emerald-500" /> : <AlertTriangle size={20} className="text-amber-500"/>}
+                </div>
+                <p className="text-xs text-slate-500 font-bold">{isFirebaseConfigured ? 'المتجر متصل بالسيرفر بنجاح' : 'أنت في وضع المعاينة المحلية'}</p>
               </div>
-              
-              <div className="flex gap-2 glass-morphism p-2 rounded-2xl border border-white/5">
-                <button onClick={() => setAdminTab('orders')} className={`px-5 py-2.5 rounded-xl text-xs font-black ${adminTab === 'orders' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}>الطلبات</button>
-                <button onClick={() => setAdminTab('products')} className={`px-5 py-2.5 rounded-xl text-xs font-black ${adminTab === 'products' ? 'bg-emerald-500 text-black' : 'text-slate-400'}`}>المنتجات</button>
-                <button onClick={() => { setIsAdminAuthenticated(false); sessionStorage.removeItem('admin_auth'); setView('shop'); }} className="px-5 py-2.5 rounded-xl text-xs font-black text-rose-500">خروج</button>
+              <div className="flex gap-2">
+                <button onClick={() => setAdminTab('orders')} className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all ${adminTab === 'orders' ? 'bg-emerald-500 text-black' : 'bg-white/5 text-slate-400'}`}>الطلبات ({orders.length})</button>
+                <button onClick={() => setAdminTab('products')} className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all ${adminTab === 'products' ? 'bg-emerald-500 text-black' : 'bg-white/5 text-slate-400'}`}>المنتجات ({products.length})</button>
               </div>
             </header>
 
-            {adminTab === 'orders' && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="glass-morphism p-6 rounded-[2rem] border border-white/5 text-center space-y-1 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:scale-110 transition-transform"><ShoppingBag size={48}/></div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase">الطلبات</p>
-                    <p className="text-3xl font-black text-emerald-500">{orderStats.total}</p>
-                  </div>
-                  <div className="glass-morphism p-6 rounded-[2rem] border border-white/5 text-center space-y-1 relative overflow-hidden group">
-                     <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:scale-110 transition-transform"><Clock size={48}/></div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase">قيد الانتظار</p>
-                    <p className="text-3xl font-black text-amber-500">{orderStats.pending}</p>
-                  </div>
-                  <div className="glass-morphism p-6 rounded-[2rem] border border-white/5 text-center space-y-1 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:scale-110 transition-transform"><CheckCircle size={48}/></div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase">تم التوصيل</p>
-                    <p className="text-3xl font-black text-blue-500">{orderStats.delivered}</p>
-                  </div>
-                   <div className="glass-morphism p-6 rounded-[2rem] border border-white/5 text-center space-y-1 relative overflow-hidden group bg-emerald-500/5">
-                    <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:scale-110 transition-transform"><Sparkles size={48}/></div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase">إجمالي المبيعات</p>
-                    <p className="text-3xl font-black text-emerald-500">{orderStats.totalSales} DH</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center px-4">
-                     <h3 className="font-black text-lg flex items-center gap-2"><Clock size={20} className="text-emerald-500"/> سجل الطلبات</h3>
-                     <div className="flex gap-2">
-                        <button onClick={exportOrdersToCSV} className="flex items-center gap-2 text-xs text-emerald-500 font-bold border border-emerald-500/20 px-4 py-2 rounded-xl hover:bg-emerald-500 hover:text-black transition-all"><Download size={14}/> تصدير CSV</button>
-                        <button onClick={() => { if(window.confirm('هل تريد مسح جميع الطلبات نهائياً؟')) { setOrders([]); localStorage.removeItem('local_orders'); showToast('تم مسح السجل'); } }} className="text-xs text-rose-500 font-bold border border-rose-500/20 px-3 py-1 rounded-lg">مسح الكل</button>
-                     </div>
-                  </div>
-                  
-                  {orders.length === 0 ? (
-                    <div className="py-20 text-center text-slate-500 font-bold glass-morphism rounded-[3rem] border border-white/5">لا توجد طلبيات مسجلة حالياً</div>
-                  ) : orders.map((order) => (
-                    <div key={order.orderId} className="glass-morphism p-6 rounded-[2.5rem] border border-white/5 flex flex-col md:flex-row justify-between items-center gap-6 group hover:border-white/10 transition-all">
-                      <div className="flex items-center gap-6 w-full md:w-auto">
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black ${
-                          order.status === 'pending' ? 'bg-amber-500/10 text-amber-500' : 
-                          order.status === 'shipped' ? 'bg-blue-500/10 text-blue-500' : 'bg-emerald-500/10 text-emerald-500'
-                        }`}>
-                          {order.status === 'pending' ? <Clock size={24}/> : order.status === 'shipped' ? <Truck size={24}/> : <CheckCircle size={24}/>}
-                        </div>
-                        <div className="space-y-1">
-                          <h4 className="font-black text-lg">{order.customer.fullName}</h4>
-                          <p className="text-xs text-slate-500 font-bold flex items-center gap-2"><Phone size={12}/> {order.customer.phoneNumber} <MapPin size={12}/> {order.customer.city}</p>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col items-center md:items-end gap-2 w-full md:w-auto">
-                        <p className="text-xs font-black text-emerald-500">{order.productTitle}</p>
-                        <div className="flex items-center gap-3">
-                          <span className="px-4 py-1.5 bg-white/5 text-slate-400 rounded-full text-[10px] font-black uppercase tracking-widest">{order.orderDate}</span>
-                          <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase ${
-                             order.status === 'pending' ? 'bg-amber-500/10 text-amber-500' : 
-                             order.status === 'shipped' ? 'bg-blue-500/10 text-blue-500' : 'bg-emerald-500/10 text-emerald-500'
-                          }`}>
-                            {order.status === 'pending' ? 'قيد الانتظار' : order.status === 'shipped' ? 'تم الشحن' : 'تم التوصيل'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2 w-full md:w-auto">
-                        <button onClick={() => {
-                           const msg = `طلب ${order.orderId}:\nالزبون: ${order.customer.fullName}\nالمنتج: ${order.productTitle}`;
-                           window.open(`https://wa.me/212${order.customer.phoneNumber.substring(1)}?text=${encodeURIComponent(msg)}`, '_blank');
-                        }} title="تواصل مع الزبون" className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl hover:bg-emerald-500 hover:text-black transition-all"><MessageSquare size={18}/></button>
-                        <button onClick={() => setEditingOrder(order)} className="p-3 bg-white/5 text-slate-400 rounded-xl hover:bg-white/10 transition-all"><Edit3 size={18}/></button>
-                        <button onClick={() => deleteOrder(order.orderId)} className="p-3 bg-rose-500/10 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={18}/></button>
-                      </div>
+            {adminTab === 'products' && (
+              <div className="space-y-8">
+                {/* قسم التهيئة السريعة إذا كانت القائمة فارغة */}
+                {products.length === 1 && isFirebaseConfigured && (
+                    <div className="p-10 glass-morphism rounded-[3rem] border-2 border-emerald-500/20 text-center space-y-4">
+                        <Wand2 size={48} className="mx-auto text-emerald-500 animate-pulse" />
+                        <h3 className="text-xl font-black">تهيئة قاعدة البيانات</h3>
+                        <p className="text-slate-400 text-sm max-w-sm mx-auto">يبدو أن السيرفر فارغ. اضغط الزر بالأسفل لإنشاء الـ Collections ورفع المنتجات التجريبية تلقائياً.</p>
+                        <button 
+                            disabled={isInitializing}
+                            onClick={initializeDatabase} 
+                            className="bg-emerald-500 text-black px-10 py-4 rounded-2xl font-black flex items-center gap-2 mx-auto disabled:opacity-50"
+                        >
+                            {isInitializing ? <RefreshCw className="animate-spin" /> : <Database />}
+                            {isInitializing ? 'جاري التهيئة...' : 'تهيئة المتجر الآن'}
+                        </button>
                     </div>
-                  ))}
+                )}
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                    <button onClick={() => setEditingProduct({ id: 'P-' + Date.now(), title: '', price: 0, category: 'أدوات منزلية', description: '', thumbnail: '', stockStatus: 'available', rating: 5, reviewsCount: 0, shippingTime: '24 ساعة' })} className="aspect-square glass-morphism rounded-[3rem] border-2 border-dashed border-white/10 flex flex-col items-center justify-center text-slate-500 hover:border-emerald-500 hover:text-emerald-500 transition-all group">
+                        <Plus size={40} className="group-hover:scale-110 transition-transform" />
+                        <span className="font-black text-xs mt-2">إضافة منتج</span>
+                    </button>
+                    {products.map(p => (
+                    <div key={p.id} className="glass-morphism rounded-[2.5rem] overflow-hidden border border-white/5 group relative">
+                        <img src={p.thumbnail} className="aspect-square object-cover" />
+                        <div className="p-5 space-y-3">
+                            <h4 className="font-black text-xs truncate">{p.title}</h4>
+                            <div className="flex gap-2">
+                            <button onClick={() => setEditingProduct(p)} className="flex-1 bg-white/5 py-2 rounded-xl text-[10px] font-black hover:bg-emerald-500 hover:text-black">تعديل</button>
+                            <button onClick={() => deleteProduct(p.id)} className="p-2 bg-rose-500/10 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={16}/></button>
+                            </div>
+                        </div>
+                    </div>
+                    ))}
                 </div>
               </div>
             )}
 
-            {adminTab === 'products' && (
-               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                 <button onClick={() => { setEditingProduct({ id: 'P-' + Date.now(), title: '', price: 0, category: 'أدوات منزلية', description: '', thumbnail: '', galleryImages: [], stockStatus: 'available', rating: 5, reviewsCount: 0, shippingTime: '24 ساعة' }); }} className="aspect-square glass-morphism rounded-[2rem] border-2 border-dashed border-white/10 flex flex-col items-center justify-center text-slate-500 hover:border-emerald-500 hover:text-emerald-500 transition-all">
-                    <Plus size={40}/>
-                    <span className="font-black text-xs mt-2">إضافة منتج</span>
-                 </button>
-                 {products.map(p => (
-                   <div key={p.id} className="glass-morphism rounded-[2rem] overflow-hidden border border-white/5 group">
-                      <img src={p.thumbnail} className="aspect-square object-cover" />
-                      <div className="p-4 space-y-3">
-                        <h4 className="font-black text-xs truncate">{p.title}</h4>
-                        <div className="flex gap-2">
-                          <button onClick={() => setEditingProduct(p)} className="flex-1 bg-white/5 py-2 rounded-xl text-[10px] font-black hover:bg-emerald-500 hover:text-black">تعديل</button>
-                          <button onClick={() => deleteProduct(p.id)} className="p-2 bg-rose-500/10 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={16}/></button>
-                        </div>
+            {adminTab === 'orders' && (
+              <div className="space-y-4">
+                {orders.length === 0 ? (
+                  <div className="py-20 text-center text-slate-500 font-bold glass-morphism rounded-[2rem]">لا توجد طلبيات بعد</div>
+                ) : (
+                  orders.map(order => (
+                    <div key={order.orderId} className="glass-morphism p-6 rounded-[2.5rem] border border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
+                      <div className="text-right flex-1">
+                        <h4 className="font-black text-lg">{order.customer.fullName}</h4>
+                        <p className="text-xs text-emerald-500 font-bold">{order.productTitle} - {order.productPrice} DH</p>
+                        <p className="text-[10px] text-slate-500">{new Date(order.orderDate).toLocaleString('ar-MA')}</p>
                       </div>
-                   </div>
-                 ))}
-               </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-left">
+                           <p className="text-sm font-black text-ltr">{order.customer.phoneNumber}</p>
+                           <p className="text-[10px] text-slate-400 font-bold">{order.customer.city}</p>
+                        </div>
+                        <button onClick={() => window.open(`https://wa.me/212${order.customer.phoneNumber.substring(1)}`, '_blank')} className="p-4 bg-emerald-500/10 text-emerald-500 rounded-2xl hover:bg-emerald-500 hover:text-black transition-all shadow-xl shadow-emerald-500/5">
+                          <MessageSquare size={20}/>
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             )}
           </div>
         )}
       </main>
 
-      {/* مودال تعديل الطلبية */}
-      {editingOrder && (
-        <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-[#050a18]/95 backdrop-blur-xl">
-          <form onSubmit={saveOrderEdit} className="max-w-lg w-full glass-morphism p-8 md:p-10 rounded-[3rem] space-y-6 border border-white/5">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-xl font-black text-gradient">تعديل بيانات الطلب</h3>
-              <button type="button" onClick={() => setEditingOrder(null)} className="p-2 bg-white/5 rounded-full hover:bg-rose-500/20 text-slate-400 hover:text-rose-500 transition-all"><X size={20}/></button>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 uppercase px-1">اسم الزبون</label><input type="text" required className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold text-sm" value={editingOrder.customer.fullName} onChange={e => setEditingOrder({...editingOrder, customer: {...editingOrder.customer, fullName: e.target.value}})} /></div>
-              <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 uppercase px-1">رقم الهاتف</label><input type="text" required className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold text-sm text-left" value={editingOrder.customer.phoneNumber} onChange={e => setEditingOrder({...editingOrder, customer: {...editingOrder.customer, phoneNumber: e.target.value}})} /></div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase px-1">المدينة</label>
-                  <select className="w-full bg-slate-900 border border-white/10 p-4 rounded-2xl font-bold text-sm" value={editingOrder.customer.city} onChange={e => setEditingOrder({...editingOrder, customer: {...editingOrder.customer, city: e.target.value}})}>
-                    {MOROCCAN_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase px-1">حالة الطلب</label>
-                  <select className="w-full bg-slate-900 border border-white/10 p-4 rounded-2xl font-bold text-sm" value={editingOrder.status} onChange={e => setEditingOrder({...editingOrder, status: e.target.value as any})}>
-                    <option value="pending">قيد الانتظار</option>
-                    <option value="shipped">تم الشحن</option>
-                    <option value="delivered">تم التوصيل</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-4 pt-4"><button type="submit" className="flex-1 bg-emerald-500 text-black py-4 rounded-2xl font-black text-lg shadow-xl shadow-emerald-500/10">تحديث الطلب</button></div>
-          </form>
-        </div>
-      )}
-
       {/* مودال تعديل المنتج */}
       {editingProduct && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-[#050a18]/95 backdrop-blur-xl">
-          <form onSubmit={saveProduct} className="max-w-4xl w-full glass-morphism p-8 md:p-12 rounded-[3rem] space-y-6 overflow-y-auto max-h-[90vh] border border-white/5 no-scrollbar">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-2xl font-black text-gradient">إدارة بيانات المنتج</h3>
-              <button type="button" onClick={() => setEditingProduct(null)} className="p-2 bg-white/5 rounded-full hover:bg-rose-500/20 text-slate-400 hover:text-rose-500 transition-all"><X size={20}/></button>
-            </div>
-            
+          <form onSubmit={saveProduct} className="max-w-4xl w-full glass-morphism p-8 md:p-12 rounded-[3rem] space-y-6 overflow-y-auto max-h-[90vh] border border-white/5 text-right no-scrollbar">
+            <h3 className="text-2xl font-black text-gradient">بيانات المنتج</h3>
             <div className="grid md:grid-cols-2 gap-8">
-              <div className="space-y-6">
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 uppercase px-1">اسم المنتج *</label><input type="text" required className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold text-sm" value={editingProduct.title} onChange={e => setEditingProduct({...editingProduct, title: e.target.value})} /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 uppercase px-1">السعر (DH) *</label><input type="number" required className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold text-sm" value={editingProduct.price} onChange={e => setEditingProduct({...editingProduct, price: Number(e.target.value)})} /></div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase px-1">الفئة</label>
-                  <div className="relative">
-                    <select className="w-full bg-white/10 border border-white/10 p-4 rounded-2xl font-bold text-sm appearance-none outline-none focus:border-emerald-500" value={editingProduct.category} onChange={e => setEditingProduct({...editingProduct, category: e.target.value as any})}>
-                      {CATEGORIES.filter(c => c !== 'الكل').map(c => <option key={c} value={c} className="bg-slate-900">{c}</option>)}
-                    </select>
-                    <ChevronDown size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                  </div>
-                </div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 uppercase px-1">وصف المنتج</label><textarea required className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold text-sm h-32" value={editingProduct.description} onChange={e => setEditingProduct({...editingProduct, description: e.target.value})} /></div>
+              <div className="space-y-4">
+                <input type="text" required placeholder="اسم المنتج" className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold text-right outline-none focus:border-emerald-500" value={editingProduct.title} onChange={e => setEditingProduct({...editingProduct, title: e.target.value})} />
+                <input type="number" required placeholder="السعر" className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold text-right outline-none focus:border-emerald-500" value={editingProduct.price} onChange={e => setEditingProduct({...editingProduct, price: Number(e.target.value)})} />
+                <textarea required placeholder="الوصف" className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl font-bold h-40 text-right outline-none focus:border-emerald-500" value={editingProduct.description} onChange={e => setEditingProduct({...editingProduct, description: e.target.value})} />
               </div>
-
-              <div className="space-y-6">
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black text-slate-500 uppercase px-1">الصورة الرئيسية للمنتج *</label>
-                  <div 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="aspect-square w-full rounded-3xl border-2 border-dashed border-white/10 bg-white/5 flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 group overflow-hidden relative"
-                  >
-                    {editingProduct.thumbnail ? (
-                      <>
-                        <img src={editingProduct.thumbnail} className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                          <Edit3 className="text-white" />
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <UploadCloud size={32} className="text-slate-500 group-hover:text-emerald-500 mb-2" />
-                        <span className="text-xs font-black text-slate-500 group-hover:text-emerald-500">اختر صورة</span>
-                      </>
-                    )}
-                    <input type="file" hidden ref={fileInputRef} accept="image/*" onChange={(e) => handleImageUpload(e, 'thumbnail')} />
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <label className="text-[10px] font-black text-slate-500 uppercase px-1">صور المعرض (اختياري)</label>
-                    <span className="text-[9px] text-slate-600 font-black">{(editingProduct.galleryImages || []).length}/10</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <button 
-                      type="button"
-                      onClick={() => galleryInputRef.current?.click()}
-                      className="aspect-square rounded-2xl border-2 border-dashed border-white/10 bg-white/5 flex flex-col items-center justify-center hover:border-emerald-500 group"
-                    >
-                      <Plus size={20} className="text-slate-500 group-hover:text-emerald-500" />
-                      <input type="file" hidden multiple ref={galleryInputRef} accept="image/*" onChange={(e) => handleImageUpload(e, 'gallery')} />
-                    </button>
-                    {(editingProduct.galleryImages || []).map((img, idx) => (
-                      <div key={idx} className="aspect-square rounded-2xl overflow-hidden relative group border border-white/5">
-                        <img src={img} className="w-full h-full object-cover" />
-                        <button 
-                          type="button"
-                          onClick={() => removeGalleryImage(idx)}
-                          className="absolute top-1 right-1 p-1 bg-rose-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              <div onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-[2rem] border-2 border-dashed border-white/10 flex flex-col items-center justify-center cursor-pointer overflow-hidden bg-white/5 hover:border-emerald-500 transition-all">
+                {editingProduct.thumbnail ? <img src={editingProduct.thumbnail} className="w-full h-full object-cover" /> : <UploadCloud size={48} className="text-slate-500" />}
+                <input type="file" hidden ref={fileInputRef} accept="image/*" onChange={handleImageUpload} />
               </div>
             </div>
-            
-            <div className="flex gap-4 pt-6 border-t border-white/5">
-              <button type="submit" className="flex-1 bg-emerald-500 text-black py-4 rounded-2xl font-black text-lg shadow-xl shadow-emerald-500/10 hover:scale-[1.02] transition-transform">حفظ وتأكيد البيانات</button>
+            <div className="flex gap-4 pt-4">
+              <button type="submit" className="flex-1 bg-emerald-500 text-black py-4 rounded-2xl font-black text-lg shadow-xl shadow-emerald-500/20">حفظ في السيرفر</button>
+              <button type="button" onClick={() => setEditingProduct(null)} className="px-8 bg-white/5 border border-white/10 rounded-2xl font-black">إلغاء</button>
             </div>
           </form>
         </div>
       )}
 
+      {/* مودال الدخول */}
+      {showLoginModal && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 bg-[#050a18]/95 backdrop-blur-xl">
+          <div className="max-w-xs w-full glass-morphism p-10 rounded-[3rem] space-y-8 text-center border border-white/5">
+            <div className="w-20 h-20 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto border border-emerald-500/20"><Lock size={40}/></div>
+            <input type="password" placeholder="الرمز السري" className="w-full bg-white/5 border border-white/10 p-5 rounded-xl font-bold text-center text-3xl tracking-widest outline-none focus:border-emerald-500 transition-all" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} />
+            <button onClick={() => passwordInput === adminPassword ? (setIsAdminAuthenticated(true), sessionStorage.setItem('admin_auth', 'true'), setShowLoginModal(false), setView('admin')) : showToast('الرمز خاطئ', 'error')} className="w-full bg-emerald-500 text-black py-4 rounded-xl font-black text-lg premium-btn">دخول</button>
+            <button onClick={() => setShowLoginModal(false)} className="text-slate-500 text-xs font-bold hover:text-white transition-colors">إغلاق</button>
+          </div>
+        </div>
+      )}
+
+      {/* مودال عرض المنتج والشراء */}
       {selectedProduct && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 md:p-6 overflow-hidden">
           <div className="absolute inset-0 bg-[#050a18]/95 backdrop-blur-xl" onClick={() => !isCheckingOut && setSelectedProduct(null)}></div>
-          <div className="relative w-full max-w-xl glass-morphism rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row animate-fade-in-up border border-white/5 shadow-2xl">
-             <button onClick={() => { setSelectedProduct(null); setIsCheckingOut(false); }} className="absolute top-4 right-4 z-[210] p-2 bg-black/40 rounded-full text-white hover:bg-rose-500"><X size={18} /></button>
-             <div className="w-full md:w-[40%] h-[20vh] md:h-auto bg-slate-950/40 flex items-center justify-center p-8"><img src={selectedProduct.thumbnail} className="max-w-full max-h-full object-contain drop-shadow-2xl" /></div>
-             <div className="w-full md:w-[60%] p-6 md:p-10 flex flex-col border-t md:border-t-0 md:border-r border-white/5 overflow-y-auto max-h-[70vh] md:max-h-full no-scrollbar">
+          <div className="relative w-full max-w-xl glass-morphism rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row animate-fade-in-up border border-white/5 text-right">
+             <button onClick={() => { setSelectedProduct(null); setIsCheckingOut(false); }} className="absolute top-4 right-4 z-[210] p-2 bg-black/40 rounded-full text-white hover:bg-rose-500 transition-all"><X size={18} /></button>
+             <div className="w-full md:w-[40%] h-[25vh] md:h-auto p-8 flex items-center justify-center bg-slate-950/40"><img src={selectedProduct.thumbnail} className="max-w-full max-h-full object-contain drop-shadow-2xl" /></div>
+             <div className="w-full md:w-[60%] p-6 md:p-10 flex flex-col overflow-y-auto max-h-[65vh] md:max-h-full no-scrollbar">
                 {!isCheckingOut ? (
                   <div className="space-y-6 flex-1 flex flex-col">
-                    <div className="space-y-3"><h2 className="text-xl md:text-3xl font-black text-gradient">{selectedProduct.title}</h2><p className="text-slate-400 text-[11px] md:text-sm leading-relaxed whitespace-pre-line">{selectedProduct.description}</p></div>
-                    
-                    {selectedProduct.galleryImages && selectedProduct.galleryImages.length > 0 && (
-                      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-                        {selectedProduct.galleryImages.map((img, i) => (
-                          <img key={i} src={img} className="w-16 h-16 rounded-xl object-cover border border-white/10 flex-shrink-0" />
-                        ))}
+                    <h2 className="text-xl md:text-3xl font-black text-gradient leading-tight">{selectedProduct.title}</h2>
+                    <p className="text-slate-400 text-sm leading-relaxed whitespace-pre-line">{selectedProduct.description}</p>
+                    <div className="mt-auto space-y-4 pt-6 border-t border-white/5">
+                      <div className="flex justify-between items-center">
+                        <p className="text-3xl font-black text-emerald-500">{selectedProduct.price} DH</p>
+                        <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1"><Truck size={14}/> توصيل مجاني</span>
                       </div>
-                    )}
-
-                    <div className="mt-auto space-y-4 pt-4 border-t border-white/5">
-                      <div className="flex items-center justify-between"><p className="text-3xl md:text-4xl font-black text-emerald-500">{selectedProduct.price} DH</p><p className="text-emerald-500 font-black text-[10px] flex items-center gap-1"><Truck size={14}/> توصيل مجاني</p></div>
-                      <button onClick={() => setIsCheckingOut(true)} className="w-full bg-emerald-500 text-black py-4 md:py-5 rounded-2xl font-black text-lg animate-buy-pulse">أطلب الآن - الدفع عند الاستلام</button>
+                      <button onClick={() => setIsCheckingOut(true)} className="w-full bg-emerald-500 text-black py-4 rounded-2xl font-black text-lg animate-buy-pulse">أطلب الآن - الدفع عند الاستلام</button>
                     </div>
                   </div>
                 ) : (
                   <div className="space-y-6 flex flex-col h-full">
-                     <div className="flex items-center gap-3"><button onClick={() => setIsCheckingOut(false)} className="p-2 bg-white/5 rounded-xl text-slate-400 hover:text-white"><ChevronLeft size={20}/></button><h3 className="text-xl font-black text-gradient">بيانات الطلب</h3></div>
-                     <div className="space-y-5 flex-1">
-                       <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 flex items-center gap-1"><User size={12}/> الإسم بالكامل *</label><input type="text" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm focus:border-emerald-500 outline-none" value={customerInfo.fullName} onChange={e => setCustomerInfo({...customerInfo, fullName: e.target.value})} placeholder="أحمد العبدلاوي" /></div>
-                       <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 flex items-center gap-1"><Phone size={12}/> رقم الهاتف *</label><input type="tel" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-sm text-left focus:border-emerald-500 outline-none" value={customerInfo.phoneNumber} onChange={e => setCustomerInfo({...customerInfo, phoneNumber: e.target.value})} placeholder="06 XX XX XX XX" /></div>
-                       <div className="space-y-1.5">
-                         <label className="text-[10px] font-black text-slate-500 flex items-center gap-1"><MapPin size={12}/> المدينة *</label>
-                         <div className="relative">
-                           <select className="w-full bg-slate-900/80 border border-white/20 p-4 rounded-xl font-bold text-sm appearance-none outline-none focus:border-emerald-500 transition-all text-white" value={customerInfo.city} onChange={e => setCustomerInfo({...customerInfo, city: e.target.value})}>
-                             <option value="" className="bg-slate-900 text-slate-400">اختر مدينتك</option>
-                             {MOROCCAN_CITIES.map(c => <option key={c} value={c} className="bg-slate-900 text-white">{c}</option>)}
-                           </select>
-                           <ChevronDown size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500 pointer-events-none" />
-                         </div>
-                       </div>
+                     <h3 className="text-xl font-black text-gradient">تأكيد الطلبية</h3>
+                     <div className="space-y-4">
+                       <input type="text" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-right outline-none focus:border-emerald-500" value={customerInfo.fullName} onChange={e => setCustomerInfo({...customerInfo, fullName: e.target.value})} placeholder="الإسم الكامل" />
+                       <input type="tel" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl font-bold text-left outline-none focus:border-emerald-500" value={customerInfo.phoneNumber} onChange={e => setCustomerInfo({...customerInfo, phoneNumber: e.target.value})} placeholder="06 XX XX XX XX" />
+                       <select className="w-full bg-slate-900 border border-white/20 p-4 rounded-xl font-bold text-right outline-none focus:border-emerald-500" value={customerInfo.city} onChange={e => setCustomerInfo({...customerInfo, city: e.target.value})}>
+                          <option value="">اختر مدينتك</option>
+                          {MOROCCAN_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                       </select>
                      </div>
-                     <button onClick={confirmOrder} className="w-full bg-emerald-500 text-black py-4 md:py-5 rounded-2xl font-black text-lg premium-btn mt-4 shadow-xl">تأكيد الطلب</button>
+                     <button onClick={confirmOrder} className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-xl shadow-2xl shadow-emerald-500/20 mt-4">إرسال الطلب</button>
                   </div>
                 )}
              </div>
@@ -546,38 +457,11 @@ const App: React.FC = () => {
 
       {activeOrder && (
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-[#050a18]/95 backdrop-blur-xl">
-          <div className="max-w-md w-full glass-morphism p-10 md:p-12 rounded-[3rem] text-center space-y-8 animate-fade-in-up border border-emerald-500/20">
+          <div className="max-w-md w-full glass-morphism p-10 rounded-[3rem] text-center space-y-8 animate-fade-in-up border border-emerald-500/20">
             <div className="w-24 h-24 bg-emerald-500 rounded-full flex items-center justify-center mx-auto text-black shadow-2xl animate-bounce"><Check size={54} /></div>
-            <h3 className="text-3xl font-black text-gradient">تم تسجيل طلبك!</h3>
-            <p className="text-slate-400 font-medium text-lg leading-relaxed">شكراً لثقتك، سنتصل بك قريباً.</p>
-            <button onClick={() => setActiveOrder(null)} className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg shadow-xl">إغلاق</button>
-          </div>
-        </div>
-      )}
-
-      {showLoginModal && (
-        <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 bg-[#050a18]/95 backdrop-blur-xl">
-          <div className="max-w-xs w-full glass-morphism p-10 rounded-[3rem] space-y-8 text-center">
-            <div className="w-20 h-20 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto border border-emerald-500/20"><Lock size={40}/></div>
-            <div className="relative group">
-              <input 
-                type={showPassword ? 'text' : 'password'} 
-                placeholder="الرمز السري" 
-                className="w-full bg-white/5 border border-white/10 p-5 rounded-xl font-bold text-center text-3xl tracking-widest focus:border-emerald-500 outline-none transition-all" 
-                value={passwordInput} 
-                onChange={e => setPasswordInput(e.target.value)} 
-                onKeyDown={e => e.key === 'Enter' && passwordInput === adminPassword && (setIsAdminAuthenticated(true), sessionStorage.setItem('admin_auth', 'true'), setShowLoginModal(false), setView('admin'))} 
-              />
-              <button 
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute left-4 top-1/2 -translate-y-1/2 p-2 text-slate-500 hover:text-emerald-500 transition-colors"
-              >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            </div>
-            <button onClick={() => passwordInput === adminPassword ? (setIsAdminAuthenticated(true), sessionStorage.setItem('admin_auth', 'true'), setShowLoginModal(false), setView('admin')) : showToast('الرمز خاطئ', 'error')} className="w-full bg-emerald-500 text-black py-4 rounded-xl font-black text-lg premium-btn">دخول</button>
-            <button onClick={() => { setShowLoginModal(false); setPasswordInput(''); setShowPassword(false); }} className="text-slate-500 text-xs font-bold hover:text-rose-500 transition-colors">إلغاء</button>
+            <h3 className="text-3xl font-black text-gradient">شكراً لثقتك!</h3>
+            <p className="text-slate-400 font-medium text-lg">لقد توصلنا بطلبك وسنتصل بك قريباً لتأكيده.</p>
+            <button onClick={() => setActiveOrder(null)} className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-lg">إغلاق</button>
           </div>
         </div>
       )}
