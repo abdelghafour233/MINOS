@@ -4,7 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Berrima | الرقي في التسوق</title>
+    <title>Berrima Store | المتجر المغربي العصري</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,109 +12,52 @@
     <style>
       :root {
         --primary: #10b981;
-        --primary-glow: rgba(16, 185, 129, 0.3);
         --bg-deep: #050a18;
       }
       body {
         font-family: 'Tajawal', sans-serif;
         background-color: var(--bg-deep);
         color: #f8fafc;
+        margin: 0;
+        padding: 0;
         overflow-x: hidden;
       }
-      
-      /* تحسين السكرول بار */
-      ::-webkit-scrollbar { width: 4px; }
-      ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 20px; }
-
-      /* تأثير الزجاج المتطور */
       .glass-morphism {
-        background: rgba(15, 23, 42, 0.6);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        background: rgba(15, 23, 42, 0.75);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
       }
-
-      /* حركات دخول ناعمة */
-      @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      .animate-fade-in-up {
-        animation: fadeInUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-      }
-
-      /* أنيميشن زر الشراء المهتز والمضيء */
-      @keyframes buyPulse {
-        0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-        70% { transform: scale(1.03); box-shadow: 0 0 20px 10px rgba(16, 185, 129, 0); }
-        100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-      }
-      
-      @keyframes shake {
-        0%, 100% { transform: translateX(0); }
-        10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
-        20%, 40%, 60%, 80% { transform: translateX(2px); }
-      }
-
-      .animate-buy-pulse {
-        animation: buyPulse 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
-      }
-
-      /* بطاقة منتج بلمسة فاخرة */
-      .product-card-glow {
-        position: relative;
-        transition: all 0.4s ease;
-      }
-      .product-card-glow:hover {
-        transform: translateY(-8px);
-        box-shadow: 0 20px 40px -15px var(--primary-glow);
-      }
-      
-      /* لمعة احترافية للأزرار */
-      .premium-btn {
-        position: relative;
-        overflow: hidden;
-        transition: all 0.3s ease;
-      }
-      .premium-btn::after {
-        content: '';
-        position: absolute;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
-        transform: rotate(45deg);
-        transition: 0.5s;
-      }
-      .premium-btn:hover::after {
-        left: 100%;
-      }
-
       .text-gradient {
         background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
       }
-
+      @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(15px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in { animation: fadeInUp 0.4s ease-out forwards; }
       .no-scrollbar::-webkit-scrollbar { display: none; }
       
-      .text-ltr { direction: ltr; text-align: right; }
-      .custom-scroll::-webkit-scrollbar { width: 3px; }
-      .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+      /* منع تفاعل الطبقات الخلفية عند فتح المودال */
+      .modal-open { overflow: hidden; }
     </style>
-  <script type="importmap">
+    <script type="importmap">
 {
   "imports": {
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom": "https://esm.sh/react-dom@18.2.0",
+    "lucide-react": "https://esm.sh/lucide-react@0.344.0",
+    "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0"
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "firebase/": "https://esm.sh/firebase@^12.7.0/"
   }
 }
 </script>
-</head>
+  </head>
   <body>
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
