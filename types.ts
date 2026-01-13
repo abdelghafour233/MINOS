@@ -20,7 +20,7 @@ export interface CustomerInfo {
   fullName: string;
   phoneNumber: string;
   city: string;
-  address: string;
+
 }
 
 export interface StoreOrder {
