@@ -23,7 +23,7 @@
         background: rgba(15, 23, 42, 0.8);
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
       }
       .text-grad {
         background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
@@ -37,6 +37,17 @@
       .animate-in { animation: fadeInUp 0.4s ease-out forwards; }
       .no-scroll { overflow: hidden; }
       button:active { transform: scale(0.96); transition: 0.1s; }
+      
+      /* تحسين ظهور المدخلات */
+      input, select, textarea {
+        color: white !important;
+        background: rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+      }
+      input:focus, select:focus, textarea:focus {
+        border-color: var(--primary) !important;
+        background: rgba(255, 255, 255, 0.08) !important;
+      }
     </style>
     <script type="importmap">
 {
@@ -45,8 +56,6 @@
     "react-dom": "https://esm.sh/react-dom@18.2.0",
     "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
     "lucide-react": "https://esm.sh/lucide-react@0.344.0",
-    "firebase/app": "https://esm.sh/firebase@10.8.0/app",
-    "firebase/firestore": "https://esm.sh/firebase@10.8.0/firestore",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "react/": "https://esm.sh/react@^19.2.3/"
   }
