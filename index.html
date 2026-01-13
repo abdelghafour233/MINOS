@@ -4,7 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Berrima Store | المتجر المغربي العصري</title>
+    <title>Berrima Store | المتجر المغربي الأصيل</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,23 +12,22 @@
     <style>
       :root {
         --primary: #10b981;
-        --bg-deep: #050a18;
+        --bg: #050a18;
       }
       body {
         font-family: 'Tajawal', sans-serif;
-        background-color: var(--bg-deep);
+        background-color: var(--bg);
         color: #f8fafc;
         margin: 0;
-        padding: 0;
         overflow-x: hidden;
       }
-      .glass-morphism {
+      .glass {
         background: rgba(15, 23, 42, 0.8);
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
         border: 1px solid rgba(255, 255, 255, 0.05);
       }
-      .text-gradient {
+      .text-grad {
         background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
@@ -37,13 +36,9 @@
         from { opacity: 0; transform: translateY(20px); }
         to { opacity: 1; transform: translateY(0); }
       }
-      .animate-fade-in { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-      .no-scrollbar::-webkit-scrollbar { display: none; }
-      .modal-open { overflow: hidden; }
-      
-      /* تحسين استجابة الأزرار */
+      .animate-in { animation: fadeInUp 0.5s ease-out forwards; }
+      .no-scroll { overflow: hidden; }
       button:active { transform: scale(0.95); }
-      .product-card:hover { transform: translateY(-5px); border-color: rgba(16, 185, 129, 0.3); }
     </style>
     <script type="importmap">
 {
