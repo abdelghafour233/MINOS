@@ -23,10 +23,10 @@
         overflow-x: hidden;
       }
       .glass-morphism {
-        background: rgba(15, 23, 42, 0.75);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(15, 23, 42, 0.8);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
       }
       .text-gradient {
         background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
@@ -34,14 +34,16 @@
         -webkit-text-fill-color: transparent;
       }
       @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(15px); }
+        from { opacity: 0; transform: translateY(20px); }
         to { opacity: 1; transform: translateY(0); }
       }
-      .animate-fade-in { animation: fadeInUp 0.4s ease-out forwards; }
+      .animate-fade-in { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
       .no-scrollbar::-webkit-scrollbar { display: none; }
-      
-      /* منع تفاعل الطبقات الخلفية عند فتح المودال */
       .modal-open { overflow: hidden; }
+      
+      /* تحسين استجابة الأزرار */
+      button:active { transform: scale(0.95); }
+      .product-card:hover { transform: translateY(-5px); border-color: rgba(16, 185, 129, 0.3); }
     </style>
     <script type="importmap">
 {
