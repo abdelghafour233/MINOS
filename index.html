@@ -4,13 +4,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Berrima Store | متجرك المفضل</title>
+    <title>Berrima Store | بريمة ستور - وجهتكم للتسوق في المغرب</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
     <style>
-      :root { --primary: #10b981; --bg: #050a18; }
+      :root { 
+        --primary: #10b981; 
+        --bg: #020617; 
+      }
       body {
         font-family: 'Tajawal', sans-serif;
         background-color: var(--bg);
@@ -20,9 +23,9 @@
         overflow-x: hidden;
       }
       .glass {
-        background: rgba(15, 23, 42, 0.95);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
+        background: rgba(15, 23, 42, 0.8);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         border: 1px solid rgba(255, 255, 255, 0.1);
       }
       .text-grad {
@@ -37,28 +40,40 @@
       .animate-in { animation: fadeInUp 0.3s ease-out forwards; }
       .no-scroll { overflow: hidden; }
       
-      /* تنسيق الحقول لتكون واضحة جداً */
+      /* تحسين وضوح حقول الإدخال */
       .input-field {
         background-color: #ffffff !important;
         color: #000000 !important;
         border: 2px solid #e2e8f0 !important;
         padding: 1rem !important;
-        border-radius: 0.75rem !important;
+        border-radius: 1rem !important;
         width: 100% !important;
-        font-weight: bold !important;
+        font-weight: 700 !important;
         font-size: 1rem !important;
+        transition: all 0.2s;
       }
       .input-field:focus {
         border-color: #10b981 !important;
         outline: none !important;
+        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
       }
       label {
         color: #94a3b8;
         font-size: 0.875rem;
-        font-weight: bold;
+        font-weight: 700;
         display: block;
         margin-bottom: 0.5rem;
         margin-right: 0.5rem;
+      }
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
       }
     </style>
     <script type="importmap">
